@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {OptimismGovernorV1} from "../src/OptimismGovernorV1.sol";
 import {GovernanceToken as OptimismToken} from "../src/OptimismToken.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {IGovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/IGovernorUpgradeable.sol";
 
 contract OptimismGovernorV1Test is Test {
     OptimismGovernorV1 internal governor;
@@ -28,10 +29,80 @@ contract OptimismGovernorV1Test is Test {
         governor = OptimismGovernorV1(payable(address(proxy)));
     }
 
-    function testIncrement() public {
-        console.log(">>>: %s", address(0x1E79b045Dc29eAe9fdc69673c9DCd7C53E5E159D).balance);
-        console.log(">>>: %s", block.chainid);
+    function testUpdateSettings() public {
+        vm.startPrank(manager);
+        governor.setVotingDelay(7);
+        governor.setVotingPeriod(14);
+        governor.setProposalThreshold(2);
+        vm.stopPrank();
+
+        assertEq(governor.votingDelay(), 7);
+        assertEq(governor.votingPeriod(), 14);
+        assertEq(governor.proposalThreshold(), 2);
+
+        vm.expectRevert("Only the manager can call this function");
+        governor.setVotingDelay(70);
+        vm.expectRevert("Only the manager can call this function");
+        governor.setVotingPeriod(140);
+        vm.expectRevert("Only the manager can call this function");
+        governor.setProposalThreshold(20);
+    }
+
+    function testPropose() public {
+        address[] memory targets = new address[](1);
+        targets[0] = address(this);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
+
+        vm.prank(manager);
+        uint256 proposalId = governor.propose(targets, values, calldatas, "Test");
+
+        uint256 deadline = governor.proposalDeadline(proposalId);
+        vm.prank(manager);
+        governor.setProposalDeadline(proposalId, uint64(deadline + 1 days));
+
+        assertEq(governor.proposalDeadline(proposalId), deadline + 1 days);
+
+        vm.expectRevert("Only the manager can call this function");
+        governor.propose(targets, values, calldatas, "From someone else");
+    }
+
+    function testExecute() public {
         vm.prank(op.owner());
         op.mint(address(this), 1000);
+        op.delegate(address(this));
+        // vm.roll(block.number + 1);
+
+        address[] memory targets = new address[](1);
+        targets[0] = address(this);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
+
+        vm.startPrank(manager);
+        governor.setVotingDelay(0);
+        governor.setVotingPeriod(14);
+        governor.updateQuorumNumerator(0);
+        uint256 proposalId = governor.propose(targets, values, calldatas, "Test");
+        vm.stopPrank();
+
+        vm.roll(block.number + 1);
+        governor.castVote(proposalId, 1);
+
+        vm.roll(block.number + 14);
+
+        vm.expectRevert("Only the manager can call this function");
+        governor.execute(targets, values, calldatas, keccak256("Test"));
+
+        vm.prank(manager);
+        governor.execute(targets, values, calldatas, keccak256("Test"));
+
+        IGovernorUpgradeable.ProposalState state = governor.state(proposalId);
+        assertEq(uint256(state), uint256(IGovernorUpgradeable.ProposalState.Executed));
+    }
+
+    function executeCallback() public payable {
+        revert("Executor shouldn't have called this function");
     }
 }
