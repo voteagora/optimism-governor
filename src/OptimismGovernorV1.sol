@@ -10,8 +10,10 @@ import {GovernorVotesUpgradeable} from
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesUpgradeable.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 import {TimersUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/TimersUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 contract OptimismGovernorV1 is
+    Initializable,
     GovernorCountingSimpleUpgradeable,
     GovernorVotesUpgradeable,
     GovernorVotesQuorumFractionUpgradeable
@@ -22,10 +24,12 @@ contract OptimismGovernorV1 is
 
     address public manager;
 
-    function __OptimismGovernorV1_init(IVotesUpgradeable _votingToken, address _manager) internal onlyInitializing {
+    function initialize(IVotesUpgradeable _votingToken, address _manager) public initializer {
         __Governor_init("Optimism");
+        __GovernorCountingSimple_init();
         __GovernorVotes_init(_votingToken);
         __GovernorVotesQuorumFraction_init(10); // TODO: Quorum value
+
         manager = _manager;
     }
 
