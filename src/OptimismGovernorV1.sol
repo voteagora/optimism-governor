@@ -36,8 +36,8 @@ contract OptimismGovernorV1 is
         __Governor_init("Optimism");
         __GovernorCountingSimple_init();
         __GovernorVotes_init(_votingToken);
-        __GovernorVotesQuorumFraction_init(10);
-        __GovernorSettings_init(6575, 46027, 0); // TODO: Voting delay, voting period, and proposal threshold values
+        __GovernorVotesQuorumFraction_init({quorumNumeratorValue: 30});
+        __GovernorSettings_init({initialVotingDelay: 6575, initialVotingPeriod: 46027, initialProposalThreshold: 0});
 
         manager = _manager;
     }
