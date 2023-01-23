@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {GovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/GovernorUpgradeable.sol";
+import {IGovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/IGovernorUpgradeable.sol";
 import {GovernorCountingSimpleUpgradeable} from
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorCountingSimpleUpgradeable.sol";
 import {GovernorVotesQuorumFractionUpgradeable} from
@@ -68,6 +69,28 @@ contract OptimismGovernorV1 is
         returns (uint256)
     {
         return GovernorSettingsUpgradeable.proposalThreshold();
+    }
+
+    function COUNTING_MODE()
+        public
+        pure
+        virtual
+        override (GovernorCountingSimpleUpgradeable, IGovernorUpgradeable)
+        returns (string memory)
+    {
+        return "support=bravo&quorum=against,for,abstain";
+    }
+
+    function _quorumReached(uint256 proposalId)
+        internal
+        view
+        virtual
+        override (GovernorCountingSimpleUpgradeable, GovernorUpgradeable)
+        returns (bool)
+    {
+        (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes) = proposalVotes(proposalId);
+
+        return quorum(proposalSnapshot(proposalId)) <= againstVotes + forVotes + abstainVotes;
     }
 
     function setProposalDeadline(uint256 proposalId, uint64 deadline) public onlyManager {
