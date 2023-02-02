@@ -17,6 +17,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 
 contract OptimismGovernorV1 is
     Initializable,
+    GovernorUpgradeable,
     GovernorCountingSimpleUpgradeable,
     GovernorVotesUpgradeable,
     GovernorVotesQuorumFractionUpgradeable,
