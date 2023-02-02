@@ -43,6 +43,11 @@ The contracts in this repo are designed to be used by the following roles:
   - Vote on proposals
   - Delegate votes to another address (via OP token contract)
 
+## Deployment
+
+- [`0xcDF27F107725988f2261Ce2256bDfCdE8B382B10`](https://optimistic.etherscan.io/address/0xcdf27f107725988f2261ce2256bdfcde8b382b10) - Optimism Governance Proxy
+- [`0x9d66365f4910c522f937c9e6dd4a192f6de89636`](https://optimistic.etherscan.io/address/0x9d66365f4910c522f937c9e6dd4a192f6de89636) - Implementation (v1)
+
 ## See Also
 
 - [OPerating Manual of the Optimism Collective](https://github.com/ethereum-optimism/OPerating-manual)

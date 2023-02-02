@@ -9,8 +9,8 @@ import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transpa
 contract DeployOptimismGovernorV1Script is Script {
     function run() public {
         address deployer = vm.rememberKey(vm.envUint("DEPLOYER_KEY"));
-        address manager = vm.rememberKey(vm.envUint("MANAGER_KEY"));
-        address admin = deployer;
+        address manager = 0xE4553b743E74dA3424Ac51f8C1E586fd43aE226F;
+        address admin = 0x2501c477D0A35545a387Aa4A3EEe4292A9a8B3F0;
         address op = 0x4200000000000000000000000000000000000042;
 
         vm.startBroadcast(deployer);
@@ -25,12 +25,5 @@ contract DeployOptimismGovernorV1Script is Script {
         vm.stopBroadcast();
 
         console.log("OptimismGovernorV1 deployed at", address(proxy));
-
-        vm.startBroadcast(manager);
-        OptimismGovernorV1 governor = OptimismGovernorV1(payable(address(proxy)));
-        governor.setVotingDelay(0);
-        governor.setVotingPeriod(2 hours / 15);
-        governor.updateQuorumNumerator(0);
-        vm.stopBroadcast();
     }
 }
