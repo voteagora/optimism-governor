@@ -4,12 +4,13 @@ pragma solidity ^0.8.13;
 import {console} from "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 import {OptimismGovernorV1} from "../src/OptimismGovernorV1.sol";
+import {OptimismGovernorV3} from "../src/OptimismGovernorV3.sol";
 import {GovernanceToken as OptimismToken} from "../src/OptimismToken.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IGovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/IGovernorUpgradeable.sol";
 
 contract OptimismGovernorV1Test is Test {
-    OptimismGovernorV1 internal governor;
+    OptimismGovernorV3 internal governor;
 
     OptimismToken internal constant op = OptimismToken(0x4200000000000000000000000000000000000042);
     address internal constant admin = 0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa;
@@ -19,14 +20,14 @@ contract OptimismGovernorV1Test is Test {
         // Block number 60351051 is ~ 2023-01-04 20:33:00 PT
         vm.createSelectFork("https://mainnet.optimism.io", 60351051);
 
-        OptimismGovernorV1 implementation = new OptimismGovernorV1();
+        OptimismGovernorV3 implementation = new OptimismGovernorV3();
         TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
             address(implementation),
             admin,
             abi.encodeWithSelector(OptimismGovernorV1.initialize.selector, op, manager)
         );
 
-        governor = OptimismGovernorV1(payable(address(proxy)));
+        governor = OptimismGovernorV3(payable(address(proxy)));
     }
 
     function testUpdateSettings() public {
@@ -100,6 +101,35 @@ contract OptimismGovernorV1Test is Test {
 
         IGovernorUpgradeable.ProposalState state = governor.state(proposalId);
         assertEq(uint256(state), uint256(IGovernorUpgradeable.ProposalState.Executed));
+    }
+
+    function testCancel() public {
+        vm.prank(op.owner());
+        op.mint(address(this), 1000);
+        op.delegate(address(this));
+        // vm.roll(block.number + 1);
+
+        address[] memory targets = new address[](1);
+        targets[0] = address(this);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
+
+        vm.startPrank(manager);
+        governor.setVotingDelay(0);
+        governor.setVotingPeriod(14);
+        governor.updateQuorumNumerator(0);
+        uint256 proposalId = governor.propose(targets, values, calldatas, "Test");
+        vm.stopPrank();
+
+        vm.expectRevert("Only the manager can call this function");
+        governor.cancel(targets, values, calldatas, keccak256("Test"));
+
+        vm.prank(manager);
+        governor.cancel(targets, values, calldatas, keccak256("Test"));
+
+        IGovernorUpgradeable.ProposalState state = governor.state(proposalId);
+        assertEq(uint256(state), uint256(IGovernorUpgradeable.ProposalState.Canceled));
     }
 
     function executeCallback() public payable {
