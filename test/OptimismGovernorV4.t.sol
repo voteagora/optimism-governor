@@ -41,7 +41,7 @@ contract OptimismGovernorV4UpgradeTest is Test {
         assertEq(uint256(governor.state(proposalIdTestVote3)), 4);
 
         vm.prank(admin);
-        proxy.upgradeToAndCall(address(implementation), abi.encodeWithSignature("_initializeCheckpoint()"));
+        proxy.upgradeToAndCall(address(implementation), abi.encodeWithSignature("_correctQuorumForBlock83241938()"));
 
         // Checkpoint[2]: preserved
         assertEq(governor.quorumNumerator(83241937), 149);
@@ -60,9 +60,9 @@ contract OptimismGovernorV4UpgradeTest is Test {
 
     function testRevert_AlreadyInitialized() public {
         vm.prank(admin);
-        proxy.upgradeToAndCall(address(implementation), abi.encodeWithSignature("_initializeCheckpoint()"));
+        proxy.upgradeToAndCall(address(implementation), abi.encodeWithSignature("_correctQuorumForBlock83241938()"));
 
         vm.expectRevert('Initializable: contract is already initialized');
-        governor._initializeCheckpoint();
+        governor._correctQuorumForBlock83241938();
     }
 }
