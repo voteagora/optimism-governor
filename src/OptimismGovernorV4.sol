@@ -6,8 +6,9 @@ import "@openzeppelin/contracts-upgradeable/utils/CheckpointsUpgradeable.sol";
 
 contract OptimismGovernorV4 is OptimismGovernorV3 {
     function _correctQuorumForBlock83241938() public reinitializer(2) {
-        _quorumNumeratorHistory._checkpoints[3] = 
-                CheckpointsUpgradeable.Checkpoint({_blockNumber: 83241938, _value: 149})
-            ;
+        _quorumNumeratorHistory._checkpoints[3] =
+            CheckpointsUpgradeable.Checkpoint({_blockNumber: 83241938, _value: 149});
+
+        if (quorumNumerator(83241938) != 149) revert();
     }
 }
