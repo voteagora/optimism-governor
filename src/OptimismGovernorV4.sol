@@ -9,6 +9,7 @@ contract OptimismGovernorV4 is OptimismGovernorV3 {
         _quorumNumeratorHistory._checkpoints[3] =
             CheckpointsUpgradeable.Checkpoint({_blockNumber: 83241938, _value: 149});
 
+        // Safety check
         if (quorumNumerator(83241938) != 149) revert();
     }
 }
