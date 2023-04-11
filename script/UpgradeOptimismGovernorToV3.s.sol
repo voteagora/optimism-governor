@@ -6,7 +6,7 @@ import "forge-std/console.sol";
 import {OptimismGovernorV3} from "../src/OptimismGovernorV3.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-contract UpgradeOptimismGovernorToV2Script is Script {
+contract UpgradeOptimismGovernorToV3Script is Script {
     function run() public {
         address deployer = vm.rememberKey(vm.envUint("DEPLOYER_KEY"));
 
