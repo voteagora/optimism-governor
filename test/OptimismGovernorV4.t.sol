@@ -16,15 +16,13 @@ contract OptimismGovernorV4UpgradeTest is Test {
     uint256 internal constant proposalIdBedrock = 114732572201709734114347859370226754519763657304898989580338326275038680037913;
     uint256 internal constant proposalIdTestVote3 = 103606400798595803012644966342403441743733355496979747669804254618774477345292;
         
+    OptimismGovernorV4 internal implementation;
 
     function setUp() public {
         // Block number 88792077 is ~ Apr-11-2023 01:30:52 AM UTC
         vm.createSelectFork("https://mainnet.optimism.io", 88792077);
 
-        OptimismGovernorV4 implementation = new OptimismGovernorV4();
-
-        vm.prank(admin);
-        proxy.upgradeTo(address(implementation));
+        implementation = new OptimismGovernorV4();
     }
 
     function testInitializeCheckpoint() public {
@@ -42,8 +40,8 @@ contract OptimismGovernorV4UpgradeTest is Test {
         // Proposal "Test Vote 3": Succeeded
         assertEq(uint256(governor.state(proposalIdTestVote3)), 4);
 
-        vm.prank(manager);
-        governor._initializeCheckpoint();
+        vm.prank(admin);
+        proxy.upgradeToAndCall(address(implementation), abi.encodeWithSignature("_initializeCheckpoint()"));
 
         // Checkpoint[2]: preserved
         assertEq(governor.quorumNumerator(83241937), 149);
@@ -58,5 +56,13 @@ contract OptimismGovernorV4UpgradeTest is Test {
         assertEq(uint256(governor.state(proposalIdBedrock)), 4);
         // Proposal "Test Vote 3": Succeeded
         assertEq(uint256(governor.state(proposalIdTestVote3)), 4);
+    }
+
+    function testRevert_AlreadyInitialized() public {
+        vm.prank(admin);
+        proxy.upgradeToAndCall(address(implementation), abi.encodeWithSignature("_initializeCheckpoint()"));
+
+        vm.expectRevert('Initializable: contract is already initialized');
+        governor._initializeCheckpoint();
     }
 }
