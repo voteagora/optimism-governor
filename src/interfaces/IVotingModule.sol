@@ -10,7 +10,7 @@ interface IVotingModule {
                             WRITE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function proposeWithModule(uint256 proposalId, bytes memory proposalData) external returns (uint256);
+    function propose(uint256 proposalId, bytes memory proposalData) external returns (uint256);
 
     function castVote(uint256 proposalId, address account, uint8 support, string memory reason, bytes memory params)
         external

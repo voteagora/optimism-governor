@@ -73,7 +73,7 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
 
         emit ProposalCreated(proposalId, _msgSender(), address(module), proposalData, snapshot, deadline, description);
 
-        module.proposeWithModule(proposalId, proposalData);
+        module.propose(proposalId, proposalData);
 
         return proposalId;
     }
