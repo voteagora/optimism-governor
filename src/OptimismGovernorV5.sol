@@ -14,8 +14,6 @@ import {IVotingModule} from "./interfaces/IVotingModule.sol";
  * @notice Introduces delegation to custom voting modules.
  *
  * @dev Requires adding an `address votingModule` to{GovernorUpgradeable-ProposalCore} struct.
- *
- * // TODO: Add tests to verify ProposalCore upgrade safety. Also refactor changes to original OZ contract to make it cleaner.
  */
 contract OptimismGovernorV5 is OptimismGovernorV3 {
     /*//////////////////////////////////////////////////////////////
@@ -123,12 +121,12 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
         ProposalCore storage proposal = _proposals[proposalId];
         require(state(proposalId) == ProposalState.Active, "Governor: vote not currently active");
 
-        uint256 weight;
+        uint256 weight = _getVotes(account, proposal.voteStart.getDeadline(), params);
+
         address votingModule = proposal.votingModule;
         if (votingModule != address(0)) {
-            weight = IVotingModule(votingModule).castVote(proposalId, account, support, reason, params);
+            IVotingModule(votingModule)._countVote(proposalId, account, support, reason, params, weight);
         } else {
-            weight = _getVotes(account, proposal.voteStart.getDeadline(), params);
             _countVote(proposalId, account, support, weight, params);
         }
 
@@ -146,10 +144,10 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice COUNTING_MODE with added `params=module` options to indicate support for external voting modules. See {IGovernor-COUNTING_MODE}.
+     * @notice COUNTING_MODE with added `params=modules` options to indicate support for external voting modules. See {IGovernor-COUNTING_MODE}.
      */
     function COUNTING_MODE() public pure virtual override returns (string memory) {
-        return "support=bravo&quorum=against,for,abstain&params=module";
+        return "support=bravo&quorum=against,for,abstain&params=modules";
     }
 
     /**
@@ -176,8 +174,9 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     function _quorumReached(uint256 proposalId) internal view virtual override returns (bool) {
         ProposalCore memory proposal = _proposals[proposalId];
         if (proposal.votingModule != address(0)) {
-            return
-                IVotingModule(proposal.votingModule).quorumReached(proposalId, quorum(proposal.voteStart.getDeadline()));
+            return IVotingModule(proposal.votingModule)._quorumReached(
+                proposalId, quorum(proposal.voteStart.getDeadline())
+            );
         }
 
         return super._quorumReached(proposalId);
@@ -195,7 +194,7 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     {
         address votingModule = _proposals[proposalId].votingModule;
         if (votingModule != address(0)) {
-            return IVotingModule(votingModule).voteSucceeded(proposalId);
+            return IVotingModule(votingModule)._voteSucceeded(proposalId);
         }
 
         return super._voteSucceeded(proposalId);
