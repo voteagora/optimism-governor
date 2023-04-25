@@ -16,6 +16,8 @@ interface IVotingModule {
         external
         returns (uint256);
 
+    function execute(uint256 proposalId, bytes memory proposalData) external;
+
     /*//////////////////////////////////////////////////////////////
                              VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
