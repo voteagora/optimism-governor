@@ -108,7 +108,7 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     /**
      * @notice Cancel a proposal with a custom voting module. See {IGovernor-_cancel}.
      */
-    function cancel(address module, bytes memory proposalData, bytes32 descriptionHash)
+    function cancelWithModule(address module, bytes memory proposalData, bytes32 descriptionHash)
         public
         onlyManager
         returns (uint256)
