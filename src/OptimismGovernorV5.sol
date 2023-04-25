@@ -79,6 +79,18 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     }
 
     /**
+     * @notice Executes a proposal via a custom voting module.
+     */
+    function executeWithModule(IVotingModule module, bytes memory proposalData, bytes32 descriptionHash)
+        public
+        payable
+        onlyManager
+        returns (uint256)
+    {
+        // Execution is skipped
+    }
+
+    /**
      * @notice Cancel a proposal with a custom voting module. See {IGovernor-_cancel}.
      */
     function cancel(address module, bytes memory proposalData, bytes32 descriptionHash)
