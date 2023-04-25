@@ -77,7 +77,7 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     }
 
     /**
-     * @notice Executes a proposal via a custom voting module.
+     * @notice Executes a proposal via a custom voting module. See {IGovernor-execute}.
      */
     function executeWithModule(VotingModule module, bytes memory proposalData, bytes32 descriptionHash)
         public
@@ -85,7 +85,24 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
         onlyManager
         returns (uint256)
     {
-        // Execution is skipped
+        uint256 proposalId = hashProposalWithData(address(module), proposalData, descriptionHash);
+
+        ProposalState status = state(proposalId);
+        require(
+            status == ProposalState.Succeeded || status == ProposalState.Queued, "Governor: proposal not successful"
+        );
+        _proposals[proposalId].executed = true;
+
+        emit ProposalExecuted(proposalId);
+
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas) =
+            module._formatExecuteParams(proposalId, proposalData);
+
+        _beforeExecute(proposalId, targets, values, calldatas, descriptionHash);
+        _execute(proposalId, targets, values, calldatas, descriptionHash);
+        _afterExecute(proposalId, targets, values, calldatas, descriptionHash);
+
+        return proposalId;
     }
 
     /**
