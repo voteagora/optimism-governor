@@ -8,7 +8,7 @@ import {GovernorCountingSimpleUpgradeable} from
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {TimersUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/TimersUpgradeable.sol";
 import {OptimismGovernorV3} from "./OptimismGovernorV3.sol";
-import {IVotingModule} from "./interfaces/IVotingModule.sol";
+import {VotingModule} from "./modules/VotingModule.sol";
 
 /**
  * @notice Introduces delegation to custom voting modules.
@@ -47,7 +47,7 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     /**
      * @notice Create a new proposal with a custom voting module. See {IGovernor-propose}.
      */
-    function proposeWithModule(IVotingModule module, bytes memory proposalData, string memory description)
+    function proposeWithModule(VotingModule module, bytes memory proposalData, string memory description)
         public
         onlyManager
         returns (uint256)
@@ -79,7 +79,7 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     /**
      * @notice Executes a proposal via a custom voting module.
      */
-    function executeWithModule(IVotingModule module, bytes memory proposalData, bytes32 descriptionHash)
+    function executeWithModule(VotingModule module, bytes memory proposalData, bytes32 descriptionHash)
         public
         payable
         onlyManager
@@ -162,7 +162,7 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     {
         address votingModule = _proposals[proposalId].votingModule;
         if (votingModule != address(0)) {
-            return IVotingModule(votingModule).hasVoted(proposalId, account);
+            return VotingModule(votingModule).hasVoted(proposalId, account);
         }
 
         return super.hasVoted(proposalId, account);
@@ -174,9 +174,8 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     function _quorumReached(uint256 proposalId) internal view virtual override returns (bool) {
         ProposalCore memory proposal = _proposals[proposalId];
         if (proposal.votingModule != address(0)) {
-            return IVotingModule(proposal.votingModule)._quorumReached(
-                proposalId, quorum(proposal.voteStart.getDeadline())
-            );
+            return
+                VotingModule(proposal.votingModule)._quorumReached(proposalId, quorum(proposal.voteStart.getDeadline()));
         }
 
         return super._quorumReached(proposalId);
@@ -194,7 +193,7 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     {
         address votingModule = _proposals[proposalId].votingModule;
         if (votingModule != address(0)) {
-            return IVotingModule(votingModule)._voteSucceeded(proposalId);
+            return VotingModule(votingModule)._voteSucceeded(proposalId);
         }
 
         return super._voteSucceeded(proposalId);
