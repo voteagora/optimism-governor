@@ -86,7 +86,7 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
         onlyManager
         returns (uint256)
     {
-        uint256 proposalId = hashProposalWithData(address(module), proposalData, descriptionHash);
+        uint256 proposalId = hashProposalWithData(module, proposalData, descriptionHash);
         ProposalState status = state(proposalId);
 
         require(
