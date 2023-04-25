@@ -162,9 +162,10 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
      * @dev Updated `_quorumReached` which allows delegating logic to custom voting module. See {IGovernor-_quorumReached}.
      */
     function _quorumReached(uint256 proposalId) internal view virtual override returns (bool) {
-        address votingModule = _proposals[proposalId].votingModule;
-        if (votingModule != address(0)) {
-            return IVotingModule(votingModule).quorumReached(proposalId);
+        ProposalCore memory proposal = _proposals[proposalId];
+        if (proposal.votingModule != address(0)) {
+            return
+                IVotingModule(proposal.votingModule).quorumReached(proposalId, quorum(proposal.voteStart.getDeadline()));
         }
 
         return super._quorumReached(proposalId);

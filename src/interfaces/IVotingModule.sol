@@ -22,7 +22,7 @@ interface IVotingModule {
 
     function hasVoted(uint256 proposalId, address account) external view returns (bool);
 
-    function quorumReached(uint256 proposalId) external view returns (bool);
+    function quorumReached(uint256 proposalId, uint256 quorum) external view returns (bool);
 
     function voteSucceeded(uint256 proposalId) external view returns (bool);
 
