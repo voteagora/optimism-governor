@@ -72,10 +72,6 @@ contract ApprovalVotingModule is VotingModule {
         uint256 optionsLength = params.options.length;
         require(optionsLength != 0, "VotingModule: invalid proposal length");
 
-        _proposals[proposalId].governor = msg.sender;
-        _proposals[proposalId].settings = params.settings;
-        _proposals[proposalId].optionVotes = new uint128[](optionsLength); // TODO: check if it can be removed
-
         unchecked {
             // Ensure proposal params of each option have the same length between themselves
             ProposalOption memory option;
@@ -90,6 +86,10 @@ contract ApprovalVotingModule is VotingModule {
                 _proposals[proposalId].options.push(params.options[i]);
             }
         }
+
+        _proposals[proposalId].governor = msg.sender;
+        _proposals[proposalId].settings = params.settings;
+        _proposals[proposalId].optionVotes = new uint128[](optionsLength); // TODO: check if it can be removed
     }
 
     function _countVote(
