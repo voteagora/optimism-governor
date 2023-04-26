@@ -143,8 +143,8 @@ contract ApprovalVotingModule is VotingModule {
                 for (uint256 i; i < n; ++i) {
                     if (optionVotes[i] >= params.settings.criteriaValue) {
                         executeParamsLength += options[i].targets.length;
+                        ++succeededOptionsLength;
                     } else {
-                        succeededOptionsLength = i;
                         break;
                     }
                 }
