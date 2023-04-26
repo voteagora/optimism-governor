@@ -242,20 +242,14 @@ contract ApprovalVotingModule is VotingModule {
 
         ProposalOption[] memory options = proposal.options;
         uint256 n = options.length;
-        if (proposal.settings.criteria == uint8(PassingCriteria.Threshold)) {
-            for (uint256 i; i < n;) {
-                if (proposal.optionVotes[i] >= proposal.settings.criteriaValue) return true;
-
-                unchecked {
-                    ++i;
+        unchecked {
+            if (proposal.settings.criteria == uint8(PassingCriteria.Threshold)) {
+                for (uint256 i; i < n; ++i) {
+                    if (proposal.optionVotes[i] >= proposal.settings.criteriaValue) return true;
                 }
-            }
-        } else if (proposal.settings.criteria == uint8(PassingCriteria.TopChoices)) {
-            for (uint256 i; i < n;) {
-                if (proposal.optionVotes[i] != 0) return true;
-
-                unchecked {
-                    ++i;
+            } else if (proposal.settings.criteria == uint8(PassingCriteria.TopChoices)) {
+                for (uint256 i; i < n; ++i) {
+                    if (proposal.optionVotes[i] != 0) return true;
                 }
             }
         }
