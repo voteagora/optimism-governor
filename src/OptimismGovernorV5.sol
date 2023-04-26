@@ -216,7 +216,7 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     }
 
     /*//////////////////////////////////////////////////////////////
-                                 UTILS
+                                HELPERS
     //////////////////////////////////////////////////////////////*/
 
     /**
@@ -224,10 +224,10 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
      */
     function hashProposalWithData(address module, bytes memory proposalData, bytes32 descriptionHash)
         public
-        pure
+        view
         virtual
         returns (uint256)
     {
-        return uint256(keccak256(abi.encode(module, proposalData, descriptionHash)));
+        return uint256(keccak256(abi.encode(address(this), module, proposalData, descriptionHash)));
     }
 }
