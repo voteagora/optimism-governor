@@ -1,16 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {VotingModule} from "./VotingModule.sol";
 
 contract ApprovalVotingModule is VotingModule {
-    /*//////////////////////////////////////////////////////////////
-                               LIBRARIES
-    //////////////////////////////////////////////////////////////*/
-
-    using SafeCast for uint256;
-
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
