@@ -197,12 +197,16 @@ contract ApprovalVotingModule is VotingModule {
                              VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @dev Return true if `account` has cast at least a vote for `proposalId`.
+     * TODO: Consider abstain votes
+     */
     function hasVoted(uint256 proposalId, address account) public view override returns (bool) {
         return _approvals[proposalId][account] != 0;
     }
 
     /**
-     * @dev Accessor to the internal vote counts.
+     * @dev Return for, abstain and option votes for a `proposalId`.
      */
     function proposalVotes(uint256 proposalId)
         public
