@@ -2,8 +2,28 @@
 pragma solidity ^0.8.19;
 
 import {VotingModule} from "./VotingModule.sol";
+import {SafeCastLib} from "@solady/utils/SafeCastLib.sol";
+import {LibSort} from "@solady/utils/LibSort.sol";
 
 contract ApprovalVotingModule is VotingModule {
+    /*//////////////////////////////////////////////////////////////
+                                 ERRORS
+    //////////////////////////////////////////////////////////////*/
+
+    error ExistingProposal();
+    error InvalidParams();
+    error VoteAlreadyCast();
+    error MaxApprovalsExceeded();
+    error RepeatedOption(uint256 option);
+    error InvalidVoteType();
+
+    /*//////////////////////////////////////////////////////////////
+                               LIBRARIES
+    //////////////////////////////////////////////////////////////*/
+
+    using LibSort for uint256[];
+    using SafeCastLib for uint256;
+
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
@@ -45,38 +65,43 @@ contract ApprovalVotingModule is VotingModule {
         ProposalSettings settings;
     }
 
-    struct ApprovalVotingParams {
+    struct ApprovalVoteParams {
+        uint256[] options;
+    }
+
+    struct ApprovalVoteProposalParams {
         ProposalOption[] options;
         ProposalSettings settings;
     }
 
     mapping(uint256 proposalId => Proposal) public _proposals;
-    mapping(uint256 proposalId => mapping(address account => uint8)) public _approvals;
+    mapping(uint256 proposalId => mapping(address account => uint8)) public _accountVotes;
 
     /*//////////////////////////////////////////////////////////////
                             WRITE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
     function propose(uint256 proposalId, bytes memory proposalData) external override {
-        require(_proposals[proposalId].governor == address(0), "VotingModule: proposal already exists");
+        if (_proposals[proposalId].governor != address(0)) revert ExistingProposal();
 
-        ApprovalVotingParams memory params = abi.decode(proposalData, (ApprovalVotingParams));
+        ApprovalVoteProposalParams memory params = abi.decode(proposalData, (ApprovalVoteProposalParams));
 
         uint256 optionsLength = params.options.length;
-        require(optionsLength != 0, "VotingModule: invalid proposal length");
+        if (optionsLength == 0 || optionsLength > type(uint8).max) revert InvalidParams();
 
         unchecked {
             // Ensure proposal params of each option have the same length between themselves
             ProposalOption memory option;
             for (uint256 i; i < optionsLength; ++i) {
                 option = params.options[i];
-                require(option.targets.length == option.values.length, "VotingModule: invalid proposal length");
-                require(option.targets.length == option.calldatas.length, "VotingModule: invalid proposal length");
+                if (option.targets.length != option.values.length || option.targets.length != option.calldatas.length) {
+                    revert InvalidParams();
+                }
             }
 
             // Push proposal options in storage
             for (uint256 i; i < optionsLength; ++i) {
-                _proposals[proposalId].options.push(params.options[i]);
+                _proposals[proposalId].options[i] = params.options[i];
             }
         }
 
@@ -141,7 +166,7 @@ contract ApprovalVotingModule is VotingModule {
     {
         _onlyGovernor(_proposals[proposalId].governor);
 
-        ApprovalVotingParams memory params = abi.decode(proposalData, (ApprovalVotingParams));
+        ApprovalVoteProposalParams memory params = abi.decode(proposalData, (ApprovalVoteProposalParams));
 
         // Sort `options` by `optionVotes` in descending order
         (uint128[] memory optionVotes, ProposalOption[] memory options) =
@@ -153,17 +178,18 @@ contract ApprovalVotingModule is VotingModule {
         // Set `executeParamsLength` and `succeededOptionsLength`
         uint256 n = options.length;
         unchecked {
+            uint256 i;
             if (params.settings.criteria == uint8(PassingCriteria.Threshold)) {
-                for (uint256 i; i < n; ++i) {
+                for (i; i < n; ++i) {
                     if (optionVotes[i] >= params.settings.criteriaValue) {
                         executeParamsLength += options[i].targets.length;
-                        ++succeededOptionsLength;
                     } else {
                         break;
                     }
                 }
+                succeededOptionsLength = i;
             } else if (params.settings.criteria == uint8(PassingCriteria.TopChoices)) {
-                for (uint256 i; i < n; ++i) {
+                for (i; i < n; ++i) {
                     if (succeededOptionsLength < params.settings.criteriaValue) {
                         executeParamsLength += options[i].targets.length;
                         ++succeededOptionsLength;
@@ -194,6 +220,7 @@ contract ApprovalVotingModule is VotingModule {
 
                 // Shortcircuit if the budget is exceeded
                 if (params.settings.budget != 0) {
+                    // TODO: consider budget is in OP
                     if (totalValue > params.settings.budget) {
                         return (targets, values, calldatas);
                     }
@@ -220,10 +247,9 @@ contract ApprovalVotingModule is VotingModule {
 
     /**
      * @dev Return true if `account` has cast at least a vote for `proposalId`.
-     * TODO: Consider abstain votes
      */
     function hasVoted(uint256 proposalId, address account) public view override returns (bool) {
-        return _approvals[proposalId][account] != 0;
+        return _accountVotes[proposalId][account] != 0;
     }
 
     /**
@@ -278,7 +304,7 @@ contract ApprovalVotingModule is VotingModule {
     /**
      * @dev See {IGovernor-COUNTING_MODE}.
      *
-     * - `support=bravo`: the vote options are 1 = For, 2 = Abstain. TODO: TBD
+     * - `support=for,abstain`: the vote options are 0 = For, 1 = Abstain. TODO: TBD
      * - `quorum=for,abstain`: For and Abstain votes are counted towards quorum.
      * - `params=approvalVote`: params needs to be formatted as `ApprovalVoteParams`.
      */
