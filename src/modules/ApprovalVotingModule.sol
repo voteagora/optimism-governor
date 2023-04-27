@@ -85,31 +85,52 @@ contract ApprovalVotingModule is VotingModule {
         _proposals[proposalId].optionVotes = new uint128[](optionsLength); // TODO: check if it can be removed
     }
 
-    function _countVote(
-        uint256 proposalId,
-        address account,
-        uint8 support,
-        string memory reason,
-        bytes memory params,
-        uint256 weight
-    ) external override {
+    function _countVote(uint256 proposalId, address account, uint8 support, uint256 weight, bytes memory params)
+        external
+        override
+    {
         Proposal memory proposal = _proposals[proposalId];
         _onlyGovernor(proposal.governor);
 
-        // TODO: TO DEFINE
-        require(!hasVoted(proposalId, account), "GovernorVotingSimple: vote already cast");
+        if (hasVoted(proposalId, account)) revert VoteAlreadyCast();
 
-        // if (support == uint8(VoteType.Against)) {
-        //     proposalVote.againstVotes += weight.toUint128();
-        // } else if (support == uint8(VoteType.For)) {
-        //     proposalVote.forVotes += weight.toUint128();
-        // } else if (support == uint8(VoteType.Abstain)) {
-        //     proposalVote.abstainVotes += weight.toUint96();
-        // } else {
-        //     revert("GovernorVotingSimple: invalid value for enum VoteType");
-        // }
+        if (support == uint8(VoteType.Abstain)) {
+            _proposals[proposalId].votes.abstainVotes += weight.toUint128();
+            _accountVotes[proposalId][account] = 1;
+        } else if (support == uint8(VoteType.For)) {
+            ApprovalVoteParams memory approvalVoteParams = abi.decode(params, (ApprovalVoteParams));
+            uint256[] memory options = approvalVoteParams.options;
+            uint256 totalOptions = options.length;
+            if (totalOptions == 0) revert InvalidParams();
+            if (totalOptions > proposal.settings.maxApprovals) revert MaxApprovalsExceeded();
 
-        _approvals[proposalId][account] += 1;
+            // sort options array in place
+            options.sort();
+
+            uint128 weight_ = weight.toUint128();
+            uint256 currOption;
+            uint256 prevOption;
+            for (uint256 i; i < totalOptions;) {
+                currOption = options[i];
+                if (i != 0) {
+                    if (currOption == prevOption) {
+                        revert RepeatedOption(currOption);
+                    }
+                }
+                prevOption = currOption;
+
+                _proposals[proposalId].optionVotes[currOption] += weight_;
+
+                unchecked {
+                    ++i;
+                }
+            }
+            _proposals[proposalId].votes.forVotes += weight_;
+            // `totalOptions` cannot overflow uint8 as it is checked against `maxApprovals`
+            _accountVotes[proposalId][account] = uint8(totalOptions);
+        } else {
+            revert InvalidVoteType();
+        }
     }
 
     function _formatExecuteParams(uint256 proposalId, bytes memory proposalData)
