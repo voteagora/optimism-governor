@@ -141,7 +141,7 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
         uint256 weight = _getVotes(account, proposal.voteStart.getDeadline(), params);
 
         if (proposal.votingModule != address(0)) {
-            VotingModule(proposal.votingModule)._countVote(proposalId, account, support, reason, params, weight);
+            VotingModule(proposal.votingModule)._countVote(proposalId, account, support, weight, params);
         } else {
             _countVote(proposalId, account, support, weight, params);
         }
