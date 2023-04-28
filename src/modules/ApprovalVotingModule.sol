@@ -107,7 +107,7 @@ contract ApprovalVotingModule is VotingModule {
 
         _proposals[proposalId].governor = msg.sender;
         _proposals[proposalId].settings = params.settings;
-        _proposals[proposalId].optionVotes = new uint128[](optionsLength); // TODO: check if it can be removed
+        _proposals[proposalId].optionVotes = new uint128[](optionsLength);
     }
 
     function _countVote(uint256 proposalId, address account, uint8 support, uint256 weight, bytes memory params)
@@ -280,7 +280,6 @@ contract ApprovalVotingModule is VotingModule {
      * Used by governor in `_voteSucceeded`. See {Governor-_voteSucceeded}.
      */
     function _voteSucceeded(uint256 proposalId) external view override returns (bool) {
-        // TODO: Check if by reading only 2 slots (governor + params) we save gas compared to getting all `proposal`
         Proposal memory proposal = _proposals[proposalId];
         _onlyGovernor(proposal.governor);
 
@@ -304,7 +303,7 @@ contract ApprovalVotingModule is VotingModule {
     /**
      * @dev See {IGovernor-COUNTING_MODE}.
      *
-     * - `support=for,abstain`: the vote options are 0 = For, 1 = Abstain. TODO: TBD
+     * - `support=for,abstain`: the vote options are 0 = For, 1 = Abstain.
      * - `quorum=for,abstain`: For and Abstain votes are counted towards quorum.
      * - `params=approvalVote`: params needs to be formatted as `ApprovalVoteParams`.
      */
@@ -319,7 +318,7 @@ contract ApprovalVotingModule is VotingModule {
         return 1;
     }
 
-    // TODO: Test, or directly optimize
+    // TODO: consider alternatives, or test extensively
     function _sort(uint128[] memory optionVotes, ProposalOption[] memory options)
         internal
         pure
@@ -358,8 +357,6 @@ contract ApprovalVotingModule is VotingModule {
 }
 
 /**
- *
- *
  * GovernorV5
  * - Add tests to verify ProposalCore upgrade safety. Also refactor changes to original OZ contract to make it cleaner.
  */
