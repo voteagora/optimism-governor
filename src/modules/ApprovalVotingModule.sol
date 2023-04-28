@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 import {VotingModule} from "./VotingModule.sol";
 import {SafeCastLib} from "@solady/utils/SafeCastLib.sol";
-import {LibSort} from "@solady/utils/LibSort.sol";
 
 contract ApprovalVotingModule is VotingModule {
     /*//////////////////////////////////////////////////////////////
@@ -14,14 +13,13 @@ contract ApprovalVotingModule is VotingModule {
     error InvalidParams();
     error VoteAlreadyCast();
     error MaxApprovalsExceeded();
-    error RepeatedOption(uint256 option);
+    error InvalidOption(uint256 option);
     error InvalidVoteType();
 
     /*//////////////////////////////////////////////////////////////
                                LIBRARIES
     //////////////////////////////////////////////////////////////*/
 
-    using LibSort for uint256[];
     using SafeCastLib for uint256;
 
     /*//////////////////////////////////////////////////////////////
@@ -63,10 +61,6 @@ contract ApprovalVotingModule is VotingModule {
         ProposalVotes votes;
         ProposalOption[] options;
         ProposalSettings settings;
-    }
-
-    struct ApprovalVoteParams {
-        uint256[] options;
     }
 
     struct ApprovalVoteProposalParams {
@@ -119,41 +113,42 @@ contract ApprovalVotingModule is VotingModule {
 
         if (hasVoted(proposalId, account)) revert VoteAlreadyCast();
 
-        if (support == uint8(VoteType.Abstain)) {
-            _proposals[proposalId].votes.abstainVotes += weight.toUint128();
-            _accountVotes[proposalId][account] = 1;
-        } else if (support == uint8(VoteType.For)) {
-            ApprovalVoteParams memory approvalVoteParams = abi.decode(params, (ApprovalVoteParams));
-            uint256[] memory options = approvalVoteParams.options;
+        uint128 weight_ = weight.toUint128();
+
+        if (support == uint8(VoteType.For)) {
+            uint256[] memory options = abi.decode(params, (uint256[]));
             uint256 totalOptions = options.length;
             if (totalOptions == 0) revert InvalidParams();
             if (totalOptions > proposal.settings.maxApprovals) revert MaxApprovalsExceeded();
 
-            // TODO: Change - Assume sorted options and revert if otherwise
-            // sort options array in place
-            options.sort();
-
-            uint128 weight_ = weight.toUint128();
             uint256 currOption;
             uint256 prevOption;
             for (uint256 i; i < totalOptions;) {
                 currOption = options[i];
+
+                /// @dev Expect options sorted in ascending order
                 if (i != 0) {
-                    if (currOption == prevOption) {
-                        revert RepeatedOption(currOption);
+                    if (currOption <= prevOption) {
+                        revert InvalidOption(currOption);
                     }
                 }
+
                 prevOption = currOption;
 
+                /// @dev Fails if `currOption` is out of bounds
                 _proposals[proposalId].optionVotes[currOption] += weight_;
 
                 unchecked {
                     ++i;
                 }
             }
-            _proposals[proposalId].votes.forVotes += weight_;
-            // `totalOptions` cannot overflow uint8 as it is checked against `maxApprovals`
+
+            /// @dev `totalOptions` cannot overflow uint8 as it is checked against `maxApprovals`
             _accountVotes[proposalId][account] = uint8(totalOptions);
+            _proposals[proposalId].votes.forVotes += weight_;
+        } else if (support == uint8(VoteType.Abstain)) {
+            _accountVotes[proposalId][account] = 1;
+            _proposals[proposalId].votes.abstainVotes += weight_;
         } else {
             revert InvalidVoteType();
         }
@@ -306,7 +301,7 @@ contract ApprovalVotingModule is VotingModule {
      *
      * - `support=for,abstain`: the vote options are 0 = For, 1 = Abstain.
      * - `quorum=for,abstain`: For and Abstain votes are counted towards quorum.
-     * - `params=approvalVote`: params needs to be formatted as `ApprovalVoteParams`.
+     * - `params=approvalVote`: params needs to be formatted as `uint256[]`.
      */
     function COUNTING_MODE() public pure virtual override returns (string memory) {
         return "support=for,abstain&quorum=for,abstain&params=approvalVote";
