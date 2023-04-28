@@ -129,6 +129,7 @@ contract ApprovalVotingModule is VotingModule {
             if (totalOptions == 0) revert InvalidParams();
             if (totalOptions > proposal.settings.maxApprovals) revert MaxApprovalsExceeded();
 
+            // TODO: Change - Assume sorted options and revert if otherwise
             // sort options array in place
             options.sort();
 
