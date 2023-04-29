@@ -63,11 +63,6 @@ contract ApprovalVotingModule is VotingModule {
         ProposalSettings settings;
     }
 
-    struct ApprovalVoteProposalParams {
-        ProposalOption[] options;
-        ProposalSettings settings;
-    }
-
     mapping(uint256 proposalId => Proposal) public _proposals;
     mapping(uint256 proposalId => mapping(address account => uint8)) public _accountVotes;
 
@@ -75,19 +70,26 @@ contract ApprovalVotingModule is VotingModule {
                             WRITE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @notice Save settings and options for a new proposal.
+     *
+     * @param proposalId The id of the proposal.
+     * @param proposalData The proposal data encoded as `(ProposalOption[], ProposalSettings)`.
+     */
     function propose(uint256 proposalId, bytes memory proposalData) external override {
         if (_proposals[proposalId].governor != address(0)) revert ExistingProposal();
 
-        ApprovalVoteProposalParams memory params = abi.decode(proposalData, (ApprovalVoteProposalParams));
+        (ProposalOption[] memory options, ProposalSettings memory settings) =
+            abi.decode(proposalData, (ProposalOption[], ProposalSettings));
 
-        uint256 optionsLength = params.options.length;
+        uint256 optionsLength = options.length;
         if (optionsLength == 0 || optionsLength > type(uint8).max) revert InvalidParams();
 
         unchecked {
             // Ensure proposal params of each option have the same length between themselves
             ProposalOption memory option;
             for (uint256 i; i < optionsLength; ++i) {
-                option = params.options[i];
+                option = options[i];
                 if (option.targets.length != option.values.length || option.targets.length != option.calldatas.length) {
                     revert InvalidParams();
                 }
@@ -95,15 +97,24 @@ contract ApprovalVotingModule is VotingModule {
 
             // Push proposal options in storage
             for (uint256 i; i < optionsLength; ++i) {
-                _proposals[proposalId].options[i] = params.options[i];
+                _proposals[proposalId].options[i] = options[i];
             }
         }
 
         _proposals[proposalId].governor = msg.sender;
-        _proposals[proposalId].settings = params.settings;
+        _proposals[proposalId].settings = settings;
         _proposals[proposalId].optionVotes = new uint128[](optionsLength);
     }
 
+    /**
+     * @notice Count approvals voted by `account`.
+     *
+     * @param proposalId The id of the proposal.
+     * @param account The account to count votes for.
+     * @param support The type of vote to count. 0 = For, 1 = Abstain.
+     * @param weight The weight of the vote.
+     * @param params The ids of the options to vote for sorted in ascending order, encoded as `uint256[]`.
+     */
     function _countVote(uint256 proposalId, address account, uint8 support, uint256 weight, bytes memory params)
         external
         override
@@ -154,6 +165,15 @@ contract ApprovalVotingModule is VotingModule {
         }
     }
 
+    /**
+     * @notice Format executeParams for a governor, given `proposalId` and `proposalData`.
+     *
+     * @param proposalId The id of the proposal.
+     * @param proposalData The proposal data encoded as `(ProposalOption[], ProposalSettings)`.
+     * @return targets The targets of the proposal.
+     * @return values The values of the proposal.
+     * @return calldatas The calldatas of the proposal.
+     */
     function _formatExecuteParams(uint256 proposalId, bytes memory proposalData)
         public
         view
@@ -162,32 +182,33 @@ contract ApprovalVotingModule is VotingModule {
     {
         _onlyGovernor(_proposals[proposalId].governor);
 
-        ApprovalVoteProposalParams memory params = abi.decode(proposalData, (ApprovalVoteProposalParams));
+        (ProposalOption[] memory options, ProposalSettings memory settings) =
+            abi.decode(proposalData, (ProposalOption[], ProposalSettings));
 
         // Sort `options` by `optionVotes` in descending order
-        (uint128[] memory optionVotes, ProposalOption[] memory options) =
-            _sort(_proposals[proposalId].optionVotes, params.options);
+        (uint128[] memory optionVotes_, ProposalOption[] memory options_) =
+            _sort(_proposals[proposalId].optionVotes, options);
 
         uint256 executeParamsLength;
         uint256 succeededOptionsLength;
 
         // Set `executeParamsLength` and `succeededOptionsLength`
-        uint256 n = options.length;
+        uint256 n = options_.length;
         unchecked {
             uint256 i;
-            if (params.settings.criteria == uint8(PassingCriteria.Threshold)) {
+            if (settings.criteria == uint8(PassingCriteria.Threshold)) {
                 for (i; i < n; ++i) {
-                    if (optionVotes[i] >= params.settings.criteriaValue) {
-                        executeParamsLength += options[i].targets.length;
+                    if (optionVotes_[i] >= settings.criteriaValue) {
+                        executeParamsLength += options_[i].targets.length;
                     } else {
                         break;
                     }
                 }
                 succeededOptionsLength = i;
-            } else if (params.settings.criteria == uint8(PassingCriteria.TopChoices)) {
+            } else if (settings.criteria == uint8(PassingCriteria.TopChoices)) {
                 for (i; i < n; ++i) {
-                    if (succeededOptionsLength < params.settings.criteriaValue) {
-                        executeParamsLength += options[i].targets.length;
+                    if (succeededOptionsLength < settings.criteriaValue) {
+                        executeParamsLength += options_[i].targets.length;
                         ++succeededOptionsLength;
                     } else {
                         break;
@@ -208,16 +229,16 @@ contract ApprovalVotingModule is VotingModule {
 
         // Set `targets`, `values` and `calldatas`
         for (uint256 i; i < succeededOptionsLength;) {
-            option = options[i];
+            option = options_[i];
             optionTargetsLength = option.targets.length;
             for (n; n < optionTargetsLength;) {
                 optionValue = option.values[n];
                 totalValue += optionValue;
 
                 // Shortcircuit if the budget is exceeded
-                if (params.settings.budget != 0) {
+                if (settings.budget != 0) {
                     // TODO: consider budget is in OP
-                    if (totalValue > params.settings.budget) {
+                    if (totalValue > settings.budget) {
                         return (targets, values, calldatas);
                     }
                 }
@@ -242,7 +263,10 @@ contract ApprovalVotingModule is VotingModule {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @dev Return true if `account` has cast at least a vote for `proposalId`.
+     * @dev Return true if `account` has cast a vote for `proposalId`.
+     *
+     * @param proposalId The id of the proposal.
+     * @param account The address of the account.
      */
     function hasVoted(uint256 proposalId, address account) public view override returns (bool) {
         return _accountVotes[proposalId][account] != 0;
@@ -250,6 +274,8 @@ contract ApprovalVotingModule is VotingModule {
 
     /**
      * @dev Return for, abstain and option votes for a `proposalId`.
+     *
+     * @param proposalId The id of the proposal.
      */
     function proposalVotes(uint256 proposalId)
         public
@@ -263,6 +289,9 @@ contract ApprovalVotingModule is VotingModule {
 
     /**
      * @dev Used by governor in `_quorumReached`. See {Governor-_quorumReached}.
+     *
+     * @param proposalId The id of the proposal.
+     * @param quorum The quorum value at the proposal start block.
      */
     function _quorumReached(uint256 proposalId, uint256 quorum) external view override returns (bool) {
         _onlyGovernor(_proposals[proposalId].governor);
@@ -274,6 +303,8 @@ contract ApprovalVotingModule is VotingModule {
     /**
      * @dev Return true if at least one option satisfies the passing criteria.
      * Used by governor in `_voteSucceeded`. See {Governor-_voteSucceeded}.
+     *
+     * @param proposalId The id of the proposal.
      */
     function _voteSucceeded(uint256 proposalId) external view override returns (bool) {
         Proposal memory proposal = _proposals[proposalId];
