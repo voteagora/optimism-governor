@@ -9,18 +9,37 @@ contract ApprovalVotingModule is VotingModule {
                                  ERRORS
     //////////////////////////////////////////////////////////////*/
 
-    error ExistingProposal();
-    error InvalidParams();
-    error VoteAlreadyCast();
     error MaxApprovalsExceeded();
     error InvalidOption(uint256 option);
-    error InvalidVoteType();
 
     /*//////////////////////////////////////////////////////////////
                                LIBRARIES
     //////////////////////////////////////////////////////////////*/
 
     using SafeCastLib for uint256;
+
+    /*//////////////////////////////////////////////////////////////
+                           IMMUTABLE STORAGE
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Defines the encoding for the expected `proposalData` in `propose`.
+     * Encoding: `(ProposalOption[], ProposalSettings)`
+     *
+     * @dev Can be used by clients to interact with modules programmatically without prior knowledge
+     * on expected types.
+     */
+    string public constant override PROPOSAL_DATA_ENCODING =
+        "((address[] targets,uint256[] values,bytes[] calldatas,string description)[] proposalOptions,(uint8 maxApprovals,uint8 criteria,uint112 criteriaValue,uint128 budget) proposalSettings)";
+
+    /**
+     * @notice Defines the encoding for the expected `params` in `_countVote`.
+     * Encoding: `uint256[]`
+     *
+     * @dev Can be used by clients to interact with modules programmatically without prior knowledge
+     * on expected types.
+     */
+    string public constant override PARAMS_ENCODING = "uint256[] options";
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -49,10 +68,10 @@ contract ApprovalVotingModule is VotingModule {
     }
 
     struct ProposalOption {
-        string description;
         address[] targets;
         uint256[] values;
         bytes[] calldatas;
+        string description;
     }
 
     struct Proposal {
@@ -64,7 +83,7 @@ contract ApprovalVotingModule is VotingModule {
     }
 
     mapping(uint256 proposalId => Proposal) public _proposals;
-    mapping(uint256 proposalId => mapping(address account => uint8)) public _accountVotes;
+    mapping(uint256 proposalId => mapping(address account => uint8 votes)) public _accountVotes;
 
     /*//////////////////////////////////////////////////////////////
                             WRITE FUNCTIONS
@@ -74,22 +93,22 @@ contract ApprovalVotingModule is VotingModule {
      * @notice Save settings and options for a new proposal.
      *
      * @param proposalId The id of the proposal.
-     * @param proposalData The proposal data encoded as `(ProposalOption[], ProposalSettings)`.
+     * @param proposalData The proposal data encoded as `PROPOSAL_DATA_ENCODING`.
      */
     function propose(uint256 proposalId, bytes memory proposalData) external override {
         if (_proposals[proposalId].governor != address(0)) revert ExistingProposal();
 
-        (ProposalOption[] memory options, ProposalSettings memory settings) =
+        (ProposalOption[] memory proposalOptions, ProposalSettings memory proposalSettings) =
             abi.decode(proposalData, (ProposalOption[], ProposalSettings));
 
-        uint256 optionsLength = options.length;
+        uint256 optionsLength = proposalOptions.length;
         if (optionsLength == 0 || optionsLength > type(uint8).max) revert InvalidParams();
 
         unchecked {
             // Ensure proposal params of each option have the same length between themselves
             ProposalOption memory option;
             for (uint256 i; i < optionsLength; ++i) {
-                option = options[i];
+                option = proposalOptions[i];
                 if (option.targets.length != option.values.length || option.targets.length != option.calldatas.length) {
                     revert InvalidParams();
                 }
@@ -97,12 +116,12 @@ contract ApprovalVotingModule is VotingModule {
 
             // Push proposal options in storage
             for (uint256 i; i < optionsLength; ++i) {
-                _proposals[proposalId].options[i] = options[i];
+                _proposals[proposalId].options[i] = proposalOptions[i];
             }
         }
 
         _proposals[proposalId].governor = msg.sender;
-        _proposals[proposalId].settings = settings;
+        _proposals[proposalId].settings = proposalSettings;
         _proposals[proposalId].optionVotes = new uint128[](optionsLength);
     }
 
@@ -146,7 +165,7 @@ contract ApprovalVotingModule is VotingModule {
 
                 prevOption = currOption;
 
-                /// @dev Fails if `currOption` is out of bounds
+                /// @dev Reverts if `currOption` is out of bounds
                 _proposals[proposalId].optionVotes[currOption] += weight_;
 
                 unchecked {
@@ -332,7 +351,7 @@ contract ApprovalVotingModule is VotingModule {
      *
      * - `support=for,abstain`: the vote options are 0 = For, 1 = Abstain.
      * - `quorum=for,abstain`: For and Abstain votes are counted towards quorum.
-     * - `params=approvalVote`: params needs to be formatted as `uint256[]`.
+     * - `params=approvalVote`: params needs to be formatted as `PARAMS_ENCODING`.
      */
     function COUNTING_MODE() public pure virtual override returns (string memory) {
         return "support=for,abstain&quorum=for,abstain&params=approvalVote";

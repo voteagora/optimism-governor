@@ -3,11 +3,21 @@ pragma solidity ^0.8.19;
 
 abstract contract VotingModule {
     /*//////////////////////////////////////////////////////////////
+                                 ERRORS
+    //////////////////////////////////////////////////////////////*/
+
+    error NotGovernor();
+    error InvalidVoteType();
+    error ExistingProposal();
+    error InvalidParams();
+    error VoteAlreadyCast();
+
+    /*//////////////////////////////////////////////////////////////
                                MODIFIERS
     //////////////////////////////////////////////////////////////*/
 
     function _onlyGovernor(address governor) internal view {
-        require(msg.sender == governor, "Only the governor can call this function");
+        if (msg.sender != governor) revert NotGovernor();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -37,4 +47,8 @@ abstract contract VotingModule {
     function _voteSucceeded(uint256 proposalId) external view virtual returns (bool);
 
     function COUNTING_MODE() external pure virtual returns (string memory);
+
+    function PROPOSAL_DATA_ENCODING() external pure virtual returns (string memory);
+
+    function PARAMS_ENCODING() external pure virtual returns (string memory);
 }
