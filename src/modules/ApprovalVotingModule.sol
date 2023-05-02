@@ -23,7 +23,7 @@ contract ApprovalVotingModule is VotingModule {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Defines the encoding for the expected `proposalData` in `propose`.
+     * Defines the encoding for the expected `proposalData` in `propose`.
      * Encoding: `(ProposalOption[], ProposalSettings)`
      *
      * @dev Can be used by clients to interact with modules programmatically without prior knowledge
@@ -33,7 +33,7 @@ contract ApprovalVotingModule is VotingModule {
         "((address[] targets,uint256[] values,bytes[] calldatas,string description)[] proposalOptions,(uint8 maxApprovals,uint8 criteria,uint112 criteriaValue,uint128 budget) proposalSettings)";
 
     /**
-     * @notice Defines the encoding for the expected `params` in `_countVote`.
+     * Defines the encoding for the expected `params` in `_countVote`.
      * Encoding: `uint256[]`
      *
      * @dev Can be used by clients to interact with modules programmatically without prior knowledge
@@ -90,7 +90,7 @@ contract ApprovalVotingModule is VotingModule {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Save settings and options for a new proposal.
+     * Save settings and options for a new proposal.
      *
      * @param proposalId The id of the proposal.
      * @param proposalData The proposal data encoded as `PROPOSAL_DATA_ENCODING`.
@@ -126,7 +126,7 @@ contract ApprovalVotingModule is VotingModule {
     }
 
     /**
-     * @notice Count approvals voted by `account`.
+     * Count approvals voted by `account`.
      *
      * @param proposalId The id of the proposal.
      * @param account The account to count votes for.
@@ -185,7 +185,7 @@ contract ApprovalVotingModule is VotingModule {
     }
 
     /**
-     * @notice Format executeParams for a governor, given `proposalId` and `proposalData`.
+     * Format executeParams for a governor, given `proposalId` and `proposalData`.
      *
      * @param proposalId The id of the proposal.
      * @param proposalData The proposal data encoded as `(ProposalOption[], ProposalSettings)`.
@@ -358,7 +358,7 @@ contract ApprovalVotingModule is VotingModule {
     }
 
     /**
-     * @notice Module version.
+     * Module version.
      */
     function version() public pure returns (uint256) {
         return 1;

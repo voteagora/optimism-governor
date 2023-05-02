@@ -11,7 +11,7 @@ import {OptimismGovernorV3} from "./OptimismGovernorV3.sol";
 import {VotingModule} from "./modules/VotingModule.sol";
 
 /**
- * @notice Introduces delegation to custom voting modules.
+ * Introduces delegation to custom voting modules.
  *
  * @dev Requires adding an `address votingModule` to{GovernorUpgradeable-ProposalCore} struct.
  */
@@ -28,7 +28,7 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Emitted when a proposal with module is created.
+     * Emitted when a proposal with module is created.
      */
     event ProposalCreated(
         uint256 proposalId,
@@ -53,7 +53,11 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Create a new proposal with a custom voting module. See {IGovernor-propose}.
+     * Create a new proposal with a custom voting module. See {IGovernor-propose}.
+     *
+     * @param module The address of the voting module to use for this proposal.
+     * @param proposalData The proposal data to pass to the voting module.
+     * @param description A human readable description of the proposal.
      */
     function proposeWithModule(VotingModule module, bytes memory proposalData, string memory description)
         public
@@ -85,7 +89,11 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     }
 
     /**
-     * @notice Executes a proposal via a custom voting module. See {IGovernor-execute}.
+     * Executes a proposal via a custom voting module. See {IGovernor-execute}.
+     *
+     * @param module The address of the voting module to use for this proposal.
+     * @param proposalData The proposal data to pass to the voting module.
+     * @param descriptionHash The hash of the proposal description.
      */
     function executeWithModule(VotingModule module, bytes memory proposalData, bytes32 descriptionHash)
         public
@@ -114,7 +122,11 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     }
 
     /**
-     * @notice Cancel a proposal with a custom voting module. See {IGovernor-_cancel}.
+     * Cancel a proposal with a custom voting module. See {IGovernor-_cancel}.
+     *
+     * @param module The address of the voting module to use for this proposal.
+     * @param proposalData The proposal data to pass to the voting module.
+     * @param descriptionHash The hash of the proposal description.
      */
     function cancelWithModule(address module, bytes memory proposalData, bytes32 descriptionHash)
         public
@@ -168,7 +180,7 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice COUNTING_MODE with added `params=modules` options to indicate support for external voting modules. See {IGovernor-COUNTING_MODE}.
+     * COUNTING_MODE with added `params=modules` options to indicate support for external voting modules. See {IGovernor-COUNTING_MODE}.
      */
     function COUNTING_MODE() public pure virtual override returns (string memory) {
         return "support=bravo&quorum=against,for,abstain&params=modules";
@@ -228,7 +240,13 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @dev Same as `hashProposal` but based on `module` and `proposalData`. See {IGovernor-hashProposal}.
+     * Calculate `proposalId` hashing similarly to `hashProposal` but based on `module` and `proposalData`.
+     * See {IGovernor-hashProposal}.
+     *
+     * @param module The address of the voting module to use for this proposal.
+     * @param proposalData The proposal data to pass to the voting module.
+     * @param descriptionHash The hash of the proposal description.
+     * @return The id of the proposal.
      */
     function hashProposalWithData(address module, bytes memory proposalData, bytes32 descriptionHash)
         public
