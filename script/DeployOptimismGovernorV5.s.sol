@@ -10,6 +10,7 @@ import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transpa
 contract DeployOptimismGovernorV5Script is Script {
     function run() public returns (OptimismGovernorV5 implementation, TransparentUpgradeableProxy proxy) {
         address deployer = vm.rememberKey(vm.envUint("DEPLOYER_KEY"));
+        address manager = 0x648BFC4dB7e43e799a84d0f607aF0b4298F932DB;
         address op = 0x4200000000000000000000000000000000000042;
 
         vm.startBroadcast(deployer);
@@ -18,7 +19,7 @@ contract DeployOptimismGovernorV5Script is Script {
         proxy = new TransparentUpgradeableProxy(
             address(implementation),
             deployer,
-            abi.encodeWithSelector(OptimismGovernorV2.initialize.selector, op, deployer)
+            abi.encodeWithSelector(OptimismGovernorV2.initialize.selector, op, manager)
         );
 
         vm.stopBroadcast();
