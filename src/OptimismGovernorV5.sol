@@ -11,7 +11,7 @@ import {OptimismGovernorV3} from "./OptimismGovernorV3.sol";
 import {VotingModule} from "./modules/VotingModule.sol";
 
 /**
- * Introduces delegation to custom voting modules.
+ * Introduces support for voting modules.
  *
  * @dev Requires adding an `address votingModule` to{GovernorUpgradeable-ProposalCore} struct.
  */
