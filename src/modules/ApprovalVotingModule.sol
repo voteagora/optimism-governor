@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {VotingModule} from "./VotingModule.sol";
 import {SafeCastLib} from "@solady/utils/SafeCastLib.sol";
 
@@ -30,7 +31,7 @@ contract ApprovalVotingModule is VotingModule {
      * on expected types.
      */
     string public constant override PROPOSAL_DATA_ENCODING =
-        "((address[] targets,uint256[] values,bytes[] calldatas,string description)[] proposalOptions,(uint8 maxApprovals,uint8 criteria,uint112 criteriaValue,uint128 budget) proposalSettings)";
+        "((address[] targets,uint256[] values,bytes[] calldatas,string description)[] proposalOptions,(uint8 maxApprovals,uint8 criteria,address budgetToken,uint128 criteriaValue,uint128 budget) proposalSettings)";
 
     /**
      * Defines the encoding for the expected `params` in `_countVote`.
@@ -55,6 +56,12 @@ contract ApprovalVotingModule is VotingModule {
         TopChoices
     }
 
+    struct ExecuteParams {
+        address targets;
+        uint256 values;
+        bytes calldatas;
+    }
+
     struct ProposalVotes {
         uint128 forVotes;
         uint128 abstainVotes;
@@ -63,7 +70,8 @@ contract ApprovalVotingModule is VotingModule {
     struct ProposalSettings {
         uint8 maxApprovals;
         uint8 criteria;
-        uint112 criteriaValue;
+        address budgetToken;
+        uint128 criteriaValue;
         uint128 budget;
     }
 
@@ -211,7 +219,7 @@ contract ApprovalVotingModule is VotingModule {
         uint256 executeParamsLength;
         uint256 succeededOptionsLength;
 
-        // Set `executeParamsLength` and `succeededOptionsLength`
+        // Derive `executeParamsLength` and `succeededOptionsLength` based on passing criteria
         uint256 n = options_.length;
         unchecked {
             uint256 i;
@@ -236,40 +244,75 @@ contract ApprovalVotingModule is VotingModule {
             }
         }
 
-        targets = new address[](executeParamsLength);
-        values = new uint256[](executeParamsLength);
-        calldatas = new bytes[](executeParamsLength);
-
         n = 0;
         uint256 totalValue;
-        uint256 optionTargetsLength;
-        uint256 optionValue;
+        uint256 length;
         ProposalOption memory option;
+        ExecuteParams[] memory executeParams = new ExecuteParams[](executeParamsLength);
 
-        // Set `targets`, `values` and `calldatas`
+        // Flatten `options` by filling `executeParams` until budget is exceeded
         for (uint256 i; i < succeededOptionsLength;) {
             option = options_[i];
-            optionTargetsLength = option.targets.length;
-            for (n; n < optionTargetsLength;) {
-                optionValue = option.values[n];
-                totalValue += optionValue;
+            unchecked {
+                length = n + option.targets.length;
+            }
 
+            for (n; n < length;) {
                 // Shortcircuit if the budget is exceeded
                 if (settings.budget != 0) {
-                    // TODO: consider budget is in OP
+                    if (settings.budgetToken == address(0)) {
+                        // If `budgetToken` is ETH, add msg value to `totalValue`
+                        totalValue += option.values[n];
+                    } else {
+                        // If `budgetToken` is not ETH and calldata is not zero
+                        if (option.calldatas[n].length != 0) {
+                            // If it's a `transfer` or `transferFrom`, add `amount` to `totalValue`
+                            uint256 amount;
+                            if (bytes4(option.calldatas[n]) == IERC20.transfer.selector) {
+                                (, amount) = abi.decode(option.calldatas[n], (address, uint256));
+                            } else if (bytes4(option.calldatas[n]) == IERC20.transferFrom.selector) {
+                                (,, amount) = abi.decode(option.calldatas[n], (address, address, uint256));
+                            }
+                            if (amount != 0) totalValue += amount;
+                        }
+                    }
+
                     if (totalValue > settings.budget) {
-                        return (targets, values, calldatas);
+                        // If budget is exceeded, reset `n` to the value at the end of last `option`
+                        unchecked {
+                            n = length - option.targets.length;
+                        }
+                        break;
                     }
                 }
 
-                targets[n] = option.targets[n];
-                values[n] = optionValue;
-                calldatas[n] = option.calldatas[n];
+                executeParams[n] = ExecuteParams(option.targets[n], option.values[n], option.calldatas[n]);
 
                 unchecked {
                     ++n;
                 }
             }
+
+            // Break loop if budget is exceeded
+            if (settings.budget != 0) {
+                if (totalValue > settings.budget) break;
+            }
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        // Init param lengths based on the `n` passed elements
+        targets = new address[](n);
+        values = new uint256[](n);
+        calldatas = new bytes[](n);
+
+        // Set n `targets`, `values` and `calldatas`
+        for (uint256 i; i < n;) {
+            targets[i] = executeParams[i].targets;
+            values[i] = executeParams[i].values;
+            calldatas[i] = executeParams[i].calldatas;
 
             unchecked {
                 ++i;
@@ -364,7 +407,6 @@ contract ApprovalVotingModule is VotingModule {
         return 1;
     }
 
-    // TODO: consider alternatives, or test extensively
     function _sort(uint128[] memory optionVotes, ProposalOption[] memory options)
         internal
         pure
