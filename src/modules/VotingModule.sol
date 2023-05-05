@@ -50,5 +50,5 @@ abstract contract VotingModule {
 
     function PROPOSAL_DATA_ENCODING() external pure virtual returns (string memory);
 
-    function PARAMS_ENCODING() external pure virtual returns (string memory);
+    function VOTE_PARAMS_ENCODING() external pure virtual returns (string memory);
 }

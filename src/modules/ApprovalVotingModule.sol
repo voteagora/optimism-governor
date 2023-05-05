@@ -39,7 +39,7 @@ contract ApprovalVotingModule is VotingModule {
      * @dev Can be used by clients to interact with modules programmatically without prior knowledge
      * on expected types.
      */
-    string public constant override PARAMS_ENCODING = "uint256[] options";
+    string public constant override VOTE_PARAMS_ENCODING = "uint256[] options";
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -351,7 +351,7 @@ contract ApprovalVotingModule is VotingModule {
      *
      * - `support=for,abstain`: the vote options are 0 = For, 1 = Abstain.
      * - `quorum=for,abstain`: For and Abstain votes are counted towards quorum.
-     * - `params=approvalVote`: params needs to be formatted as `PARAMS_ENCODING`.
+     * - `params=approvalVote`: params needs to be formatted as `VOTE_PARAMS_ENCODING`.
      */
     function COUNTING_MODE() public pure virtual override returns (string memory) {
         return "support=for,abstain&quorum=for,abstain&params=approvalVote";
