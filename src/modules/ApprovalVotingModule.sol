@@ -454,8 +454,3 @@ contract ApprovalVotingModule is VotingModule {
         }
     }
 }
-
-/**
- * GovernorV5
- * - Add tests to verify ProposalCore upgrade safety. Also refactor changes to original OZ contract to make it cleaner.
- */
