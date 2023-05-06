@@ -215,10 +215,11 @@ contract ApprovalVotingModule is VotingModule {
             abi.decode(proposalData, (ProposalOption[], ProposalSettings));
 
         // Sort `options` by `optionVotes` in descending order
-        (uint128[] memory optionVotes_, ProposalOption[] memory options_) =
+        (uint128[] memory sortedOptionVotes, ProposalOption[] memory sortedOptions) =
             sortOptions(_proposals[proposalId].optionVotes, options);
 
-        (uint256 executeParamsLength, uint256 succeededOptionsLength) = countOptions(options_, optionVotes_, settings);
+        (uint256 executeParamsLength, uint256 succeededOptionsLength) =
+            countOptions(sortedOptions, sortedOptionVotes, settings);
 
         uint256 n;
         uint256 totalValue;
@@ -228,7 +229,7 @@ contract ApprovalVotingModule is VotingModule {
 
         // Flatten `options` by filling `executeParams` until budget is exceeded
         for (uint256 i; i < succeededOptionsLength;) {
-            option = options_[i];
+            option = sortedOptions[i];
             unchecked {
                 length = n + option.targets.length;
             }
@@ -427,7 +428,7 @@ contract ApprovalVotingModule is VotingModule {
 
     function countOptions(
         ProposalOption[] memory options,
-        uint128[] memory optionVotes_,
+        uint128[] memory optionVotes,
         ProposalSettings memory settings
     ) internal pure returns (uint256 executeParamsLength, uint256 succeededOptionsLength) {
         // Derive `executeParamsLength` and `succeededOptionsLength` based on passing criteria
@@ -435,9 +436,9 @@ contract ApprovalVotingModule is VotingModule {
         unchecked {
             uint256 i;
             if (settings.criteria == uint8(PassingCriteria.Threshold)) {
-                // if criteria is `Threshold`, loop through options until `optionVotes_` is less than threshold
+                // if criteria is `Threshold`, loop through options until `optionVotes` is less than threshold
                 for (i; i < n; ++i) {
-                    if (optionVotes_[i] >= settings.criteriaValue) {
+                    if (optionVotes[i] >= settings.criteriaValue) {
                         executeParamsLength += options[i].targets.length;
                     } else {
                         break;
