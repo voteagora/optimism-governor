@@ -7,9 +7,8 @@ import "./GovernorUpgradeableV1.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
- * @dev Extension of {Governor} for simple, 3 options, vote counting.
- *
- * _Available since v4.3._
+ * Modifications:
+ * - Inherited `GovernorUpgradeableV1`
  */
 abstract contract GovernorCountingSimpleUpgradeableV1 is Initializable, GovernorUpgradeableV1 {
     function __GovernorCountingSimple_init() internal onlyInitializing {}

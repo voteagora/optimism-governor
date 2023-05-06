@@ -10,6 +10,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
  * Modifications:
+ * - Inherited `GovernorUpgradeableV2`
  * - Changed visibility of `_quorumNumeratorHistory` to `internal`
  */
 abstract contract GovernorVotesQuorumFractionUpgradeableV2 is Initializable, GovernorVotesUpgradeableV2 {

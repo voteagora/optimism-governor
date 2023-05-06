@@ -7,9 +7,8 @@ import "./GovernorUpgradeableV2.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
- * @dev Extension of {Governor} for settings updatable through governance.
- *
- * _Available since v4.4._
+ * Modifications:
+ * - Inherited `GovernorUpgradeableV2`
  */
 abstract contract GovernorSettingsUpgradeableV2 is Initializable, GovernorUpgradeableV2 {
     uint256 private _votingDelay;
