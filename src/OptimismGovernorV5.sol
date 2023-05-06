@@ -1,25 +1,34 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {GovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/GovernorUpgradeable.sol";
+import {GovernorUpgradeableV2} from "./lib/v2/GovernorUpgradeableV2.sol";
+import {GovernorCountingSimpleUpgradeableV2} from "./lib/v2/GovernorCountingSimpleUpgradeableV2.sol";
+import {GovernorVotesQuorumFractionUpgradeableV2} from "./lib/v2/GovernorVotesQuorumFractionUpgradeableV2.sol";
+import {GovernorVotesUpgradeableV2} from "./lib/v2/GovernorVotesUpgradeableV2.sol";
+import {GovernorSettingsUpgradeableV2} from "./lib/v2/GovernorSettingsUpgradeableV2.sol";
 import {IGovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/IGovernorUpgradeable.sol";
-import {GovernorCountingSimpleUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorCountingSimpleUpgradeable.sol";
-import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 import {TimersUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/TimersUpgradeable.sol";
-import {OptimismGovernorV3} from "./OptimismGovernorV3.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {VotingModule} from "./modules/VotingModule.sol";
 
 /**
  * Introduces support for voting modules.
- *
- * @dev Requires adding an `address votingModule` to{GovernorUpgradeable-ProposalCore} struct.
  */
-contract OptimismGovernorV5 is OptimismGovernorV3 {
+contract OptimismGovernorV5 is
+    Initializable,
+    GovernorUpgradeableV2,
+    GovernorCountingSimpleUpgradeableV2,
+    GovernorVotesUpgradeableV2,
+    GovernorVotesQuorumFractionUpgradeableV2,
+    GovernorSettingsUpgradeableV2
+{
     /*//////////////////////////////////////////////////////////////
                                LIBRARIES
     //////////////////////////////////////////////////////////////*/
 
+    using TimersUpgradeable for TimersUpgradeable.BlockNumber;
     using SafeCastUpgradeable for uint256;
     using TimersUpgradeable for TimersUpgradeable.BlockNumber;
 
@@ -39,6 +48,13 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
         uint256 endBlock,
         string description
     );
+    event ProposalDeadlineUpdated(uint256 proposalId, uint64 deadline);
+
+    /*//////////////////////////////////////////////////////////////
+                                STORAGE
+    //////////////////////////////////////////////////////////////*/
+
+    address public manager;
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -182,7 +198,13 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     /**
      * COUNTING_MODE with added `params=modules` options to indicate support for external voting modules. See {IGovernor-COUNTING_MODE}.
      */
-    function COUNTING_MODE() public pure virtual override returns (string memory) {
+    function COUNTING_MODE()
+        public
+        pure
+        virtual
+        override(GovernorCountingSimpleUpgradeableV2, IGovernorUpgradeable)
+        returns (string memory)
+    {
         return "support=bravo&quorum=against,for,abstain&params=modules";
     }
 
@@ -193,7 +215,7 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
         public
         view
         virtual
-        override(GovernorCountingSimpleUpgradeable, IGovernorUpgradeable)
+        override(GovernorCountingSimpleUpgradeableV2, IGovernorUpgradeable)
         returns (bool)
     {
         address votingModule = _proposals[proposalId].votingModule;
@@ -207,14 +229,22 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
     /**
      * @dev Updated `_quorumReached` which allows delegating logic to custom voting module. See {IGovernor-_quorumReached}.
      */
-    function _quorumReached(uint256 proposalId) internal view virtual override returns (bool) {
+    function _quorumReached(uint256 proposalId)
+        internal
+        view
+        virtual
+        override(GovernorCountingSimpleUpgradeableV2, GovernorUpgradeableV2)
+        returns (bool)
+    {
         ProposalCore memory proposal = _proposals[proposalId];
         if (proposal.votingModule != address(0)) {
             return
                 VotingModule(proposal.votingModule)._quorumReached(proposalId, quorum(proposal.voteStart.getDeadline()));
         }
 
-        return super._quorumReached(proposalId);
+        (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes) = proposalVotes(proposalId);
+
+        return quorum(proposalSnapshot(proposalId)) <= againstVotes + forVotes + abstainVotes;
     }
 
     /**
@@ -224,7 +254,7 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
         internal
         view
         virtual
-        override(GovernorCountingSimpleUpgradeable, GovernorUpgradeable)
+        override(GovernorCountingSimpleUpgradeableV2, GovernorUpgradeableV2)
         returns (bool)
     {
         address votingModule = _proposals[proposalId].votingModule;
@@ -255,5 +285,91 @@ contract OptimismGovernorV5 is OptimismGovernorV3 {
         returns (uint256)
     {
         return uint256(keccak256(abi.encode(address(this), module, proposalData, descriptionHash)));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                   V2
+    //////////////////////////////////////////////////////////////*/
+
+    modifier onlyManager() {
+        require(msg.sender == manager, "Only the manager can call this function");
+        _;
+    }
+
+    function initialize(IVotesUpgradeable _votingToken, address _manager) public initializer {
+        __Governor_init("Optimism");
+        __GovernorCountingSimple_init();
+        __GovernorVotes_init(_votingToken);
+        __GovernorVotesQuorumFraction_init({quorumNumeratorValue: 30});
+        __GovernorSettings_init({initialVotingDelay: 6575, initialVotingPeriod: 46027, initialProposalThreshold: 0});
+
+        manager = _manager;
+    }
+
+    function _execute(
+        uint256, /* proposalId */
+        address[] memory, /* targets */
+        uint256[] memory, /* values */
+        bytes[] memory, /* calldatas */
+        bytes32 /*descriptionHash*/
+    ) internal view override onlyManager {
+        // Execution is skipped
+    }
+
+    function propose(
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        string memory description
+    ) public override onlyManager returns (uint256) {
+        return super.propose(targets, values, calldatas, description);
+    }
+
+    function proposalThreshold()
+        public
+        view
+        override(GovernorSettingsUpgradeableV2, GovernorUpgradeableV2)
+        returns (uint256)
+    {
+        return GovernorSettingsUpgradeableV2.proposalThreshold();
+    }
+
+    function quorumDenominator() public view virtual override returns (uint256) {
+        // Configurable to 3 decimal points of percentage
+        return 100_000;
+    }
+
+    function setProposalDeadline(uint256 proposalId, uint64 deadline) public onlyManager {
+        _proposals[proposalId].voteEnd.setDeadline(deadline);
+        emit ProposalDeadlineUpdated(proposalId, deadline);
+    }
+
+    function setVotingDelay(uint256 newVotingDelay) public override onlyManager {
+        _setVotingDelay(newVotingDelay);
+    }
+
+    function setVotingPeriod(uint256 newVotingPeriod) public override onlyManager {
+        _setVotingPeriod(newVotingPeriod);
+    }
+
+    function setProposalThreshold(uint256 newProposalThreshold) public override onlyManager {
+        _setProposalThreshold(newProposalThreshold);
+    }
+
+    function updateQuorumNumerator(uint256 newQuorumNumerator) external override onlyManager {
+        _updateQuorumNumerator(newQuorumNumerator);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                   V3
+    //////////////////////////////////////////////////////////////*/
+
+    function cancel(
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        bytes32 descriptionHash
+    ) public onlyManager returns (uint256) {
+        return _cancel(targets, values, calldatas, descriptionHash);
     }
 }
