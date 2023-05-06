@@ -28,7 +28,6 @@ contract OptimismGovernorV5 is
                                LIBRARIES
     //////////////////////////////////////////////////////////////*/
 
-    using TimersUpgradeable for TimersUpgradeable.BlockNumber;
     using SafeCastUpgradeable for uint256;
     using TimersUpgradeable for TimersUpgradeable.BlockNumber;
 
