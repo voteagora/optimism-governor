@@ -13,3 +13,6 @@
 [submodule "lib/solady"]
 	path = lib/solady
 	url = https://github.com/vectorized/solady
+[submodule "lib/upgrade-scripts"]
+	path = lib/upgrade-scripts
+	url = https://github.com/0xPhaze/upgrade-scripts
