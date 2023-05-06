@@ -10,8 +10,9 @@ contract ApprovalVotingModule is VotingModule {
                                  ERRORS
     //////////////////////////////////////////////////////////////*/
 
+    error MaxChoicesExceeded();
     error MaxApprovalsExceeded();
-    error InvalidOption(uint256 option);
+    error optionsNotStrictlyAscending();
 
     /*//////////////////////////////////////////////////////////////
                                LIBRARIES
@@ -111,6 +112,9 @@ contract ApprovalVotingModule is VotingModule {
 
         uint256 optionsLength = proposalOptions.length;
         if (optionsLength == 0 || optionsLength > type(uint8).max) revert InvalidParams();
+        if (proposalSettings.criteria == uint8(PassingCriteria.TopChoices)) {
+            if (optionsLength > proposalSettings.criteriaValue) revert MaxChoicesExceeded();
+        }
 
         unchecked {
             // Ensure proposal params of each option have the same length between themselves
@@ -134,7 +138,7 @@ contract ApprovalVotingModule is VotingModule {
     }
 
     /**
-     * Count approvals voted by `account`.
+     * Count approvals voted by `account`. If voting for, options need to be set in ascending order.
      *
      * @param proposalId The id of the proposal.
      * @param account The account to count votes for.
@@ -159,22 +163,20 @@ contract ApprovalVotingModule is VotingModule {
             if (totalOptions == 0) revert InvalidParams();
             if (totalOptions > proposal.settings.maxApprovals) revert MaxApprovalsExceeded();
 
-            uint256 currOption;
+            uint256 option;
             uint256 prevOption;
             for (uint256 i; i < totalOptions;) {
-                currOption = options[i];
+                option = options[i];
 
-                /// @dev Expect options sorted in ascending order
+                // Revert if `option` is not strictly ascending
                 if (i != 0) {
-                    if (currOption <= prevOption) {
-                        revert InvalidOption(currOption);
-                    }
+                    if (option <= prevOption) revert optionsNotStrictlyAscending();
                 }
 
-                prevOption = currOption;
+                prevOption = option;
 
-                /// @dev Reverts if `currOption` is out of bounds
-                _proposals[proposalId].optionVotes[currOption] += weight_;
+                // TODO: Test - Check this revert if `option` is out of bounds
+                _proposals[proposalId].optionVotes[option] += weight_;
 
                 unchecked {
                     ++i;
@@ -214,37 +216,11 @@ contract ApprovalVotingModule is VotingModule {
 
         // Sort `options` by `optionVotes` in descending order
         (uint128[] memory optionVotes_, ProposalOption[] memory options_) =
-            _sort(_proposals[proposalId].optionVotes, options);
+            sortOptions(_proposals[proposalId].optionVotes, options);
 
-        uint256 executeParamsLength;
-        uint256 succeededOptionsLength;
+        (uint256 executeParamsLength, uint256 succeededOptionsLength) = countOptions(options_, optionVotes_, settings);
 
-        // Derive `executeParamsLength` and `succeededOptionsLength` based on passing criteria
-        uint256 n = options_.length;
-        unchecked {
-            uint256 i;
-            if (settings.criteria == uint8(PassingCriteria.Threshold)) {
-                for (i; i < n; ++i) {
-                    if (optionVotes_[i] >= settings.criteriaValue) {
-                        executeParamsLength += options_[i].targets.length;
-                    } else {
-                        break;
-                    }
-                }
-                succeededOptionsLength = i;
-            } else if (settings.criteria == uint8(PassingCriteria.TopChoices)) {
-                for (i; i < n; ++i) {
-                    if (succeededOptionsLength < settings.criteriaValue) {
-                        executeParamsLength += options_[i].targets.length;
-                        ++succeededOptionsLength;
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
-
-        n = 0;
+        uint256 n;
         uint256 totalValue;
         uint256 length;
         ProposalOption memory option;
@@ -261,24 +237,26 @@ contract ApprovalVotingModule is VotingModule {
                 // Shortcircuit if the budget is exceeded
                 if (settings.budget != 0) {
                     if (settings.budgetToken == address(0)) {
-                        // If `budgetToken` is ETH, add msg value to `totalValue`
-                        totalValue += option.values[n];
+                        // If `budgetToken` is ETH and value is not zero, add msg value to `totalValue`
+                        if (option.values[n] != 0) totalValue += option.values[n];
                     } else {
-                        // If `budgetToken` is not ETH and calldata is not zero
-                        if (option.calldatas[n].length != 0) {
-                            // If it's a `transfer` or `transferFrom`, add `amount` to `totalValue`
-                            uint256 amount;
-                            if (bytes4(option.calldatas[n]) == IERC20.transfer.selector) {
-                                (, amount) = abi.decode(option.calldatas[n], (address, uint256));
-                            } else if (bytes4(option.calldatas[n]) == IERC20.transferFrom.selector) {
-                                (,, amount) = abi.decode(option.calldatas[n], (address, address, uint256));
+                        // If `target` is `budgetToken` and calldata is not zero
+                        if (settings.budgetToken == option.targets[n]) {
+                            if (option.calldatas[n].length != 0) {
+                                // If it's a `transfer` or `transferFrom`, add `amount` to `totalValue`
+                                uint256 amount;
+                                if (bytes4(option.calldatas[n]) == IERC20.transfer.selector) {
+                                    (, amount) = abi.decode(option.calldatas[n], (address, uint256));
+                                } else if (bytes4(option.calldatas[n]) == IERC20.transferFrom.selector) {
+                                    (,, amount) = abi.decode(option.calldatas[n], (address, address, uint256));
+                                }
+                                if (amount != 0) totalValue += amount;
                             }
-                            if (amount != 0) totalValue += amount;
                         }
                     }
 
+                    // If budget is exceeded, reset `n` to the value at the end of last `option`
                     if (totalValue > settings.budget) {
-                        // If budget is exceeded, reset `n` to the value at the end of last `option`
                         unchecked {
                             n = length - option.targets.length;
                         }
@@ -407,7 +385,11 @@ contract ApprovalVotingModule is VotingModule {
         return 1;
     }
 
-    function _sort(uint128[] memory optionVotes, ProposalOption[] memory options)
+    /*//////////////////////////////////////////////////////////////
+                                HELPERS
+    //////////////////////////////////////////////////////////////*/
+
+    function sortOptions(uint128[] memory optionVotes, ProposalOption[] memory options)
         internal
         pure
         returns (uint128[] memory, ProposalOption[] memory)
@@ -440,6 +422,34 @@ contract ApprovalVotingModule is VotingModule {
             }
 
             return (optionVotes, options);
+        }
+    }
+
+    function countOptions(
+        ProposalOption[] memory options,
+        uint128[] memory optionVotes_,
+        ProposalSettings memory settings
+    ) internal pure returns (uint256 executeParamsLength, uint256 succeededOptionsLength) {
+        // Derive `executeParamsLength` and `succeededOptionsLength` based on passing criteria
+        uint256 n = options.length;
+        unchecked {
+            uint256 i;
+            if (settings.criteria == uint8(PassingCriteria.Threshold)) {
+                // if criteria is `Threshold`, loop through options until `optionVotes_` is less than threshold
+                for (i; i < n; ++i) {
+                    if (optionVotes_[i] >= settings.criteriaValue) {
+                        executeParamsLength += options[i].targets.length;
+                    } else {
+                        break;
+                    }
+                }
+            } else if (settings.criteria == uint8(PassingCriteria.TopChoices)) {
+                // if criteria is `TopChoices`, loop through options until the top choices are filled
+                for (i; i < settings.criteriaValue; ++i) {
+                    executeParamsLength += options[i].targets.length;
+                }
+            }
+            succeededOptionsLength = i;
         }
     }
 }
