@@ -4,4 +4,4 @@ out = 'out'
 libs = ['lib']
 
 [rpc_endpoints]
-op_goerli = "${OP_GOERLI_RPC_URL}"
+op = "${OPTIMISM_RPC_URL}"
