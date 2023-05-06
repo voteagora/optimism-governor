@@ -5,7 +5,7 @@ import {console} from "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 import {OptimismGovernorV1} from "../src/OptimismGovernorV1.sol";
 import {OptimismGovernorV3} from "../src/OptimismGovernorV3.sol";
-import {GovernanceToken as OptimismToken} from "../src/OptimismToken.sol";
+import {GovernanceToken as OptimismToken} from "../src/lib/OptimismToken.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IGovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/IGovernorUpgradeable.sol";
 
