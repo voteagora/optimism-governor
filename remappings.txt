@@ -3,3 +3,5 @@ forge-std/=lib/forge-std/src/
 @openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
 @solady/=lib/solady/src
+upgrade-scripts/=lib/upgrade-scripts/src/
+UDS/=lib/upgrade-scripts/lib/UDS/src/
