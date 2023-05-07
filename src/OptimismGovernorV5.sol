@@ -113,7 +113,6 @@ contract OptimismGovernorV5 is
     function executeWithModule(VotingModule module, bytes memory proposalData, bytes32 descriptionHash)
         public
         payable
-        onlyManager
         returns (uint256)
     {
         uint256 proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
@@ -143,12 +142,12 @@ contract OptimismGovernorV5 is
      * @param proposalData The proposal data to pass to the voting module.
      * @param descriptionHash The hash of the proposal description.
      */
-    function cancelWithModule(address module, bytes memory proposalData, bytes32 descriptionHash)
+    function cancelWithModule(VotingModule module, bytes memory proposalData, bytes32 descriptionHash)
         public
         onlyManager
         returns (uint256)
     {
-        uint256 proposalId = hashProposalWithModule(module, proposalData, descriptionHash);
+        uint256 proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
         ProposalState status = state(proposalId);
 
         require(
