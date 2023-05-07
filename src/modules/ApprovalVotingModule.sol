@@ -128,7 +128,7 @@ contract ApprovalVotingModule is VotingModule {
 
             // Push proposal options in storage
             for (uint256 i; i < optionsLength; ++i) {
-                _proposals[proposalId].options[i] = proposalOptions[i];
+                _proposals[proposalId].options.push(proposalOptions[i]);
             }
         }
 
