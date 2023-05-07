@@ -61,10 +61,12 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
 
-    OptimismGovernorV5Mock private governor;
-    ApprovalVotingModule private module;
     string description = "a nice description";
     address voter = makeAddr("voter");
+    address altVoter = makeAddr("altVoter");
+
+    OptimismGovernorV5Mock private governor;
+    ApprovalVotingModule private module;
 
     /*//////////////////////////////////////////////////////////////
                                  SETUP
@@ -85,9 +87,11 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
             abi.encodeCall(OptimismGovernorV2.initialize, (IVotesUpgradeable(address(op)), manager))
         );
 
-        vm.prank(op.owner());
+        vm.startPrank(op.owner());
         op.mint(voter, 1e18);
-        op.mint(address(this), 1e20);
+        op.mint(altVoter, 1e20);
+        vm.stopPrank();
+
         vm.prank(voter);
         op.delegate(voter);
 
