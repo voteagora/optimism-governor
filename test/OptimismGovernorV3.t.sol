@@ -9,14 +9,14 @@ import {GovernanceToken as OptimismToken} from "../src/lib/OptimismToken.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IGovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/IGovernorUpgradeable.sol";
 
-contract OptimismGovernorV1Test is Test {
-    OptimismGovernorV3 internal governor;
+contract OptimismGovernorV3Test is Test {
+    OptimismGovernorV3 private governor;
 
-    OptimismToken internal constant op = OptimismToken(0x4200000000000000000000000000000000000042);
-    address internal constant admin = 0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa;
-    address internal constant manager = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
+    OptimismToken internal op = OptimismToken(0x4200000000000000000000000000000000000042);
+    address internal admin = makeAddr("admin");
+    address internal manager = makeAddr("manager");
 
-    function setUp() public {
+    function setUp() public virtual {
         // Block number 60351051 is ~ 2023-01-04 20:33:00 PT
         vm.createSelectFork("https://mainnet.optimism.io", 60351051);
 
@@ -27,7 +27,11 @@ contract OptimismGovernorV1Test is Test {
             abi.encodeWithSelector(OptimismGovernorV1.initialize.selector, op, manager)
         );
 
-        governor = OptimismGovernorV3(payable(address(proxy)));
+        _setUp(payable(proxy));
+    }
+
+    function _setUp(address payable proxy) public virtual {
+        governor = OptimismGovernorV3(proxy);
     }
 
     function testUpdateSettings() public {
