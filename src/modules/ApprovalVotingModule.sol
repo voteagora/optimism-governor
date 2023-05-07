@@ -5,6 +5,50 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {VotingModule} from "./VotingModule.sol";
 import {SafeCastLib} from "@solady/utils/SafeCastLib.sol";
 
+enum VoteType {
+    For,
+    Abstain
+}
+
+enum PassingCriteria {
+    Threshold,
+    TopChoices
+}
+
+struct ExecuteParams {
+    address targets;
+    uint256 values;
+    bytes calldatas;
+}
+
+struct ProposalVotes {
+    uint128 forVotes;
+    uint128 abstainVotes;
+}
+
+struct ProposalSettings {
+    uint8 maxApprovals;
+    uint8 criteria;
+    address budgetToken;
+    uint128 criteriaValue;
+    uint128 budgetAmount;
+}
+
+struct ProposalOption {
+    address[] targets;
+    uint256[] values;
+    bytes[] calldatas;
+    string description;
+}
+
+struct Proposal {
+    address governor;
+    uint128[] optionVotes;
+    ProposalVotes votes;
+    ProposalOption[] options;
+    ProposalSettings settings;
+}
+
 contract ApprovalVotingModule is VotingModule {
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -46,50 +90,6 @@ contract ApprovalVotingModule is VotingModule {
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
-
-    enum VoteType {
-        For,
-        Abstain
-    }
-
-    enum PassingCriteria {
-        Threshold,
-        TopChoices
-    }
-
-    struct ExecuteParams {
-        address targets;
-        uint256 values;
-        bytes calldatas;
-    }
-
-    struct ProposalVotes {
-        uint128 forVotes;
-        uint128 abstainVotes;
-    }
-
-    struct ProposalSettings {
-        uint8 maxApprovals;
-        uint8 criteria;
-        address budgetToken;
-        uint128 criteriaValue;
-        uint128 budgetAmount;
-    }
-
-    struct ProposalOption {
-        address[] targets;
-        uint256[] values;
-        bytes[] calldatas;
-        string description;
-    }
-
-    struct Proposal {
-        address governor;
-        uint128[] optionVotes;
-        ProposalVotes votes;
-        ProposalOption[] options;
-        ProposalSettings settings;
-    }
 
     mapping(uint256 proposalId => Proposal) public _proposals;
     mapping(uint256 proposalId => mapping(address account => uint8 votes)) public _accountVotes;
