@@ -113,7 +113,7 @@ contract ApprovalVotingModule is VotingModule {
         uint256 optionsLength = proposalOptions.length;
         if (optionsLength == 0 || optionsLength > type(uint8).max) revert InvalidParams();
         if (proposalSettings.criteria == uint8(PassingCriteria.TopChoices)) {
-            if (optionsLength > proposalSettings.criteriaValue) revert MaxChoicesExceeded();
+            if (proposalSettings.criteriaValue > optionsLength) revert MaxChoicesExceeded();
         }
 
         unchecked {
