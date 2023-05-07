@@ -32,7 +32,7 @@ contract ApprovalVotingModule is VotingModule {
      * on expected types.
      */
     string public constant override PROPOSAL_DATA_ENCODING =
-        "((address[] targets,uint256[] values,bytes[] calldatas,string description)[] proposalOptions,(uint8 maxApprovals,uint8 criteria,address budgetToken,uint128 criteriaValue,uint128 budget) proposalSettings)";
+        "((address[] targets,uint256[] values,bytes[] calldatas,string description)[] proposalOptions,(uint8 maxApprovals,uint8 criteria,address budgetToken,uint128 criteriaValue,uint128 budgetAmount) proposalSettings)";
 
     /**
      * Defines the encoding for the expected `params` in `_countVote`.
@@ -73,7 +73,7 @@ contract ApprovalVotingModule is VotingModule {
         uint8 criteria;
         address budgetToken;
         uint128 criteriaValue;
-        uint128 budget;
+        uint128 budgetAmount;
     }
 
     struct ProposalOption {
@@ -227,7 +227,7 @@ contract ApprovalVotingModule is VotingModule {
         ProposalOption memory option;
         ExecuteParams[] memory executeParams = new ExecuteParams[](executeParamsLength);
 
-        // Flatten `options` by filling `executeParams` until budget is exceeded
+        // Flatten `options` by filling `executeParams` until budgetAmount is exceeded
         for (uint256 i; i < succeededOptionsLength;) {
             option = sortedOptions[i];
             unchecked {
@@ -235,8 +235,8 @@ contract ApprovalVotingModule is VotingModule {
             }
 
             for (n; n < length;) {
-                // Shortcircuit if the budget is exceeded
-                if (settings.budget != 0) {
+                // Shortcircuit if `budgetAmount` is exceeded
+                if (settings.budgetAmount != 0) {
                     if (settings.budgetToken == address(0)) {
                         // If `budgetToken` is ETH and value is not zero, add msg value to `totalValue`
                         if (option.values[n] != 0) totalValue += option.values[n];
@@ -256,8 +256,8 @@ contract ApprovalVotingModule is VotingModule {
                         }
                     }
 
-                    // If budget is exceeded, reset `n` to the value at the end of last `option`
-                    if (totalValue > settings.budget) {
+                    // If `budgetAmount` is exceeded, reset `n` to the value at the end of last `option`
+                    if (totalValue > settings.budgetAmount) {
                         unchecked {
                             n = length - option.targets.length;
                         }
@@ -272,9 +272,9 @@ contract ApprovalVotingModule is VotingModule {
                 }
             }
 
-            // Break loop if budget is exceeded
-            if (settings.budget != 0) {
-                if (totalValue > settings.budget) break;
+            // Break loop if `budgetAmount` is exceeded
+            if (settings.budgetAmount != 0) {
+                if (totalValue > settings.budgetAmount) break;
             }
 
             unchecked {
