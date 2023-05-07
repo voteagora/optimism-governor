@@ -56,7 +56,7 @@ contract ApprovalVotingModule is VotingModule {
 
     error MaxChoicesExceeded();
     error MaxApprovalsExceeded();
-    error optionsNotStrictlyAscending();
+    error OptionsNotStrictlyAscending();
 
     /*//////////////////////////////////////////////////////////////
                                LIBRARIES
@@ -170,12 +170,12 @@ contract ApprovalVotingModule is VotingModule {
 
                 // Revert if `option` is not strictly ascending
                 if (i != 0) {
-                    if (option <= prevOption) revert optionsNotStrictlyAscending();
+                    if (option <= prevOption) revert OptionsNotStrictlyAscending();
                 }
 
                 prevOption = option;
 
-                // TODO: Test - Check this revert if `option` is out of bounds
+                /// @dev Revert if `option` is out of bounds
                 _proposals[proposalId].optionVotes[option] += weight_;
 
                 unchecked {
@@ -390,7 +390,8 @@ contract ApprovalVotingModule is VotingModule {
                                 HELPERS
     //////////////////////////////////////////////////////////////*/
 
-    function sortOptions(uint128[] memory optionVotes, ProposalOption[] memory options)
+    // Sort `options` by `optionVotes` in descending order
+    function _sortOptions(uint128[] memory optionVotes, ProposalOption[] memory options)
         internal
         pure
         returns (uint128[] memory, ProposalOption[] memory)
@@ -426,12 +427,12 @@ contract ApprovalVotingModule is VotingModule {
         }
     }
 
-    function countOptions(
+    // Derive `executeParamsLength` and `succeededOptionsLength` based on passing criteria
+    function _countOptions(
         ProposalOption[] memory options,
         uint128[] memory optionVotes,
         ProposalSettings memory settings
     ) internal pure returns (uint256 executeParamsLength, uint256 succeededOptionsLength) {
-        // Derive `executeParamsLength` and `succeededOptionsLength` based on passing criteria
         uint256 n = options.length;
         unchecked {
             uint256 i;
