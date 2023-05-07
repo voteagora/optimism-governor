@@ -214,27 +214,23 @@ contract ApprovalVotingModule is VotingModule {
         (ProposalOption[] memory options, ProposalSettings memory settings) =
             abi.decode(proposalData, (ProposalOption[], ProposalSettings));
 
-        // Sort `options` by `optionVotes` in descending order
         (uint128[] memory sortedOptionVotes, ProposalOption[] memory sortedOptions) =
-            sortOptions(_proposals[proposalId].optionVotes, options);
+            _sortOptions(_proposals[proposalId].optionVotes, options);
 
         (uint256 executeParamsLength, uint256 succeededOptionsLength) =
-            countOptions(sortedOptions, sortedOptionVotes, settings);
+            _countOptions(sortedOptions, sortedOptionVotes, settings);
 
+        ExecuteParams[] memory executeParams = new ExecuteParams[](executeParamsLength);
+        executeParamsLength = 0;
         uint256 n;
         uint256 totalValue;
-        uint256 length;
         ProposalOption memory option;
-        ExecuteParams[] memory executeParams = new ExecuteParams[](executeParamsLength);
 
         // Flatten `options` by filling `executeParams` until budgetAmount is exceeded
         for (uint256 i; i < succeededOptionsLength;) {
             option = sortedOptions[i];
-            unchecked {
-                length = n + option.targets.length;
-            }
 
-            for (n; n < length;) {
+            for (n = 0; n < option.targets.length;) {
                 // Shortcircuit if `budgetAmount` is exceeded
                 if (settings.budgetAmount != 0) {
                     if (settings.budgetToken == address(0)) {
@@ -243,31 +239,34 @@ contract ApprovalVotingModule is VotingModule {
                     } else {
                         // If `target` is `budgetToken` and calldata is not zero
                         if (settings.budgetToken == option.targets[n]) {
-                            if (option.calldatas[n].length != 0) {
-                                // If it's a `transfer` or `transferFrom`, add `amount` to `totalValue`
+                            bytes memory data = option.calldatas[n];
+                            if (data.length != 0) {
                                 uint256 amount;
-                                if (bytes4(option.calldatas[n]) == IERC20.transfer.selector) {
-                                    (, amount) = abi.decode(option.calldatas[n], (address, uint256));
-                                } else if (bytes4(option.calldatas[n]) == IERC20.transferFrom.selector) {
-                                    (,, amount) = abi.decode(option.calldatas[n], (address, address, uint256));
+                                // If it's a `transfer` or `transferFrom`, add `amount` to `totalValue`
+                                if (bytes4(data) == IERC20.transfer.selector) {
+                                    assembly {
+                                        // Load the last 32 bytes of `data` into 'amount'
+                                        amount := mload(add(data, 0x44))
+                                    }
+                                } else if (bytes4(data) == IERC20.transferFrom.selector) {
+                                    assembly {
+                                        // Load the last 32 bytes of `data` into 'amount'
+                                        amount := mload(add(data, 0x64))
+                                    }
                                 }
                                 if (amount != 0) totalValue += amount;
                             }
                         }
                     }
 
-                    // If `budgetAmount` is exceeded, reset `n` to the value at the end of last `option`
-                    if (totalValue > settings.budgetAmount) {
-                        unchecked {
-                            n = length - option.targets.length;
-                        }
-                        break;
-                    }
+                    // Break loop if `budgetAmount` is exceeded
+                    if (totalValue > settings.budgetAmount) break;
                 }
 
-                executeParams[n] = ExecuteParams(option.targets[n], option.values[n], option.calldatas[n]);
-
                 unchecked {
+                    executeParams[executeParamsLength + n] =
+                        ExecuteParams(option.targets[n], option.values[n], option.calldatas[n]);
+
                     ++n;
                 }
             }
@@ -278,17 +277,19 @@ contract ApprovalVotingModule is VotingModule {
             }
 
             unchecked {
+                executeParamsLength += n;
+
                 ++i;
             }
         }
 
         // Init param lengths based on the `n` passed elements
-        targets = new address[](n);
-        values = new uint256[](n);
-        calldatas = new bytes[](n);
+        targets = new address[](executeParamsLength);
+        values = new uint256[](executeParamsLength);
+        calldatas = new bytes[](executeParamsLength);
 
         // Set n `targets`, `values` and `calldatas`
-        for (uint256 i; i < n;) {
+        for (uint256 i; i < executeParamsLength;) {
             targets[i] = executeParams[i].targets;
             values[i] = executeParams[i].values;
             calldatas[i] = executeParams[i].calldatas;
