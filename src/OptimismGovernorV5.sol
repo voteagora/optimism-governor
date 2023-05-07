@@ -84,7 +84,7 @@ contract OptimismGovernorV5 is
             "Governor: proposer votes below proposal threshold"
         );
 
-        uint256 proposalId = hashProposalWithData(address(module), proposalData, keccak256(bytes(description)));
+        uint256 proposalId = hashProposalWithModule(address(module), proposalData, keccak256(bytes(description)));
 
         ProposalCore storage proposal = _proposals[proposalId];
         require(proposal.voteStart.isUnset(), "Governor: proposal already exists");
@@ -116,7 +116,7 @@ contract OptimismGovernorV5 is
         onlyManager
         returns (uint256)
     {
-        uint256 proposalId = hashProposalWithData(address(module), proposalData, descriptionHash);
+        uint256 proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
 
         ProposalState status = state(proposalId);
         require(
@@ -148,7 +148,7 @@ contract OptimismGovernorV5 is
         onlyManager
         returns (uint256)
     {
-        uint256 proposalId = hashProposalWithData(module, proposalData, descriptionHash);
+        uint256 proposalId = hashProposalWithModule(module, proposalData, descriptionHash);
         ProposalState status = state(proposalId);
 
         require(
@@ -277,7 +277,7 @@ contract OptimismGovernorV5 is
      * @param descriptionHash The hash of the proposal description.
      * @return The id of the proposal.
      */
-    function hashProposalWithData(address module, bytes memory proposalData, bytes32 descriptionHash)
+    function hashProposalWithModule(address module, bytes memory proposalData, bytes32 descriptionHash)
         public
         view
         virtual
