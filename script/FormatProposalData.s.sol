@@ -12,7 +12,7 @@ contract FormatProposalDataScript is Script {
     address governor = 0x6E17cdef2F7c1598AD9DfA9A8acCF84B1303f43f;
 
     function run() public view returns (bytes memory proposalData) {
-        return _formatProposalData(false, false);
+        return _formatProposalData(true, false);
     }
 
     function _formatProposalData(bool budgetExceeded, bool isBudgetOp)
