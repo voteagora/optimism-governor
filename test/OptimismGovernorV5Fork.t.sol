@@ -12,7 +12,7 @@ contract OptimismGovernorV5UpgradeTest is Test {
     address internal constant op = 0x4200000000000000000000000000000000000042;
     TransparentUpgradeableProxy internal constant proxy =
         TransparentUpgradeableProxy(payable(0xcDF27F107725988f2261Ce2256bDfCdE8B382B10));
-    OptimismGovernorV5 internal governor = OptimismGovernorV5(payable(address(proxy)));
+    OptimismGovernorV5 internal governor = OptimismGovernorV5(payable(proxy));
     OptimismGovernorV5 internal implementation;
 
     function setUp() public {
@@ -25,7 +25,5 @@ contract OptimismGovernorV5UpgradeTest is Test {
     function testUpgrade() public {
         vm.prank(admin);
         proxy.upgradeTo(address(implementation));
-
-        // TODO: Write tests for the new implementation
     }
 }
