@@ -68,10 +68,10 @@ Main implementation
 - Added support for voting modules
 
   - Update OZ `Governor` storage to add `moduleAddress` in `ProposalCore` struct
-  - Updated / added new functions and events in `[OptimismGovernorV5](/src/OptimismGovernorV5.sol)` to interact with external modules
+  - Updated / added new functions and events in [`OptimismGovernorV5`](/src/OptimismGovernorV5.sol) to interact with external modules
   - Updated `COUNTING_MODE` to also include `params=modules`
 
-- Added `[ApprovalVotingModule](/src/modules/ApprovalVotingModule.sol)`
+- Added [`ApprovalVotingModule`](/src/modules/ApprovalVotingModule.sol)
 
 ## Deployment
 
