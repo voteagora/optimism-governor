@@ -242,6 +242,7 @@ contract ApprovalVotingModuleTest is Test {
         uint256 proposalId = 1;
         uint256 weight = 100;
 
+        vm.startPrank(governor);
         module.propose(proposalId, proposalData);
 
         uint256[] memory votes = new uint256[](2);
@@ -253,6 +254,7 @@ contract ApprovalVotingModuleTest is Test {
 
         (address[] memory targets, uint256[] memory values, bytes[] memory calldatas) =
             module._formatExecuteParams(proposalId, proposalData);
+        vm.stopPrank();
 
         assertEq(targets.length, options[1].targets.length + options[2].targets.length);
         assertEq(targets.length, values.length);
@@ -273,6 +275,7 @@ contract ApprovalVotingModuleTest is Test {
         uint256 proposalId = 1;
         uint256 weight = 100;
 
+        vm.startPrank(governor);
         module.propose(proposalId, proposalData);
 
         uint256[] memory votes = new uint256[](2);
@@ -284,6 +287,7 @@ contract ApprovalVotingModuleTest is Test {
 
         (address[] memory targets, uint256[] memory values, bytes[] memory calldatas) =
             module._formatExecuteParams(proposalId, proposalData);
+        vm.stopPrank();
 
         assertEq(targets.length, options[0].targets.length);
         assertEq(targets.length, values.length);
@@ -294,6 +298,40 @@ contract ApprovalVotingModuleTest is Test {
     }
 
     function testFormatExecuteParams_opBudgetExceeded() public {
+        (bytes memory proposalData, ProposalOption[] memory options,) = _formatProposalData(true, true);
+        uint256 proposalId = 1;
+        uint256 weight = 100;
+
+        vm.startPrank(governor);
+        module.propose(proposalId, proposalData);
+
+        uint256[] memory votes = new uint256[](2);
+        votes[0] = 1;
+        votes[1] = 2;
+        bytes memory params = abi.encode(votes);
+        uint256[] memory altVotes = new uint256[](1);
+        altVotes[0] = 1;
+        bytes memory altParams = abi.encode(altVotes);
+
+        module._countVote(proposalId, voter, uint8(VoteType.For), weight, params);
+        module._countVote(proposalId, altVoter, uint8(VoteType.For), weight, altParams);
+
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas) =
+            module._formatExecuteParams(proposalId, proposalData);
+        vm.stopPrank();
+
+        assertEq(targets.length, options[1].targets.length);
+        assertEq(targets.length, values.length);
+        assertEq(targets.length, calldatas.length);
+        assertEq(targets[0], options[1].targets[0]);
+        assertEq(values[0], options[1].values[0]);
+        assertEq(calldatas[0], options[1].calldatas[0]);
+        assertEq(targets[1], options[1].targets[1]);
+        assertEq(values[1], options[1].values[1]);
+        assertEq(calldatas[1], options[1].calldatas[1]);
+    }
+
+    function testFormatExecuteParams_opBudgetNotExceededIfNotOnGovernor() public {
         (bytes memory proposalData, ProposalOption[] memory options,) = _formatProposalData(true, true);
         uint256 proposalId = 1;
         uint256 weight = 100;
@@ -314,7 +352,7 @@ contract ApprovalVotingModuleTest is Test {
         (address[] memory targets, uint256[] memory values, bytes[] memory calldatas) =
             module._formatExecuteParams(proposalId, proposalData);
 
-        assertEq(targets.length, options[1].targets.length);
+        assertEq(targets.length, options[1].targets.length + options[2].targets.length);
         assertEq(targets.length, values.length);
         assertEq(targets.length, calldatas.length);
         assertEq(targets[0], options[1].targets[0]);
@@ -323,6 +361,9 @@ contract ApprovalVotingModuleTest is Test {
         assertEq(targets[1], options[1].targets[1]);
         assertEq(values[1], options[1].values[1]);
         assertEq(calldatas[1], options[1].calldatas[1]);
+        assertEq(targets[2], options[2].targets[0]);
+        assertEq(values[2], options[2].values[0]);
+        assertEq(calldatas[2], options[2].calldatas[0]);
     }
 
     /*//////////////////////////////////////////////////////////////

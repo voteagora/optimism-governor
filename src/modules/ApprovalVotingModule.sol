@@ -209,7 +209,8 @@ contract ApprovalVotingModule is VotingModule {
         override
         returns (address[] memory targets, uint256[] memory values, bytes[] memory calldatas)
     {
-        _onlyGovernor(_proposals[proposalId].governor);
+        address governor = _proposals[proposalId].governor;
+        _onlyGovernor(governor);
 
         (ProposalOption[] memory options, ProposalSettings memory settings) =
             abi.decode(proposalData, (ProposalOption[], ProposalSettings));
@@ -250,8 +251,12 @@ contract ApprovalVotingModule is VotingModule {
                                     }
                                 } else if (bytes4(data) == IERC20.transferFrom.selector) {
                                     assembly {
-                                        // Load the last 32 bytes of `data` into 'amount'
-                                        amount := mload(add(data, 0x64))
+                                        // If `from` is 'governor'
+                                        let from := mload(add(data, 0x24))
+                                        if eq(from, governor) {
+                                            // Load the last 32 bytes of `data` into 'amount'
+                                            amount := mload(add(data, 0x64))
+                                        }
                                     }
                                 }
                                 if (amount != 0) totalValue += amount;
