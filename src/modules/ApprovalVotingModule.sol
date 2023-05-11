@@ -35,6 +35,7 @@ struct ProposalSettings {
 }
 
 struct ProposalOption {
+    uint256 budgetAmount;
     address[] targets;
     uint256[] values;
     bytes[] calldatas;
@@ -43,6 +44,7 @@ struct ProposalOption {
 
 struct Proposal {
     address governor;
+    uint256 initBalance;
     uint128[] optionVotes;
     ProposalVotes votes;
     ProposalOption[] options;
@@ -56,6 +58,7 @@ contract ApprovalVotingModule is VotingModule {
 
     error MaxChoicesExceeded();
     error MaxApprovalsExceeded();
+    error BudgetExceeded();
     error OptionsNotStrictlyAscending();
 
     /*//////////////////////////////////////////////////////////////
@@ -205,7 +208,6 @@ contract ApprovalVotingModule is VotingModule {
      */
     function _formatExecuteParams(uint256 proposalId, bytes memory proposalData)
         public
-        view
         override
         returns (address[] memory targets, uint256[] memory values, bytes[] memory calldatas)
     {
@@ -214,6 +216,12 @@ contract ApprovalVotingModule is VotingModule {
 
         (ProposalOption[] memory options, ProposalSettings memory settings) =
             abi.decode(proposalData, (ProposalOption[], ProposalSettings));
+
+        // If budgetToken is not ETH
+        if (settings.budgetToken != address(0)) {
+            // Save initBalance to be used as comparison in `_afterExecute`
+            _proposals[proposalId].initBalance = IERC20(settings.budgetToken).balanceOf(governor);
+        }
 
         (uint128[] memory sortedOptionVotes, ProposalOption[] memory sortedOptions) =
             _sortOptions(_proposals[proposalId].optionVotes, options);
@@ -237,31 +245,6 @@ contract ApprovalVotingModule is VotingModule {
                     if (settings.budgetToken == address(0)) {
                         // If `budgetToken` is ETH and value is not zero, add msg value to `totalValue`
                         if (option.values[n] != 0) totalValue += option.values[n];
-                    } else {
-                        // If `target` is `budgetToken` and calldata is not zero
-                        if (settings.budgetToken == option.targets[n]) {
-                            bytes memory data = option.calldatas[n];
-                            if (data.length != 0) {
-                                uint256 amount;
-                                // If it's a `transfer` or `transferFrom`, add `amount` to `totalValue`
-                                if (bytes4(data) == IERC20.transfer.selector) {
-                                    assembly {
-                                        // Load the last 32 bytes of `data` into 'amount'
-                                        amount := mload(add(data, 0x44))
-                                    }
-                                } else if (bytes4(data) == IERC20.transferFrom.selector) {
-                                    assembly {
-                                        // If `from` is 'governor'
-                                        let from := mload(add(data, 0x24))
-                                        if eq(from, governor) {
-                                            // Load the last 32 bytes of `data` into 'amount'
-                                            amount := mload(add(data, 0x64))
-                                        }
-                                    }
-                                }
-                                if (amount != 0) totalValue += amount;
-                            }
-                        }
                     }
 
                     // Break loop if `budgetAmount` is exceeded
@@ -276,8 +259,13 @@ contract ApprovalVotingModule is VotingModule {
                 }
             }
 
-            // Break loop if `budgetAmount` is exceeded
             if (settings.budgetAmount != 0) {
+                // If `budgetToken` is not ETH and `option.budgetAmount` is not zero, add amount to `totalValue`
+                if (settings.budgetToken != address(0)) {
+                    if (option.budgetAmount != 0) totalValue += option.budgetAmount;
+                }
+
+                // Break loop if `budgetAmount` is exceeded
                 if (totalValue > settings.budgetAmount) break;
             }
 
@@ -302,6 +290,27 @@ contract ApprovalVotingModule is VotingModule {
             unchecked {
                 ++i;
             }
+        }
+    }
+
+    /**
+     * Hook called by a governor after execute, for `proposalId` with `proposalData`.
+     * Revert if the transaction has resulted in more tokens being spent than `budgetAmount`.
+     *
+     * @param proposalId The id of the proposal.
+     * @param proposalData The proposal data encoded as `(ProposalOption[], ProposalSettings)`.
+     */
+    function _afterExecute(uint256 proposalId, bytes memory proposalData) public view override {
+        (, ProposalSettings memory settings) = abi.decode(proposalData, (ProposalOption[], ProposalSettings));
+
+        if (settings.budgetToken != address(0)) {
+            address governor = _proposals[proposalId].governor;
+            _onlyGovernor(governor);
+
+            if (
+                _proposals[proposalId].initBalance - IERC20(settings.budgetToken).balanceOf(governor)
+                    > settings.budgetAmount
+            ) revert BudgetExceeded();
         }
     }
 
