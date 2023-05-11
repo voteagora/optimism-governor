@@ -35,7 +35,7 @@ struct ProposalSettings {
 }
 
 struct ProposalOption {
-    uint256 budgetAmount;
+    uint256 budgetTokensSpent;
     address[] targets;
     uint256[] values;
     bytes[] calldatas;
@@ -262,7 +262,7 @@ contract ApprovalVotingModule is VotingModule {
             if (settings.budgetAmount != 0) {
                 // If `budgetToken` is not ETH and `option.budgetAmount` is not zero, add amount to `totalValue`
                 if (settings.budgetToken != address(0)) {
-                    if (option.budgetAmount != 0) totalValue += option.budgetAmount;
+                    if (option.budgetTokensSpent != 0) totalValue += option.budgetTokensSpent;
                 }
 
                 // Break loop if `budgetAmount` is exceeded
