@@ -327,8 +327,8 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
         calldatas2[1] = abi.encodeCall(IERC20.transfer, (receiver2, 100));
 
         ProposalOption[] memory options = new ProposalOption[](2);
-        options[0] = ProposalOption(targets1, values1, calldatas1, "option 1");
-        options[1] = ProposalOption(targets2, values2, calldatas2, "option 2");
+        options[0] = ProposalOption(0, targets1, values1, calldatas1, "option 1");
+        options[1] = ProposalOption(100, targets2, values2, calldatas2, "option 2");
         ProposalSettings memory settings = ProposalSettings({
             maxApprovals: 1,
             criteria: uint8(PassingCriteria.TopChoices),

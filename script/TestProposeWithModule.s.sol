@@ -51,8 +51,8 @@ contract TestProposeWithModuleScript is Script {
         calldatas2[1] = calldatas2[0];
 
         ProposalOption[] memory options = new ProposalOption[](3);
-        options[0] = ProposalOption(targets1, values1, calldatas1, "option 1");
-        options[1] = ProposalOption(targets2, values2, calldatas2, "option 2");
+        options[0] = ProposalOption(0, targets1, values1, calldatas1, "my option 1");
+        options[1] = ProposalOption(budgetExceeded ? 6e17 : 100, targets2, values2, calldatas2, "my option 2");
 
         address[] memory targets3 = new address[](1);
         uint256[] memory values3 = new uint256[](1);
@@ -60,7 +60,7 @@ contract TestProposeWithModuleScript is Script {
         targets3[0] = op;
         calldatas3[0] = abi.encodeCall(IERC20.transferFrom, (address(governor), receiver1, budgetExceeded ? 6e17 : 100));
 
-        options[2] = ProposalOption(targets3, values3, calldatas3, "option 3");
+        options[2] = ProposalOption(budgetExceeded ? 6e17 : 100, targets3, values3, calldatas3, "my option 3");
         ProposalSettings memory settings = ProposalSettings({
             maxApprovals: 2,
             criteria: uint8(PassingCriteria.TopChoices),
