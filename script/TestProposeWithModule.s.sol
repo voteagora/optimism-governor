@@ -17,8 +17,8 @@ contract TestProposeWithModuleScript is Script {
     function run() public {
         address deployer = vm.rememberKey(vm.envUint("MANAGER_KEY"));
 
-        bytes memory proposalData = _formatProposalData(true, false);
-        string memory description = "# Approval Voting Test 1 /n/n Hello op";
+        bytes memory proposalData = _formatProposalData(true, true);
+        string memory description = "# Approval Voting Test\n\nHello op";
 
         vm.startBroadcast(deployer);
 
