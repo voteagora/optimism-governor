@@ -18,7 +18,7 @@ contract TestProposeWithModuleScript is Script {
         address deployer = vm.rememberKey(vm.envUint("MANAGER_KEY"));
 
         bytes memory proposalData = _formatProposalData(true, true);
-        string memory description = "# Approval Voting Test\n\nHello op";
+        string memory description = "# Approval Voting Test 3\nHello op";
 
         vm.startBroadcast(deployer);
 
