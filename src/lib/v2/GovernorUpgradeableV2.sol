@@ -19,6 +19,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 /**
  * Modifications:
  * - Added `votingModule` to `ProposalCore` struct
+ * - Removed checks for Queued and Expired proposal state
  */
 abstract contract GovernorUpgradeableV2 is
     Initializable,
