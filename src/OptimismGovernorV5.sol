@@ -84,7 +84,9 @@ contract OptimismGovernorV5 is
             "Governor: proposer votes below proposal threshold"
         );
 
-        uint256 proposalId = hashProposalWithModule(address(module), proposalData, keccak256(bytes(description)));
+        bytes32 descriptionHash = keccak256(bytes(description));
+
+        uint256 proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
 
         ProposalCore storage proposal = _proposals[proposalId];
         require(proposal.voteStart.isUnset(), "Governor: proposal already exists");
@@ -96,9 +98,9 @@ contract OptimismGovernorV5 is
         proposal.voteEnd.setDeadline(deadline);
         proposal.votingModule = address(module);
 
-        emit ProposalCreated(proposalId, _msgSender(), address(module), proposalData, snapshot, deadline, description);
+        module.propose(proposalId, proposalData, descriptionHash);
 
-        module.propose(proposalId, proposalData);
+        emit ProposalCreated(proposalId, _msgSender(), address(module), proposalData, snapshot, deadline, description);
 
         return proposalId;
     }
