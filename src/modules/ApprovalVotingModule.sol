@@ -79,7 +79,7 @@ contract ApprovalVotingModule is VotingModule {
      * on expected types.
      */
     string public constant override PROPOSAL_DATA_ENCODING =
-        "((address[] targets,uint256[] values,bytes[] calldatas,string description)[] proposalOptions,(uint8 maxApprovals,uint8 criteria,address budgetToken,uint128 criteriaValue,uint128 budgetAmount) proposalSettings)";
+        "((uint256 budgetTokensSpent,address[] targets,uint256[] values,bytes[] calldatas,string description)[] proposalOptions,(uint8 maxApprovals,uint8 criteria,address budgetToken,uint128 criteriaValue,uint128 budgetAmount) proposalSettings)";
 
     /**
      * Defines the encoding for the expected `params` in `_countVote`.
@@ -88,7 +88,7 @@ contract ApprovalVotingModule is VotingModule {
      * @dev Can be used by clients to interact with modules programmatically without prior knowledge
      * on expected types.
      */
-    string public constant override VOTE_PARAMS_ENCODING = "uint256[] options";
+    string public constant override VOTE_PARAMS_ENCODING = "uint256[] optionIds";
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
