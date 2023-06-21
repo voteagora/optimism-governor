@@ -132,11 +132,8 @@ contract ApprovalVotingModule is VotingModule {
                 if (option.targets.length != option.values.length || option.targets.length != option.calldatas.length) {
                     revert InvalidParams();
                 }
-            }
 
-            // Push proposal options in storage
-            for (uint256 i; i < optionsLength; ++i) {
-                _proposals[proposalId].options.push(proposalOptions[i]);
+                _proposals[proposalId].options.push(option);
             }
         }
 
