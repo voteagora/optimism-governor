@@ -452,6 +452,15 @@ contract ApprovalVotingModuleTest is Test {
         module._countVote(proposalId, voter, uint8(VoteType.For), weight, params);
     }
 
+    function testRevert_propose_wrongProposalId() public {
+        (bytes memory proposalData,,) = _formatProposalData();
+
+        uint256 proposalId = hashProposalWithModule(governor, address(module), proposalData, descriptionHash);
+
+        vm.expectRevert(ApprovalVotingModule.WrongProposalId.selector);
+        module.propose(proposalId, proposalData, descriptionHash);
+    }
+
     function testRevert_countVote_invalidParams() public {
         (bytes memory proposalData,,) = _formatProposalData();
         uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
