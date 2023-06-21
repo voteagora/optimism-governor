@@ -310,12 +310,12 @@ contract ApprovalVotingModuleTest is Test {
         votes[0] = 1;
         votes[1] = 2;
         bytes memory params = abi.encode(votes);
-        uint256[] memory altVotes = new uint256[](1);
-        altVotes[0] = 1;
-        bytes memory altParams = abi.encode(altVotes);
-
         module._countVote(proposalId, voter, uint8(VoteType.For), weight, params);
-        module._countVote(proposalId, altVoter, uint8(VoteType.For), weight, altParams);
+
+        votes = new uint256[](1);
+        votes[0] = 1;
+        params = abi.encode(votes);
+        module._countVote(proposalId, altVoter, uint8(VoteType.For), weight, params);
 
         (address[] memory targets, uint256[] memory values, bytes[] memory calldatas) =
             module._formatExecuteParams(proposalId, proposalData);
