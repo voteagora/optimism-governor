@@ -295,16 +295,6 @@ contract OptimismGovernorV5 is
         _;
     }
 
-    function initialize(IVotesUpgradeable _votingToken, address _manager) public initializer {
-        __Governor_init("Optimism");
-        __GovernorCountingSimple_init();
-        __GovernorVotes_init(_votingToken);
-        __GovernorVotesQuorumFraction_init({quorumNumeratorValue: 30});
-        __GovernorSettings_init({initialVotingDelay: 6575, initialVotingPeriod: 46027, initialProposalThreshold: 0});
-
-        manager = _manager;
-    }
-
     function _execute(
         uint256, /* proposalId */
         address[] memory, /* targets */
