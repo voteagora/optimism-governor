@@ -118,9 +118,7 @@ contract OptimismGovernorV5 is
         uint256 proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
 
         ProposalState status = state(proposalId);
-        require(
-            status == ProposalState.Succeeded || status == ProposalState.Queued, "Governor: proposal not successful"
-        );
+        require(status == ProposalState.Succeeded, "Governor: proposal not successful");
         _proposals[proposalId].executed = true;
 
         emit ProposalExecuted(proposalId);
@@ -151,10 +149,7 @@ contract OptimismGovernorV5 is
         uint256 proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
         ProposalState status = state(proposalId);
 
-        require(
-            status != ProposalState.Canceled && status != ProposalState.Expired && status != ProposalState.Executed,
-            "Governor: proposal not active"
-        );
+        require(status != ProposalState.Canceled && status != ProposalState.Executed, "Governor: proposal not active");
         _proposals[proposalId].canceled = true;
 
         emit ProposalCanceled(proposalId);
