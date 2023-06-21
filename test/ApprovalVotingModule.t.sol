@@ -40,6 +40,7 @@ contract ApprovalVotingModuleTest is Test {
 
     address internal op = address(new OptimismToken());
     string internal description = "a nice description";
+    bytes32 internal descriptionHash = keccak256(bytes("a nice description"));
     address internal governor = makeAddr("governor");
     address internal voter = makeAddr("voter");
     address internal altVoter = makeAddr("altVoter");
@@ -63,10 +64,10 @@ contract ApprovalVotingModuleTest is Test {
     function testPropose() public {
         (bytes memory proposalData, ProposalOption[] memory options, ProposalSettings memory settings) =
             _formatProposalData();
-        uint256 proposalId = 1;
 
         vm.prank(governor);
-        module.propose(proposalId, proposalData);
+        uint256 proposalId = hashProposalWithModule(governor, address(module), proposalData, descriptionHash);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         assertEq(module.proposals(proposalId).governor, governor);
         assertEq(module.proposals(proposalId).optionVotes[0], 0);
@@ -94,10 +95,10 @@ contract ApprovalVotingModuleTest is Test {
 
     function testCountVote_voteForSingle() public {
         (bytes memory proposalData,,) = _formatProposalData();
-        uint256 proposalId = 1;
+        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
         uint256 weight = 100;
 
-        module.propose(proposalId, proposalData);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         uint256[] memory votes = new uint256[](1);
         votes[0] = 0;
@@ -117,10 +118,10 @@ contract ApprovalVotingModuleTest is Test {
 
     function testCountVote_voteForMultiple() public {
         (bytes memory proposalData,,) = _formatProposalData();
-        uint256 proposalId = 1;
+        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
         uint256 weight = 100;
 
-        module.propose(proposalId, proposalData);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         uint256[] memory votes = new uint256[](2);
         votes[0] = 0;
@@ -142,10 +143,10 @@ contract ApprovalVotingModuleTest is Test {
 
     function testCountVote_voteAbstain() public {
         (bytes memory proposalData,,) = _formatProposalData();
-        uint256 proposalId = 1;
+        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
         uint256 weight = 100;
 
-        module.propose(proposalId, proposalData);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         assertEq(module._accountVotes(proposalId, voter), 0);
 
@@ -162,10 +163,10 @@ contract ApprovalVotingModuleTest is Test {
 
     function testQuorumReachedAndVoteSucceeded() public {
         (bytes memory proposalData,,) = _formatProposalData();
-        uint256 proposalId = 1;
+        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
         uint256 weight = 100;
 
-        module.propose(proposalId, proposalData);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         uint256[] memory votes = new uint256[](1);
         bytes memory params = abi.encode(votes);
@@ -240,11 +241,11 @@ contract ApprovalVotingModuleTest is Test {
 
     function testFormatExecuteParams() public {
         (bytes memory proposalData, ProposalOption[] memory options,) = _formatProposalData();
-        uint256 proposalId = 1;
         uint256 weight = 100;
 
         vm.startPrank(governor);
-        module.propose(proposalId, proposalData);
+        uint256 proposalId = hashProposalWithModule(governor, address(module), proposalData, descriptionHash);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         uint256[] memory votes = new uint256[](2);
         votes[0] = 1;
@@ -273,11 +274,11 @@ contract ApprovalVotingModuleTest is Test {
 
     function testFormatExecuteParams_ethBudgetExceeded() public {
         (bytes memory proposalData, ProposalOption[] memory options,) = _formatProposalData(true, false);
-        uint256 proposalId = 1;
         uint256 weight = 100;
 
         vm.startPrank(governor);
-        module.propose(proposalId, proposalData);
+        uint256 proposalId = hashProposalWithModule(governor, address(module), proposalData, descriptionHash);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         uint256[] memory votes = new uint256[](2);
         votes[0] = 0;
@@ -300,11 +301,11 @@ contract ApprovalVotingModuleTest is Test {
 
     function testFormatExecuteParams_opBudgetExceeded() public {
         (bytes memory proposalData, ProposalOption[] memory options,) = _formatProposalData(true, true);
-        uint256 proposalId = 1;
         uint256 weight = 100;
 
         vm.startPrank(governor);
-        module.propose(proposalId, proposalData);
+        uint256 proposalId = hashProposalWithModule(governor, address(module), proposalData, descriptionHash);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         uint256[] memory votes = new uint256[](2);
         votes[0] = 1;
@@ -338,23 +339,22 @@ contract ApprovalVotingModuleTest is Test {
 
     function testRevert_propose_existingProposal() public {
         (bytes memory proposalData,,) = _formatProposalData();
-        uint256 proposalId = 1;
-        module.propose(proposalId, proposalData);
+        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         vm.expectRevert(VotingModule.ExistingProposal.selector);
-        module.propose(proposalId, proposalData);
+        module.propose(proposalId, proposalData, descriptionHash);
     }
 
     function testRevert_propose_invalidProposalData() public {
         bytes memory proposalData = abi.encode(0x12345678);
-        uint256 proposalId = 1;
+        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
 
         vm.expectRevert();
-        module.propose(proposalId, proposalData);
+        module.propose(proposalId, proposalData, descriptionHash);
     }
 
     function testRevert_propose_invalidParams_noOptions() public {
-        uint256 proposalId = 1;
         ProposalOption[] memory options = new ProposalOption[](0);
         ProposalSettings memory settings = ProposalSettings({
             maxApprovals: 1,
@@ -365,13 +365,13 @@ contract ApprovalVotingModuleTest is Test {
         });
 
         bytes memory proposalData = abi.encode(options, settings);
+        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
 
         vm.expectRevert(VotingModule.InvalidParams.selector);
-        module.propose(proposalId, proposalData);
+        module.propose(proposalId, proposalData, descriptionHash);
     }
 
     function testRevert_propose_invalidParams_lengthMismatch() public {
-        uint256 proposalId = 1;
         address[] memory targets = new address[](1);
         uint256[] memory values = new uint256[](1);
         bytes[] memory calldatas = new bytes[](0);
@@ -386,13 +386,13 @@ contract ApprovalVotingModuleTest is Test {
         });
 
         bytes memory proposalData = abi.encode(options, settings);
+        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
 
         vm.expectRevert(VotingModule.InvalidParams.selector);
-        module.propose(proposalId, proposalData);
+        module.propose(proposalId, proposalData, descriptionHash);
     }
 
     function testRevert_propose_maxChoicesExceeded() public {
-        uint256 proposalId = 1;
         ProposalOption[] memory options = new ProposalOption[](2);
         ProposalSettings memory settings = ProposalSettings({
             maxApprovals: 1,
@@ -403,18 +403,19 @@ contract ApprovalVotingModuleTest is Test {
         });
 
         bytes memory proposalData = abi.encode(options, settings);
+        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
 
         vm.expectRevert(ApprovalVotingModule.MaxChoicesExceeded.selector);
-        module.propose(proposalId, proposalData);
+        module.propose(proposalId, proposalData, descriptionHash);
     }
 
     function testRevert_countVote_onlyGovernor() public {
         (bytes memory proposalData,,) = _formatProposalData();
-        uint256 proposalId = 1;
         uint256 weight = 100;
 
         vm.prank(governor);
-        module.propose(proposalId, proposalData);
+        uint256 proposalId = hashProposalWithModule(governor, address(module), proposalData, descriptionHash);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         vm.expectRevert(VotingModule.NotGovernor.selector);
         module._countVote(proposalId, voter, uint8(VoteType.Abstain), weight, "");
@@ -422,10 +423,10 @@ contract ApprovalVotingModuleTest is Test {
 
     function testRevert_countVote_voteAlreadyCast() public {
         (bytes memory proposalData,,) = _formatProposalData();
-        uint256 proposalId = 1;
+        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
         uint256 weight = 100;
 
-        module.propose(proposalId, proposalData);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         uint256[] memory votes = new uint256[](2);
         votes[0] = 0;
@@ -440,10 +441,10 @@ contract ApprovalVotingModuleTest is Test {
 
     function testRevert_propose_invalidCastVoteData() public {
         (bytes memory proposalData,,) = _formatProposalData();
-        uint256 proposalId = 1;
+        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
         uint256 weight = 100;
 
-        module.propose(proposalId, proposalData);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         bytes memory params = abi.encode(0x12345678);
 
@@ -453,10 +454,10 @@ contract ApprovalVotingModuleTest is Test {
 
     function testRevert_countVote_invalidParams() public {
         (bytes memory proposalData,,) = _formatProposalData();
-        uint256 proposalId = 1;
+        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
         uint256 weight = 100;
 
-        module.propose(proposalId, proposalData);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         uint256[] memory votes = new uint256[](0);
         bytes memory params = abi.encode(votes);
@@ -467,10 +468,10 @@ contract ApprovalVotingModuleTest is Test {
 
     function testRevert_countVote_maxApprovalsExceeded() public {
         (bytes memory proposalData,,) = _formatProposalData();
-        uint256 proposalId = 1;
+        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
         uint256 weight = 100;
 
-        module.propose(proposalId, proposalData);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         uint256[] memory votes = new uint256[](3);
         votes[0] = 0;
@@ -484,10 +485,10 @@ contract ApprovalVotingModuleTest is Test {
 
     function testRevert_countVote_optionsNotStrictlyAscending() public {
         (bytes memory proposalData,,) = _formatProposalData();
-        uint256 proposalId = 1;
+        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
         uint256 weight = 100;
 
-        module.propose(proposalId, proposalData);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         uint256[] memory votes = new uint256[](2);
         votes[0] = 1;
@@ -500,10 +501,10 @@ contract ApprovalVotingModuleTest is Test {
 
     function testRevert_countVote_outOfBounds() public {
         (bytes memory proposalData,,) = _formatProposalData();
-        uint256 proposalId = 1;
+        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
         uint256 weight = 100;
 
-        module.propose(proposalId, proposalData);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         uint256[] memory votes = new uint256[](2);
         votes[0] = 2;
@@ -516,10 +517,10 @@ contract ApprovalVotingModuleTest is Test {
 
     function testRevert_countVote_invalidVoteType() public {
         (bytes memory proposalData,,) = _formatProposalData();
-        uint256 proposalId = 1;
+        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
         uint256 weight = 100;
 
-        module.propose(proposalId, proposalData);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         vm.expectRevert(VotingModule.InvalidVoteType.selector);
         module._countVote(proposalId, voter, uint8(2), weight, "");
@@ -527,10 +528,10 @@ contract ApprovalVotingModuleTest is Test {
 
     function testRevert_formatExecuteParams_onlyGovernor() public {
         (bytes memory proposalData,,) = _formatProposalData();
-        uint256 proposalId = 1;
 
         vm.prank(governor);
-        module.propose(proposalId, proposalData);
+        uint256 proposalId = hashProposalWithModule(governor, address(module), proposalData, descriptionHash);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         vm.expectRevert(VotingModule.NotGovernor.selector);
         module._formatExecuteParams(proposalId, proposalData);
@@ -559,11 +560,11 @@ contract ApprovalVotingModuleTest is Test {
         options[2] = ProposalOption(100, targets, values, calldatas, "option 2");
         proposalData = abi.encode(options, settings);
 
-        uint256 proposalId = 1;
         uint256 weight = 100;
 
         vm.startPrank(address(governor_));
-        module.propose(proposalId, proposalData);
+        uint256 proposalId = hashProposalWithModule(address(governor_), address(module), proposalData, descriptionHash);
+        module.propose(proposalId, proposalData, descriptionHash);
 
         uint256[] memory votes = new uint256[](2);
         votes[0] = 1;
@@ -640,5 +641,14 @@ contract ApprovalVotingModuleTest is Test {
         returns (bytes memory proposalData, ProposalOption[] memory options, ProposalSettings memory settings)
     {
         return _formatProposalData(false, false);
+    }
+
+    function hashProposalWithModule(
+        address sender,
+        address module_,
+        bytes memory proposalData,
+        bytes32 descriptionHash_
+    ) public view virtual returns (uint256) {
+        return uint256(keccak256(abi.encode(sender, module_, proposalData, descriptionHash_)));
     }
 }
