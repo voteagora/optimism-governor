@@ -54,6 +54,7 @@ contract OptimismGovernorV5 is
     //////////////////////////////////////////////////////////////*/
 
     address public manager;
+    mapping(address => bool approved) public approvedModules;
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -83,6 +84,7 @@ contract OptimismGovernorV5 is
             getVotes(_msgSender(), block.number - 1) >= proposalThreshold(),
             "Governor: proposer votes below proposal threshold"
         );
+        require(approvedModules[address(module)], "Governor: module not approved");
 
         bytes32 descriptionHash = keccak256(bytes(description));
 
@@ -157,6 +159,16 @@ contract OptimismGovernorV5 is
         emit ProposalCanceled(proposalId);
 
         return proposalId;
+    }
+
+    /**
+     * Approve or reject a voting module. Only the manager can call this function.
+     *
+     * @param module The address of the voting module to approve or reject.
+     * @param approved Whether to approve or reject the voting module.
+     */
+    function setModuleApproval(address module, bool approved) public onlyManager {
+        approvedModules[module] = approved;
     }
 
     /**

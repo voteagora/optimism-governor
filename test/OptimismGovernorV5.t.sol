@@ -96,6 +96,10 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
         op.delegate(voter);
 
         governor = OptimismGovernorV5Mock(payable(proxy));
+
+        vm.prank(manager);
+        governor.setModuleApproval(address(module), true);
+
         _setUp(payable(proxy));
     }
 
@@ -107,6 +111,19 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
         address implementationV4 = setUpContract("OptimismGovernorV4UpgradeMock");
         address implementationV5 = setUpContract("OptimismGovernorV5UpgradeMock");
         upgradeSafetyChecks("OptimismGovernorV5UpgradeMock", implementationV4, implementationV5);
+    }
+
+    function testSetModuleApproval() public {
+        address module_ = makeAddr("module");
+        vm.startPrank(manager);
+        assertEq(governor.approvedModules(address(module_)), false);
+
+        governor.setModuleApproval(address(module_), true);
+        assertEq(governor.approvedModules(address(module_)), true);
+
+        governor.setModuleApproval(address(module_), false);
+        assertEq(governor.approvedModules(address(module_)), false);
+        vm.stopPrank();
     }
 
     function testProposeWithModule() public {
@@ -253,6 +270,15 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
         vm.stopPrank();
     }
 
+    function testRevert_proposeWithModule_moduleNotApproved() public {
+        bytes memory proposalData = _formatProposalData();
+        address module_ = makeAddr("module");
+
+        vm.prank(manager);
+        vm.expectRevert("Governor: module not approved");
+        governor.proposeWithModule(VotingModule(module_), proposalData, description);
+    }
+
     function testRevert_cancelWithModule_proposalNotActive() public {
         bytes memory proposalData = _formatProposalData();
 
@@ -298,6 +324,13 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
         vm.prank(manager);
         vm.expectRevert("Governor: proposal not successful");
         governor.executeWithModule(VotingModule(module), proposalData, keccak256(bytes(description)));
+    }
+
+    function testRevert_setModuleApproval_onlyManager() public {
+        address module_ = makeAddr("module");
+
+        vm.expectRevert("Only the manager can call this function");
+        governor.setModuleApproval(module_, true);
     }
 
     /*//////////////////////////////////////////////////////////////
