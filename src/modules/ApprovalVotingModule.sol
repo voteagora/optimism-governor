@@ -307,7 +307,6 @@ contract ApprovalVotingModule is VotingModule {
 
         if (settings.budgetToken != address(0)) {
             address governor = _proposals[proposalId].governor;
-            _onlyGovernor(governor);
 
             if (
                 _proposals[proposalId].initBalance - IERC20(settings.budgetToken).balanceOf(governor)
@@ -366,7 +365,6 @@ contract ApprovalVotingModule is VotingModule {
      */
     function _voteSucceeded(uint256 proposalId) external view override returns (bool) {
         Proposal memory proposal = _proposals[proposalId];
-        _onlyGovernor(proposal.governor);
 
         ProposalOption[] memory options = proposal.options;
         uint256 n = options.length;
