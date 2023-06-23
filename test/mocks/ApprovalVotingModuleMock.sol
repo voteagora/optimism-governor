@@ -6,8 +6,8 @@ import {Proposal, ProposalOption, ProposalSettings} from "../../src/modules/Appr
 
 // Expose internal functions for testing
 contract ApprovalVotingModuleMock is ApprovalVotingModule {
-    function proposals(uint256 proposalId) public view returns (Proposal memory) {
-        return _proposals[proposalId];
+    function _proposals(uint256 proposalId) public view returns (Proposal memory) {
+        return proposals[proposalId];
     }
 
     function sortOptions(uint128[] memory optionVotes, ProposalOption[] memory options)

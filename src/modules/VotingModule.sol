@@ -7,10 +7,9 @@ abstract contract VotingModule {
     //////////////////////////////////////////////////////////////*/
 
     error NotGovernor();
-    error InvalidVoteType();
     error ExistingProposal();
     error InvalidParams();
-    error VoteAlreadyCast();
+    error AlreadyVoted();
 
     /*//////////////////////////////////////////////////////////////
                                MODIFIERS
@@ -36,14 +35,10 @@ abstract contract VotingModule {
                              VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function hasVoted(uint256 proposalId, address account) external view virtual returns (bool);
-
     function _formatExecuteParams(uint256 proposalId, bytes memory proposalData)
         external
         virtual
         returns (address[] memory targets, uint256[] memory values, bytes[] memory calldatas);
-
-    function _quorumReached(uint256 proposalId, uint256 quorum) external view virtual returns (bool);
 
     function _voteSucceeded(uint256 proposalId) external view virtual returns (bool);
 

@@ -19,6 +19,7 @@ import {GovernanceToken as OptimismToken} from "../src/lib/OptimismToken.sol";
 import {OptimismGovernorV5Mock} from "./mocks/OptimismGovernorV5Mock.sol";
 import {OptimismGovernorV4UpgradeMock} from "./mocks/OptimismGovernorV4UpgradeMock.sol";
 import {OptimismGovernorV5UpgradeMock} from "./mocks/OptimismGovernorV5UpgradeMock.sol";
+import {ApprovalVotingModuleMock} from "./mocks/ApprovalVotingModuleMock.sol";
 import {OptimismGovernorV3Test} from "./OptimismGovernorV3.t.sol";
 
 enum ProposalState {
@@ -33,6 +34,7 @@ enum ProposalState {
 }
 
 enum VoteType {
+    Against,
     For,
     Abstain
 }
@@ -66,7 +68,7 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
     address altVoter = makeAddr("altVoter");
 
     OptimismGovernorV5Mock private governor;
-    ApprovalVotingModule private module;
+    ApprovalVotingModuleMock private module;
 
     /*//////////////////////////////////////////////////////////////
                                  SETUP
@@ -79,7 +81,7 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
 
     function setUp() public override {
         op = new OptimismToken();
-        module = new ApprovalVotingModule();
+        module = new ApprovalVotingModuleMock();
         OptimismGovernorV5Mock implementation = new OptimismGovernorV5Mock();
         TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
             address(implementation),
@@ -94,6 +96,8 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
 
         vm.prank(voter);
         op.delegate(voter);
+        vm.prank(altVoter);
+        op.delegate(altVoter);
 
         governor = OptimismGovernorV5Mock(payable(proxy));
 
@@ -176,6 +180,25 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
         vm.expectEmit(true, false, false, true);
         emit VoteCastWithParams(voter, proposalId, uint8(VoteType.For), weight, reason, params);
         governor.castVoteWithReasonAndParams(proposalId, uint8(VoteType.For), reason, params);
+
+        weight = op.getVotes(altVoter);
+        vm.prank(altVoter);
+        vm.expectEmit(true, false, false, true);
+        emit VoteCastWithParams(altVoter, proposalId, uint8(VoteType.Against), weight, reason, params);
+        governor.castVoteWithReasonAndParams(proposalId, uint8(VoteType.Against), reason, params);
+
+        (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes) = governor.proposalVotes(proposalId);
+
+        assertEq(againstVotes, 1e20);
+        assertEq(forVotes, 1e18);
+        assertEq(abstainVotes, 0);
+        assertFalse(governor.voteSucceeded(proposalId));
+        assertEq(module._proposals(proposalId).optionVotes[0], 1e18);
+        assertEq(module._proposals(proposalId).optionVotes[1], 0);
+        assertTrue(governor.hasVoted(proposalId, voter));
+        assertEq(module.accountVotes(proposalId, voter), optionVotes.length);
+        assertTrue(governor.hasVoted(proposalId, altVoter));
+        assertEq(module.accountVotes(proposalId, altVoter), 0);
     }
 
     function testExecuteWithModule() public {
@@ -246,6 +269,30 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
         assertTrue(governor.quorum(snapshot) != 0);
         assertTrue(governor.quorumReached(proposalId));
         assertTrue(governor.voteSucceeded(proposalId));
+    }
+
+    function testVoteNotSucceeded() public {
+        bytes memory proposalData = _formatProposalData();
+        uint256 snapshot = block.number + governor.votingDelay();
+        string memory reason = "a nice reason";
+
+        vm.prank(manager);
+        uint256 proposalId = governor.proposeWithModule(VotingModule(module), proposalData, description);
+
+        vm.roll(snapshot + 1);
+
+        // Vote for option 0
+        uint256[] memory optionVotes = new uint256[](1);
+        bytes memory params = abi.encode(optionVotes);
+
+        vm.prank(voter);
+        governor.castVoteWithReasonAndParams(proposalId, uint8(VoteType.For), reason, params);
+
+        vm.prank(altVoter);
+        governor.castVoteWithReasonAndParams(proposalId, uint8(VoteType.Against), reason, "");
+
+        assertTrue(governor.quorum(snapshot) != 0);
+        assertFalse(governor.voteSucceeded(proposalId));
     }
 
     /*//////////////////////////////////////////////////////////////

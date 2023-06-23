@@ -172,7 +172,8 @@ contract OptimismGovernorV5 is
     }
 
     /**
-     * @dev Updated internal vote casting mechanism which allows delegating logic to custom voting module. See {IGovernor-_castVote}.
+     * @dev Updated internal vote casting mechanism which delegates counting logic to voting module,
+     * in addition to executing standard `_countVote`. See {IGovernor-_castVote}.
      */
     function _castVote(uint256 proposalId, address account, uint8 support, string memory reason, bytes memory params)
         internal
@@ -184,10 +185,10 @@ contract OptimismGovernorV5 is
 
         uint256 weight = _getVotes(account, proposal.voteStart.getDeadline(), params);
 
+        _countVote(proposalId, account, support, weight, params);
+
         if (proposal.votingModule != address(0)) {
             VotingModule(proposal.votingModule)._countVote(proposalId, account, support, weight, params);
-        } else {
-            _countVote(proposalId, account, support, weight, params);
         }
 
         if (params.length == 0) {
@@ -217,46 +218,7 @@ contract OptimismGovernorV5 is
     }
 
     /**
-     * @dev Updated `hasVoted` which allows delegating logic to custom voting module. See {IGovernor-hasVoted}.
-     */
-    function hasVoted(uint256 proposalId, address account)
-        public
-        view
-        virtual
-        override(GovernorCountingSimpleUpgradeableV2, IGovernorUpgradeable)
-        returns (bool)
-    {
-        address votingModule = _proposals[proposalId].votingModule;
-        if (votingModule != address(0)) {
-            return VotingModule(votingModule).hasVoted(proposalId, account);
-        }
-
-        return super.hasVoted(proposalId, account);
-    }
-
-    /**
-     * @dev Updated `_quorumReached` which allows delegating logic to custom voting module. See {IGovernor-_quorumReached}.
-     */
-    function _quorumReached(uint256 proposalId)
-        internal
-        view
-        virtual
-        override(GovernorCountingSimpleUpgradeableV2, GovernorUpgradeableV2)
-        returns (bool)
-    {
-        ProposalCore memory proposal = _proposals[proposalId];
-        if (proposal.votingModule != address(0)) {
-            return
-                VotingModule(proposal.votingModule)._quorumReached(proposalId, quorum(proposal.voteStart.getDeadline()));
-        }
-
-        (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes) = proposalVotes(proposalId);
-
-        return quorum(proposalSnapshot(proposalId)) <= againstVotes + forVotes + abstainVotes;
-    }
-
-    /**
-     * @dev Updated `_voteSucceeded` which allows delegating logic to custom voting module. See {Governor-_voteSucceeded}.
+     * @dev Updated `_voteSucceeded` to add custom success conditions defined in the voting module. See {Governor-_voteSucceeded}.
      */
     function _voteSucceeded(uint256 proposalId)
         internal
@@ -267,7 +229,7 @@ contract OptimismGovernorV5 is
     {
         address votingModule = _proposals[proposalId].votingModule;
         if (votingModule != address(0)) {
-            return VotingModule(votingModule)._voteSucceeded(proposalId);
+            if (!VotingModule(votingModule)._voteSucceeded(proposalId)) return false;
         }
 
         return super._voteSucceeded(proposalId);
@@ -335,6 +297,18 @@ contract OptimismGovernorV5 is
     function quorumDenominator() public view virtual override returns (uint256) {
         // Configurable to 3 decimal points of percentage
         return 100_000;
+    }
+
+    function _quorumReached(uint256 proposalId)
+        internal
+        view
+        virtual
+        override(GovernorCountingSimpleUpgradeableV2, GovernorUpgradeableV2)
+        returns (bool)
+    {
+        (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes) = proposalVotes(proposalId);
+
+        return quorum(proposalSnapshot(proposalId)) <= againstVotes + forVotes + abstainVotes;
     }
 
     function setProposalDeadline(uint256 proposalId, uint64 deadline) public onlyManager {
