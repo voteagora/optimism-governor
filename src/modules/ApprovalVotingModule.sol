@@ -228,14 +228,13 @@ contract ApprovalVotingModule is VotingModule {
             option = sortedOptions[i];
 
             for (n = 0; n < option.targets.length;) {
-                // Shortcircuit if `budgetAmount` is exceeded
                 if (settings.budgetAmount != 0) {
+                    // If `budgetToken` is ETH and value is not zero, add transaction value to `totalValue`
                     if (settings.budgetToken == address(0)) {
-                        // If `budgetToken` is ETH and value is not zero, add msg value to `totalValue`
                         if (option.values[n] != 0) totalValue += option.values[n];
                     }
 
-                    // Break loop if `budgetAmount` is exceeded
+                    // If `budgetAmount` is exceeded, break inner loop
                     if (totalValue > settings.budgetAmount) break;
                 }
 
@@ -248,12 +247,12 @@ contract ApprovalVotingModule is VotingModule {
             }
 
             if (settings.budgetAmount != 0) {
-                // If `budgetToken` is not ETH and `option.budgetAmount` is not zero, add amount to `totalValue`
+                // If `budgetToken` is not ETH and `option.budgetAmount` is not zero, add `option.budgetTokensSpent` to `totalValue`
                 if (settings.budgetToken != address(0)) {
                     if (option.budgetTokensSpent != 0) totalValue += option.budgetTokensSpent;
                 }
 
-                // Break loop if `budgetAmount` is exceeded
+                // If `budgetAmount` is exceeded, break outer loop. Executed for both ETH and non-ETH tokens
                 if (totalValue > settings.budgetAmount) break;
             }
 
