@@ -294,10 +294,16 @@ contract ApprovalVotingModule is VotingModule {
         if (settings.budgetToken != address(0)) {
             address governor = proposals[proposalId].governor;
 
-            if (
-                proposals[proposalId].initBalance - IERC20(settings.budgetToken).balanceOf(governor)
-                    > settings.budgetAmount
-            ) revert BudgetExceeded();
+            uint256 initBalance = proposals[proposalId].initBalance;
+            uint256 finalBalance = IERC20(settings.budgetToken).balanceOf(governor);
+
+            // If `finalBalance` is higher than `initBalance`, ignore the budget check
+            if (finalBalance < initBalance) {
+                /// @dev Cannot underflow as `finalBalance` is less than `initBalance`
+                unchecked {
+                    if (initBalance - finalBalance > settings.budgetAmount) revert BudgetExceeded();
+                }
+            }
         }
     }
 
