@@ -54,6 +54,7 @@ contract OptimismGovernorV5 is
     //////////////////////////////////////////////////////////////*/
 
     address public manager;
+    mapping(address => bool approved) public approvedModules;
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -83,8 +84,11 @@ contract OptimismGovernorV5 is
             getVotes(_msgSender(), block.number - 1) >= proposalThreshold(),
             "Governor: proposer votes below proposal threshold"
         );
+        require(approvedModules[address(module)], "Governor: module not approved");
 
-        uint256 proposalId = hashProposalWithModule(address(module), proposalData, keccak256(bytes(description)));
+        bytes32 descriptionHash = keccak256(bytes(description));
+
+        uint256 proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
 
         ProposalCore storage proposal = _proposals[proposalId];
         require(proposal.voteStart.isUnset(), "Governor: proposal already exists");
@@ -96,9 +100,9 @@ contract OptimismGovernorV5 is
         proposal.voteEnd.setDeadline(deadline);
         proposal.votingModule = address(module);
 
-        emit ProposalCreated(proposalId, _msgSender(), address(module), proposalData, snapshot, deadline, description);
+        module.propose(proposalId, proposalData, descriptionHash);
 
-        module.propose(proposalId, proposalData);
+        emit ProposalCreated(proposalId, _msgSender(), address(module), proposalData, snapshot, deadline, description);
 
         return proposalId;
     }
@@ -118,9 +122,7 @@ contract OptimismGovernorV5 is
         uint256 proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
 
         ProposalState status = state(proposalId);
-        require(
-            status == ProposalState.Succeeded || status == ProposalState.Queued, "Governor: proposal not successful"
-        );
+        require(status == ProposalState.Succeeded, "Governor: proposal not successful");
         _proposals[proposalId].executed = true;
 
         emit ProposalExecuted(proposalId);
@@ -131,6 +133,7 @@ contract OptimismGovernorV5 is
         _beforeExecute(proposalId, targets, values, calldatas, descriptionHash);
         _execute(proposalId, targets, values, calldatas, descriptionHash);
         _afterExecute(proposalId, targets, values, calldatas, descriptionHash);
+        module._afterExecute(proposalId, proposalData);
 
         return proposalId;
     }
@@ -150,10 +153,7 @@ contract OptimismGovernorV5 is
         uint256 proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
         ProposalState status = state(proposalId);
 
-        require(
-            status != ProposalState.Canceled && status != ProposalState.Expired && status != ProposalState.Executed,
-            "Governor: proposal not active"
-        );
+        require(status != ProposalState.Canceled && status != ProposalState.Executed, "Governor: proposal not active");
         _proposals[proposalId].canceled = true;
 
         emit ProposalCanceled(proposalId);
@@ -162,7 +162,18 @@ contract OptimismGovernorV5 is
     }
 
     /**
-     * @dev Updated internal vote casting mechanism which allows delegating logic to custom voting module. See {IGovernor-_castVote}.
+     * Approve or reject a voting module. Only the manager can call this function.
+     *
+     * @param module The address of the voting module to approve or reject.
+     * @param approved Whether to approve or reject the voting module.
+     */
+    function setModuleApproval(address module, bool approved) public onlyManager {
+        approvedModules[module] = approved;
+    }
+
+    /**
+     * @dev Updated internal vote casting mechanism which delegates counting logic to voting module,
+     * in addition to executing standard `_countVote`. See {IGovernor-_castVote}.
      */
     function _castVote(uint256 proposalId, address account, uint8 support, string memory reason, bytes memory params)
         internal
@@ -174,10 +185,10 @@ contract OptimismGovernorV5 is
 
         uint256 weight = _getVotes(account, proposal.voteStart.getDeadline(), params);
 
+        _countVote(proposalId, account, support, weight, params);
+
         if (proposal.votingModule != address(0)) {
             VotingModule(proposal.votingModule)._countVote(proposalId, account, support, weight, params);
-        } else {
-            _countVote(proposalId, account, support, weight, params);
         }
 
         if (params.length == 0) {
@@ -207,46 +218,7 @@ contract OptimismGovernorV5 is
     }
 
     /**
-     * @dev Updated `hasVoted` which allows delegating logic to custom voting module. See {IGovernor-hasVoted}.
-     */
-    function hasVoted(uint256 proposalId, address account)
-        public
-        view
-        virtual
-        override(GovernorCountingSimpleUpgradeableV2, IGovernorUpgradeable)
-        returns (bool)
-    {
-        address votingModule = _proposals[proposalId].votingModule;
-        if (votingModule != address(0)) {
-            return VotingModule(votingModule).hasVoted(proposalId, account);
-        }
-
-        return super.hasVoted(proposalId, account);
-    }
-
-    /**
-     * @dev Updated `_quorumReached` which allows delegating logic to custom voting module. See {IGovernor-_quorumReached}.
-     */
-    function _quorumReached(uint256 proposalId)
-        internal
-        view
-        virtual
-        override(GovernorCountingSimpleUpgradeableV2, GovernorUpgradeableV2)
-        returns (bool)
-    {
-        ProposalCore memory proposal = _proposals[proposalId];
-        if (proposal.votingModule != address(0)) {
-            return
-                VotingModule(proposal.votingModule)._quorumReached(proposalId, quorum(proposal.voteStart.getDeadline()));
-        }
-
-        (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes) = proposalVotes(proposalId);
-
-        return quorum(proposalSnapshot(proposalId)) <= againstVotes + forVotes + abstainVotes;
-    }
-
-    /**
-     * @dev Updated `_voteSucceeded` which allows delegating logic to custom voting module. See {Governor-_voteSucceeded}.
+     * @dev Updated `_voteSucceeded` to add custom success conditions defined in the voting module. See {Governor-_voteSucceeded}.
      */
     function _voteSucceeded(uint256 proposalId)
         internal
@@ -257,7 +229,7 @@ contract OptimismGovernorV5 is
     {
         address votingModule = _proposals[proposalId].votingModule;
         if (votingModule != address(0)) {
-            return VotingModule(votingModule)._voteSucceeded(proposalId);
+            if (!VotingModule(votingModule)._voteSucceeded(proposalId)) return false;
         }
 
         return super._voteSucceeded(proposalId);
@@ -294,16 +266,6 @@ contract OptimismGovernorV5 is
         _;
     }
 
-    function initialize(IVotesUpgradeable _votingToken, address _manager) public initializer {
-        __Governor_init("Optimism");
-        __GovernorCountingSimple_init();
-        __GovernorVotes_init(_votingToken);
-        __GovernorVotesQuorumFraction_init({quorumNumeratorValue: 30});
-        __GovernorSettings_init({initialVotingDelay: 6575, initialVotingPeriod: 46027, initialProposalThreshold: 0});
-
-        manager = _manager;
-    }
-
     function _execute(
         uint256, /* proposalId */
         address[] memory, /* targets */
@@ -335,6 +297,18 @@ contract OptimismGovernorV5 is
     function quorumDenominator() public view virtual override returns (uint256) {
         // Configurable to 3 decimal points of percentage
         return 100_000;
+    }
+
+    function _quorumReached(uint256 proposalId)
+        internal
+        view
+        virtual
+        override(GovernorCountingSimpleUpgradeableV2, GovernorUpgradeableV2)
+        returns (bool)
+    {
+        (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes) = proposalVotes(proposalId);
+
+        return quorum(proposalSnapshot(proposalId)) <= againstVotes + forVotes + abstainVotes;
     }
 
     function setProposalDeadline(uint256 proposalId, uint64 deadline) public onlyManager {
