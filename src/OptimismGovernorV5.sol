@@ -55,7 +55,7 @@ contract OptimismGovernorV5 is
     //////////////////////////////////////////////////////////////*/
 
     address public manager;
-    mapping(address => bool approved) public approvedModules;
+    mapping(address module => bool approved) public approvedModules;
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -78,6 +78,7 @@ contract OptimismGovernorV5 is
      */
     function proposeWithModule(VotingModule module, bytes memory proposalData, string memory description)
         public
+        virtual
         onlyManager
         returns (uint256)
     {
@@ -118,6 +119,7 @@ contract OptimismGovernorV5 is
     function executeWithModule(VotingModule module, bytes memory proposalData, bytes32 descriptionHash)
         public
         payable
+        virtual
         returns (uint256)
     {
         uint256 proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
@@ -148,6 +150,7 @@ contract OptimismGovernorV5 is
      */
     function cancelWithModule(VotingModule module, bytes memory proposalData, bytes32 descriptionHash)
         public
+        virtual
         onlyManager
         returns (uint256)
     {
@@ -184,7 +187,7 @@ contract OptimismGovernorV5 is
         ProposalCore memory proposal = _proposals[proposalId];
         require(state(proposalId) == ProposalState.Active, "Governor: vote not currently active");
 
-        uint256 weight = _getVotes(account, proposal.voteStart.getDeadline(), params);
+        uint256 weight = _getVotes(account, proposal.voteStart.getDeadline(), "");
 
         _countVote(proposalId, account, support, weight, params);
 
