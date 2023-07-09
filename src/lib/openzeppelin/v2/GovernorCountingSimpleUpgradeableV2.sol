@@ -9,6 +9,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 /**
  * Modifications:
  * - Inherited `GovernorUpgradeableV2`
+ * - Made _proposalVotes internal
  */
 abstract contract GovernorCountingSimpleUpgradeableV2 is Initializable, GovernorUpgradeableV2 {
     function __GovernorCountingSimple_init() internal onlyInitializing {}
@@ -31,7 +32,7 @@ abstract contract GovernorCountingSimpleUpgradeableV2 is Initializable, Governor
         mapping(address => bool) hasVoted;
     }
 
-    mapping(uint256 => ProposalVote) private _proposalVotes;
+    mapping(uint256 => ProposalVote) internal _proposalVotes;
 
     /**
      * @dev See {IGovernor-COUNTING_MODE}.
