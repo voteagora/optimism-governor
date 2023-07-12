@@ -64,29 +64,6 @@ contract ApprovalVotingModule is VotingModule {
     using SafeCastLib for uint256;
 
     /*//////////////////////////////////////////////////////////////
-                           IMMUTABLE STORAGE
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-     * Defines the encoding for the expected `proposalData` in `propose`.
-     * Encoding: `(ProposalOption[], ProposalSettings)`
-     *
-     * @dev Can be used by clients to interact with modules programmatically without prior knowledge
-     * on expected types.
-     */
-    string public constant override PROPOSAL_DATA_ENCODING =
-        "((uint256 budgetTokensSpent,address[] targets,uint256[] values,bytes[] calldatas,string description)[] proposalOptions,(uint8 maxApprovals,uint8 criteria,address budgetToken,uint128 criteriaValue,uint128 budgetAmount) proposalSettings)";
-
-    /**
-     * Defines the encoding for the expected `params` in `_countVote`.
-     * Encoding: `uint256[]`
-     *
-     * @dev Can be used by clients to interact with modules programmatically without prior knowledge
-     * on expected types.
-     */
-    string public constant override VOTE_PARAMS_ENCODING = "uint256[] optionIds";
-
-    /*//////////////////////////////////////////////////////////////
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
 
@@ -334,6 +311,29 @@ contract ApprovalVotingModule is VotingModule {
         }
 
         return false;
+    }
+
+    /**
+     * Defines the encoding for the expected `proposalData` in `propose`.
+     * Encoding: `(ProposalOption[], ProposalSettings)`
+     *
+     * @dev Can be used by clients to interact with modules programmatically without prior knowledge
+     * on expected types.
+     */
+    function PROPOSAL_DATA_ENCODING() external pure virtual override returns (string memory) {
+        return
+        "((uint256 budgetTokensSpent,address[] targets,uint256[] values,bytes[] calldatas,string description)[] proposalOptions,(uint8 maxApprovals,uint8 criteria,address budgetToken,uint128 criteriaValue,uint128 budgetAmount) proposalSettings)";
+    }
+
+    /**
+     * Defines the encoding for the expected `params` in `_countVote`.
+     * Encoding: `uint256[]`
+     *
+     * @dev Can be used by clients to interact with modules programmatically without prior knowledge
+     * on expected types.
+     */
+    function VOTE_PARAMS_ENCODING() external pure virtual override returns (string memory) {
+        return "uint256[] optionIds";
     }
 
     /**
