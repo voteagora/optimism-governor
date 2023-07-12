@@ -120,7 +120,7 @@ contract ApprovalVotingModule is VotingModule {
      * @param proposalId The id of the proposal.
      * @param account The account to count votes for.
      * @param support The type of vote to count.
-     * @param weight The weight of the vote.
+     * @param weight The total vote weight of the `account`.
      * @param params The ids of the options to vote for sorted in ascending order, encoded as `uint256[]`.
      */
     function _countVote(uint256 proposalId, address account, uint8 support, uint256 weight, bytes memory params)
