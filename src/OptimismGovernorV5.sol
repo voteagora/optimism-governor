@@ -181,6 +181,7 @@ contract OptimismGovernorV5 is
      */
     function _castVote(uint256 proposalId, address account, uint8 support, string memory reason, bytes memory params)
         internal
+        virtual
         override
         returns (uint256)
     {

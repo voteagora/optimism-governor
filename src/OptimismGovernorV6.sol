@@ -9,7 +9,6 @@ import {GovernorVotesQuorumFractionUpgradeableV2} from
 import {GovernorUpgradeableV2, IGovernorUpgradeable} from "./lib/openzeppelin/v2/GovernorUpgradeableV2.sol";
 import {ECDSAUpgradeable} from "./lib/openzeppelin/ECDSAUpgradeable.sol";
 import {SignatureCheckerUpgradeable} from "./lib/openzeppelin/SignatureCheckerUpgradeable.sol";
-import {IVotableSupplyOracle} from "./interfaces/IVotableSupplyOracle.sol";
 import {TimersUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/TimersUpgradeable.sol";
 
 /**
@@ -22,6 +21,9 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * Modified version of `VoteCastWithParams` which includes `voter` address.
+     */
     event VoteCastWithParams(
         address account, uint256 proposalId, uint8 support, uint256 weight, string reason, bytes params, address voter
     );
@@ -54,13 +56,9 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
 
     uint256 internal constant MASK_HALF_WORD_RIGHT = 0xffffffffffffffffffffffffffffffff;
 
-    // TODO: Set address after deploy
-    address constant alligator = address(1);
-
-    // TODO: Set address after deploy
-    IVotableSupplyOracle public constant votableSupplyOracle = IVotableSupplyOracle(address(1));
-
     uint256 internal constant ORACLE_DEPLOY_BLOCKNUMBER = 0;
+
+    address public immutable alligator;
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -73,6 +71,14 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
      * @dev Replaces non-quantitative `_proposalVotes.hasVoted` to add support for fractional voting.
      */
     mapping(uint256 proposalId => mapping(address account => uint256 votes)) public weightCast;
+
+    /*//////////////////////////////////////////////////////////////
+                              CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
+
+    constructor(address alligator_) {
+        alligator = alligator_;
+    }
 
     /*//////////////////////////////////////////////////////////////
                             WRITE FUNCTIONS
@@ -113,8 +119,9 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         if (account == alligator) {
             // Derive `voter` from address appended in `params`
             assembly {
-                // TODO: Check if correct
+                // TODO: Test if correct
                 // TODO: Add append to alligator
+                /// @dev no need to clean dirty bytes as they are sent already cleaned by alligator
                 voter := mload(add(params, sub(mload(params), 0x20)))
             }
         }
@@ -277,28 +284,6 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * Returns the quorum for a block number, in terms of number of votes: `supply * numerator / denominator`.
-     *
-     * @dev Based on `votableSupply` by default, but falls back to `totalSupply` if not available.
-     */
-    function quorum(uint256 blockNumber)
-        public
-        view
-        virtual
-        override(GovernorVotesQuorumFractionUpgradeableV2, IGovernorUpgradeable)
-        returns (uint256)
-    {
-        uint256 supply = votableSupplyOracle.votableSupply(blockNumber);
-
-        // Fallback to total supply if votable supply was unset at `blockNumber`
-        if (supply == 0) {
-            supply = token.getPastTotalSupply(blockNumber);
-        }
-
-        return (supply * quorumNumerator(blockNumber)) / quorumDenominator();
-    }
-
-    /**
      * Add support for `weightCast` to check if `account` has voted on `proposalId`.
      */
     function hasVoted(uint256 proposalId, address account)
@@ -356,8 +341,8 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
  * - full module -> (fractional),module
  *
  * Alligator
- * - partial standard (0 weight) -> "" [TODO: DISALLOW ON ALLIGATOR!!]
+ * - partial standard (0 weight) -> "" [TODO: DISALLOW ON ALLIGATOR!!] intent-votes should only be used directly from voter address
  * - partial standard -> fractional
- * - partial module (0 weight) -> (fractional),module [TODO: DISALLOW ON ALLIGATOR!!]
+ * - partial module (0 weight) -> (fractional),module [TODO: DISALLOW ON ALLIGATOR!!] otherwise alligator would vote with
  * - partial module -> fractional,module
  */
