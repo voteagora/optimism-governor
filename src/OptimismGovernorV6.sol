@@ -120,7 +120,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
             // Derive `voter` from address appended in `params`
             assembly {
                 // TODO: Test if correct
-                // TODO: Add append to alligator
+                // TODO: Append `voter` to `params` sent by alligator
                 /// @dev no need to clean dirty bytes as they are sent already cleaned by alligator
                 voter := mload(add(params, sub(mload(params), 0x20)))
             }
@@ -310,7 +310,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @dev Returns an the next unused nonce for an address. See {NoncesUpgradeable}.
+     * @dev Returns the next unused nonce for an address. See {NoncesUpgradeable}.
      */
     function nonces(address owner) public view virtual returns (uint256) {
         return _nonces[owner];
