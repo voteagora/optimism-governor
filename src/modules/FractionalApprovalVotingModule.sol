@@ -49,7 +49,7 @@ contract FractionalApprovalVotingModule is ApprovalVotingModule, FractionalVotin
 
         (, uint256 forVotes,, uint256[] memory options) = abi.decode(params, (uint256, uint256, uint256, uint256[]));
 
-        // Track votes only if weight is not 0
+        // Record votes only if weight is not 0
         if ((totalWeight != 0 && support == uint8(VoteType.For)) || forVotes != 0) {
             uint256 totalOptions = options.length;
             if (totalOptions == 0) revert InvalidParams();
@@ -60,31 +60,42 @@ contract FractionalApprovalVotingModule is ApprovalVotingModule, FractionalVotin
             // Use `voter` as `account` when partial voting is used, otherwise use `account`
             account = voter != address(0) ? voter : account;
 
-            uint256 option;
-            uint256 prevOption;
-            for (uint256 i; i < totalOptions;) {
-                option = options[i];
+            _recordVote(proposalId, account, weight, options, totalOptions, proposal.settings.maxApprovals);
+        }
+    }
 
-                accountVotesSet[proposalId][account].add(option);
+    function _recordVote(
+        uint256 proposalId,
+        address account,
+        uint128 weight,
+        uint256[] memory options,
+        uint256 totalOptions,
+        uint256 maxApprovals
+    ) internal {
+        uint256 option;
+        uint256 prevOption;
+        for (uint256 i; i < totalOptions;) {
+            option = options[i];
 
-                // Revert if `option` is not strictly ascending
-                if (i != 0) {
-                    if (option <= prevOption) revert OptionsNotStrictlyAscending();
-                }
+            accountVotesSet[proposalId][account].add(option);
 
-                prevOption = option;
-
-                /// @dev Revert if `option` is out of bounds
-                proposals[proposalId].optionVotes[option] += weight;
-
-                unchecked {
-                    ++i;
-                }
+            // Revert if `option` is not strictly ascending
+            if (i != 0) {
+                if (option <= prevOption) revert OptionsNotStrictlyAscending();
             }
 
-            if (accountVotesSet[proposalId][account].length() > proposal.settings.maxApprovals) {
-                revert MaxApprovalsExceeded();
+            prevOption = option;
+
+            /// @dev Revert if `option` is out of bounds
+            proposals[proposalId].optionVotes[option] += weight;
+
+            unchecked {
+                ++i;
             }
+        }
+
+        if (accountVotesSet[proposalId][account].length() > maxApprovals) {
+            revert MaxApprovalsExceeded();
         }
     }
 
