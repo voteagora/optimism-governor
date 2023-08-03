@@ -16,3 +16,6 @@
 [submodule "lib/upgrade-scripts"]
 	path = lib/upgrade-scripts
 	url = https://github.com/0xPhaze/upgrade-scripts
+[submodule "lib/liquid-delegator"]
+	path = lib/liquid-delegator
+	url = https://github.com/voteagora/liquid-delegator
