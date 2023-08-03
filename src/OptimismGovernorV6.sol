@@ -116,6 +116,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         _countVote(proposalId, account, support, weight, params);
 
         address voter;
+        // TODO: Use allowlist of allowed contracts?
         if (account == alligator) {
             // Derive `voter` from address appended in `params`
             assembly {
