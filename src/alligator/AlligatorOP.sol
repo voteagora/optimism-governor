@@ -102,15 +102,11 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
      */
     function create(address proxyOwner, BaseRules calldata proxyRules) public override returns (address endpoint) {
         endpoint = address(
-            new Proxy{salt: bytes32(uint256(uint160(proxyOwner)))}(
-                governor,
-                proxyRules.maxRedelegations,
-                proxyRules.notValidBefore,
-                proxyRules.notValidAfter,
-                proxyRules.blocksBeforeVoteCloses,
-                proxyRules.customRule
+            new Proxy{salt: keccak256(abi.encode(proxyOwner, proxyRules))}(
+                governor
             )
         );
+
         emit ProxyDeployed(proxyOwner, proxyRules, endpoint);
     }
 

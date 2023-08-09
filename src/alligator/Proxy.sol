@@ -3,34 +3,14 @@ pragma solidity ^0.8.19;
 
 import {IAlligatorOP} from "../interfaces/IAlligatorOP.sol";
 
-// Proxy implementation that handles gas refunds from governor
+// Proxy implementation
 contract Proxy {
     address internal immutable alligator;
     address internal immutable governor;
 
-    // Rules
-    uint256 internal immutable maxRedelegations;
-    uint256 internal immutable notValidBefore;
-    uint256 internal immutable notValidAfter;
-    uint256 internal immutable blocksBeforeVoteCloses;
-    address internal immutable customRule;
-
-    constructor(
-        address _governor,
-        uint256 _maxRedelegations,
-        uint256 _notValidBefore,
-        uint256 _notValidAfter,
-        uint256 _blocksBeforeVoteCloses,
-        address _customRule
-    ) {
+    constructor(address _governor) {
         alligator = msg.sender;
         governor = _governor;
-
-        maxRedelegations = _maxRedelegations;
-        notValidBefore = _notValidBefore;
-        notValidAfter = _notValidAfter;
-        blocksBeforeVoteCloses = _blocksBeforeVoteCloses;
-        customRule = _customRule;
     }
 
     fallback() external payable {
