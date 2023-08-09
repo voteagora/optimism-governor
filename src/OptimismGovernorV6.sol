@@ -295,19 +295,3 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         }
     }
 }
-
-/**
- * TODO: tests for castVote scenarios
- *
- * User
- * - full standard (0 weight) -> ""
- * - full standard -> ""
- * - full module (0 weight) -> (partial),module
- * - full module -> (partial),module
- *
- * Alligator
- * - partial standard (0 weight) -> "" [TODO: DISALLOW ON ALLIGATOR!!] intent-votes should only be used directly from voter address
- * - partial standard -> partial
- * - partial module (0 weight) -> (partial),module [TODO: DISALLOW ON ALLIGATOR!!] otherwise alligator would vote with
- * - partial module -> partial,module
- */
