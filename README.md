@@ -1,6 +1,6 @@
 # Optimism On-Chain Governance
 
-This repo conatins the code for the Optimism On-Chain Governance system.
+This repo contains the code for the Optimism On-Chain Governance system.
 
 ## Motivation
 
