@@ -8,11 +8,7 @@ interface IAlligatorOP {
     //                      PROXY OPERATIONS
     // =============================================================
 
-    function create(address owner, ProxyRules calldata proxyRules, bool registerEnsName)
-        external
-        returns (address endpoint);
-
-    function registerProxyDeployment(address owner, ProxyRules calldata proxyRules) external;
+    function create(address owner, ProxyRules calldata proxyRules) external returns (address endpoint);
 
     // =============================================================
     //                     GOVERNOR OPERATIONS
@@ -29,12 +25,22 @@ interface IAlligatorOP {
         string calldata reason
     ) external;
 
-    function castVotesWithReasonBatched(
+    function castVoteWithReasonAndParams(
+        ProxyRules calldata proxyRules,
+        address[] calldata authority,
+        uint256 proposalId,
+        uint8 support,
+        string calldata reason,
+        bytes memory params
+    ) external;
+
+    function castVoteWithReasonAndParamsBatched(
         ProxyRules[] calldata proxyRules,
         address[][] calldata authorities,
         uint256 proposalId,
         uint8 support,
-        string calldata reason
+        string calldata reason,
+        bytes memory params
     ) external;
 
     function castVoteBySig(
@@ -47,26 +53,38 @@ interface IAlligatorOP {
         bytes32 s
     ) external;
 
+    function castVoteWithReasonAndParamsBySig(
+        ProxyRules calldata proxyRules,
+        address[] calldata authority,
+        uint256 proposalId,
+        uint8 support,
+        string calldata reason,
+        bytes memory params,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external;
+
     // =============================================================
     //                        SUBDELEGATIONS
     // =============================================================
 
-    function subDelegateAll(address to, ProxyRules calldata subDelegateRules) external;
+    function subDelegateAll(address to, SubdelegationRules calldata subDelegateRules) external;
 
-    function subDelegateAllBatched(address[] calldata targets, ProxyRules[] calldata subDelegateRules) external;
+    function subDelegateAllBatched(address[] calldata targets, SubdelegationRules calldata subDelegateRules) external;
 
     function subDelegate(
         address proxyOwner,
         ProxyRules calldata proxyRules,
         address to,
-        ProxyRules calldata subDelegateRules
+        SubdelegationRules calldata subDelegateRules
     ) external;
 
     function subDelegateBatched(
         address proxyOwner,
         ProxyRules calldata proxyRules,
         address[] calldata targets,
-        ProxyRules[] calldata subDelegateRules
+        SubdelegationRules calldata subDelegateRules
     ) external;
 
     // =============================================================
@@ -83,10 +101,9 @@ interface IAlligatorOP {
         ProxyRules memory rules,
         address sender,
         address[] memory authority,
-        uint256 permissions,
         uint256 proposalId,
         uint256 support
-    ) external view;
+    ) external view returns (address proxy);
 
     function proxyAddress(address owner, ProxyRules calldata proxyRules) external view returns (address endpoint);
 }

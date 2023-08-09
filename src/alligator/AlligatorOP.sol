@@ -11,6 +11,9 @@ import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 
+/**
+ * @notice Liquid delegator contract for Optimism, based on Alligator V2 (https://github.com/voteagora/liquid-delegator).
+ */
 abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     // =============================================================
     //                             ERRORS
@@ -32,20 +35,12 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
 
     event ProxyDeployed(address indexed owner, ProxyRules proxyRules, address proxy);
     event SubDelegation(address indexed from, address indexed to, SubdelegationRules subdelegationRules);
-    event SubDelegations(address indexed from, address[] to, SubdelegationRules[] subdelegationRules);
+    event SubDelegations(address indexed from, address[] to, SubdelegationRules subdelegationRules);
     event SubDelegationProxy(
-        address indexed from,
-        address indexed to,
-        SubdelegationRules subdelegationRules,
-        address indexed proxyOwner,
-        ProxyRules proxyRules
+        address indexed proxy, address indexed from, address indexed to, SubdelegationRules subdelegationRules
     );
     event SubDelegationProxies(
-        address indexed from,
-        address[] to,
-        SubdelegationRules[] subdelegationRules,
-        address indexed proxyOwner,
-        ProxyRules proxyRules
+        address indexed proxy, address indexed from, address[] to, SubdelegationRules subdelegationRules
     );
     event VoteCast(
         address indexed proxy, address indexed voter, address[] authority, uint256 proposalId, uint8 support
@@ -73,12 +68,10 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     mapping(address from => mapping(address to => SubdelegationRules subdelegationRules)) public subDelegations;
 
     // Subdelegation rules `from` => `to`, for a specific proxy
-    mapping(bytes32 proxyHash => mapping(address from => mapping(address to => SubdelegationRules subdelegationRules)))
+    mapping(address proxy => mapping(address from => mapping(address to => SubdelegationRules subdelegationRules)))
         public subDelegationsProxy;
 
-    mapping(address proxyAddress => mapping(bytes32 hashSig => bool isSignatureValid)) internal validSignatures;
-
-    mapping(address proxyAddress => mapping(uint256 proposalId => mapping(address voter => bool hasVoted))) hasVoted;
+    mapping(address proxy => mapping(uint256 proposalId => mapping(address voter => bool hasVoted))) hasVoted;
 
     // =============================================================
     //                         CONSTRUCTOR
@@ -101,7 +94,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
      *
      * @return endpoint Address of the Proxy
      */
-    function create(address owner, ProxyRules calldata proxyRules) public returns (address endpoint) {
+    function create(address owner, ProxyRules calldata proxyRules) public override returns (address endpoint) {
         endpoint = address(
             new Proxy{salt: bytes32(uint256(uint160(owner)))}(
                 governor,
@@ -131,15 +124,14 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
      */
     function castVote(ProxyRules calldata proxyRules, address[] calldata authority, uint256 proposalId, uint8 support)
         external
+        override
         whenNotPaused
     {
-        validate(proxyRules, msg.sender, authority, proposalId, support);
-
-        address proxy = proxyAddress(authority[0], proxyRules);
+        address proxy = validate(proxyRules, msg.sender, authority, proposalId, support);
 
         // TODO: Format partial votes + append voter
         bytes memory votes;
-        _castVote(proxy, proposalId, support, votes);
+        _castVote(proxy, msg.sender, proposalId, support, votes);
 
         emit VoteCast(proxy, msg.sender, authority, proposalId, support);
     }
@@ -161,14 +153,41 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         uint256 proposalId,
         uint8 support,
         string calldata reason
-    ) public whenNotPaused {
-        validate(proxyRules, msg.sender, authority, proposalId, support);
-
-        address proxy = proxyAddress(authority[0], proxyRules);
+    ) public override whenNotPaused {
+        address proxy = validate(proxyRules, msg.sender, authority, proposalId, support);
 
         // TODO: Format partial votes + append voter
         bytes memory votes;
-        _castVoteWithReason(proxy, proposalId, support, reason, votes);
+        _castVoteWithReasonAndParams(proxy, msg.sender, proposalId, support, reason, votes);
+
+        emit VoteCast(proxy, msg.sender, authority, proposalId, support);
+    }
+
+    /**
+     * @notice Validate subdelegation rules and cast a vote with reason on the governor.
+     *
+     * @param proxyRules The base rules of the Proxy to vote from.
+     * @param authority The authority chain to validate against.
+     * @param proposalId The id of the proposal to vote on
+     * @param support The support value for the vote. 0=against, 1=for, 2=abstain
+     * @param reason The reason given for the vote by the voter
+     * @param params The custom params of the vote
+     *
+     * @dev Reverts if the proxy has not been created.
+     */
+    function castVoteWithReasonAndParams(
+        ProxyRules calldata proxyRules,
+        address[] calldata authority,
+        uint256 proposalId,
+        uint8 support,
+        string calldata reason,
+        bytes memory params
+    ) public override whenNotPaused {
+        address proxy = validate(proxyRules, msg.sender, authority, proposalId, support);
+
+        // TODO: Format partial votes + append voter
+        bytes memory votes;
+        _castVoteWithReasonAndParams(proxy, msg.sender, proposalId, support, reason, votes);
 
         emit VoteCast(proxy, msg.sender, authority, proposalId, support);
     }
@@ -181,16 +200,18 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
      * @param proposalId The id of the proposal to vote on
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain
      * @param reason The reason given for the vote by the voter
+     * @param params The custom params of the vote
      *
      * @dev Reverts if the proxy has not been created.
      */
-    function castVotesWithReasonBatched(
+    function castVoteWithReasonAndParamsBatched(
         ProxyRules[] calldata proxyRules,
         address[][] calldata authorities,
         uint256 proposalId,
         uint8 support,
-        string calldata reason
-    ) public whenNotPaused {
+        string calldata reason,
+        bytes memory params
+    ) public override whenNotPaused {
         uint256 authorityLength = authorities.length;
         require(authorityLength == proxyRules.length);
 
@@ -201,12 +222,11 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         for (uint256 i; i < authorityLength;) {
             authority = authorities[i];
             rules = proxyRules[i];
-            validate(rules, msg.sender, authority, proposalId, support);
-            proxies[i] = proxyAddress(authority[0], rules);
+            proxies[i] = validate(rules, msg.sender, authority, proposalId, support);
 
             // TODO: Format partial votes + append voter
             bytes memory votes;
-            _castVoteWithReason(proxies[i], proposalId, support, reason, votes);
+            _castVoteWithReasonAndParams(proxies[i], msg.sender, proposalId, support, reason, votes);
 
             unchecked {
                 ++i;
@@ -234,7 +254,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external whenNotPaused {
+    ) external override whenNotPaused {
         bytes32 domainSeparator =
             keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, address(this)));
         bytes32 structHash = keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, support));
@@ -245,13 +265,54 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
             revert BadSignature();
         }
 
-        validate(proxyRules, signatory, authority, proposalId, support);
-
-        address proxy = proxyAddress(authority[0], proxyRules);
+        address proxy = validate(proxyRules, signatory, authority, proposalId, support);
 
         // TODO: Format partial votes + append voter
         bytes memory votes;
-        _castVote(proxy, proposalId, support, votes);
+        _castVote(proxy, signatory, proposalId, support, votes);
+
+        emit VoteCast(proxy, signatory, authority, proposalId, support);
+    }
+
+    /**
+     * @notice Validate subdelegation rules and cast a vote with reason and params by signature on the governor.
+     *
+     * @param proxyRules The base rules of the Proxy to vote from.
+     * @param authority The authority chain to validate against.
+     * @param proposalId The id of the proposal to vote on
+     * @param support The support value for the vote. 0=against, 1=for, 2=abstain
+     * @param reason The reason given for the vote by the signatory
+     * @param params The custom params of the vote
+     *
+     * @dev Reverts if the proxy has not been created.
+     */
+    function castVoteWithReasonAndParamsBySig(
+        ProxyRules calldata proxyRules,
+        address[] calldata authority,
+        uint256 proposalId,
+        uint8 support,
+        string calldata reason,
+        bytes memory params,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external override whenNotPaused {
+        bytes32 domainSeparator =
+            keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, address(this)));
+        bytes32 structHash =
+            keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, support, keccak256(bytes(reason)), keccak256(params)));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+        address signatory = ecrecover(digest, v, r, s);
+
+        if (signatory == address(0)) {
+            revert BadSignature();
+        }
+
+        address proxy = validate(proxyRules, signatory, authority, proposalId, support);
+
+        // TODO: Format partial votes + append voter
+        bytes memory votes;
+        _castVoteWithReasonAndParams(proxy, signatory, proposalId, support, reason, votes);
 
         emit VoteCast(proxy, signatory, authority, proposalId, support);
     }
@@ -266,7 +327,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
      * @param to The address to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegation.
      */
-    function subDelegateAll(address to, SubdelegationRules calldata subdelegationRules) external {
+    function subDelegateAll(address to, SubdelegationRules calldata subdelegationRules) external override {
         subDelegations[msg.sender][to] = subdelegationRules;
         emit SubDelegation(msg.sender, to, subdelegationRules);
     }
@@ -277,14 +338,13 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
      * @param targets The addresses to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegations.
      */
-    function subDelegateAllBatched(address[] calldata targets, SubdelegationRules[] calldata subdelegationRules)
+    function subDelegateAllBatched(address[] calldata targets, SubdelegationRules calldata subdelegationRules)
         external
+        override
     {
         uint256 targetsLength = targets.length;
-        require(targetsLength == subdelegationRules.length);
-
         for (uint256 i; i < targetsLength;) {
-            subDelegations[msg.sender][targets[i]] = subdelegationRules[i];
+            subDelegations[msg.sender][targets[i]] = subdelegationRules;
 
             unchecked {
                 ++i;
@@ -308,13 +368,14 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         ProxyRules calldata proxyRules,
         address to,
         SubdelegationRules calldata subdelegationRules
-    ) external {
-        if (proxyAddress(proxyOwner, proxyRules).code.length == 0) {
+    ) external override {
+        address proxy = proxyAddress(proxyOwner, proxyRules);
+        if (proxy.code.length == 0) {
             create(proxyOwner, proxyRules);
         }
 
-        subDelegationsProxy[keccak256(abi.encode(proxyOwner, proxyRules))][msg.sender][to] = subdelegationRules;
-        emit SubDelegationProxy(msg.sender, to, subdelegationRules, proxyOwner, proxyRules);
+        subDelegationsProxy[proxy][msg.sender][to] = subdelegationRules;
+        emit SubDelegationProxy(proxy, msg.sender, to, subdelegationRules);
     }
 
     /**
@@ -330,25 +391,23 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         address proxyOwner,
         ProxyRules calldata proxyRules,
         address[] calldata targets,
-        SubdelegationRules[] calldata subdelegationRules
-    ) external {
-        uint256 targetsLength = targets.length;
-        require(targetsLength == subdelegationRules.length);
-
-        if (proxyAddress(proxyOwner, proxyRules).code.length == 0) {
+        SubdelegationRules calldata subdelegationRules
+    ) external override {
+        address proxy = proxyAddress(proxyOwner, proxyRules);
+        if (proxy.code.length == 0) {
             create(proxyOwner, proxyRules);
         }
 
+        uint256 targetsLength = targets.length;
         for (uint256 i; i < targetsLength;) {
-            subDelegationsProxy[keccak256(abi.encode(proxyOwner, proxyRules))][msg.sender][targets[i]] =
-                subdelegationRules[i];
+            subDelegationsProxy[proxy][msg.sender][targets[i]] = subdelegationRules;
 
             unchecked {
                 ++i;
             }
         }
 
-        emit SubDelegationProxies(msg.sender, targets, subdelegationRules, proxyOwner, proxyRules);
+        emit SubDelegationProxies(proxy, msg.sender, targets, subdelegationRules);
     }
 
     // =============================================================
@@ -370,25 +429,25 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         address[] memory authority,
         uint256 proposalId,
         uint256 support
-    ) public view {
+    ) public view override returns (address proxy) {
         uint256 authorityLength = authority.length;
 
         // Validate base proxy rules
         _validateRules(proxyRules, sender, authorityLength, proposalId, support, address(0), address(0), 1);
 
+        proxy = proxyAddress(authority[0], proxyRules);
         address from = authority[0];
 
         if (from == sender) {
-            return;
+            return proxy;
         }
 
-        bytes32 proxyHash = keccak256(abi.encode(from, proxyRules));
         address to;
         SubdelegationRules memory subdelegationRules;
         for (uint256 i = 1; i < authorityLength;) {
             to = authority[i];
             // Retrieve proxy-specific rules
-            subdelegationRules = subDelegationsProxy[proxyHash][from][to];
+            subdelegationRules = subDelegationsProxy[proxy][from][to];
             // If a subdelegation is not present, retrieve address-specific rules
             // TODO: Check fix
             // if (subdelegationRules.permissions == 0) subdelegationRules = subDelegations[from][to];
@@ -421,7 +480,12 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
      *
      * @return endpoint The address of the Proxy.
      */
-    function proxyAddress(address owner, ProxyRules memory proxyRules) public view returns (address endpoint) {
+    function proxyAddress(address owner, ProxyRules memory proxyRules)
+        public
+        view
+        override
+        returns (address endpoint)
+    {
         endpoint = address(
             uint160(
                 uint256(
@@ -458,11 +522,13 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
      * @notice Cast a vote on the governor.
      *
      * @param proxy The address of the Proxy
+     * @param voter The address of the voter
      * @param proposalId The id of the proposal to vote on
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain
+     * @param params The params to be passed to the governor
      */
-    function _castVote(address proxy, uint256 proposalId, uint8 support, bytes memory params) internal {
-        _recordVote(proxy, proposalId);
+    function _castVote(address proxy, address voter, uint256 proposalId, uint8 support, bytes memory params) internal {
+        _recordVote(proxy, proposalId, voter);
         IGovernor(proxy).castVoteWithReasonAndParams(proposalId, support, "", params);
     }
 
@@ -470,18 +536,21 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
      * @notice Cast a vote on the governor with reason.
      *
      * @param proxy The address of the Proxy
+     * @param voter The address of the voter
      * @param proposalId The id of the proposal to vote on
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain
      * @param reason The reason given for the vote by the voter
+     * @param params The params to be passed to the governor
      */
-    function _castVoteWithReason(
+    function _castVoteWithReasonAndParams(
         address proxy,
+        address voter,
         uint256 proposalId,
         uint8 support,
         string calldata reason,
         bytes memory params
     ) internal {
-        _recordVote(proxy, proposalId);
+        _recordVote(proxy, proposalId, voter);
         IGovernor(proxy).castVoteWithReasonAndParams(proposalId, support, reason, params);
     }
 
@@ -512,9 +581,9 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         }
     }
 
-    function _recordVote(address proxy, uint256 proposalId) internal {
-        if (hasVoted[proxy][proposalId][msg.sender]) revert AlreadyVoted(msg.sender, proposalId);
-        hasVoted[proxy][proposalId][msg.sender] = true;
+    function _recordVote(address proxy, uint256 proposalId, address voter) internal {
+        if (hasVoted[proxy][proposalId][voter]) revert AlreadyVoted(voter, proposalId);
+        hasVoted[proxy][proposalId][voter] = true;
     }
 
     function _validateRules(
@@ -526,7 +595,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         address from,
         address to,
         uint256 redelegationIndex
-    ) private view {
+    ) internal view {
         /// @dev `maxRedelegation` cannot overflow as it increases by 1 each iteration
         /// @dev block.number + rules.blocksBeforeVoteCloses cannot overflow uint256
         unchecked {
