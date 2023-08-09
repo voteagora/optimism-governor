@@ -12,7 +12,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
- * @notice Liquid delegator contract for Optimism, based on Alligator V2 (https://github.com/voteagora/liquid-delegator).
+ * @notice Liquid delegator contract for OP Governor, based on Alligator V2 (https://github.com/voteagora/liquid-delegator).
  */
 abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     // =============================================================
