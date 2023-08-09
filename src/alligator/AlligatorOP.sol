@@ -415,7 +415,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     // =============================================================
 
     /**
-     * @notice Validate subdelegation rules. Proxy-specific delegations override address-specific delegations.
+     * @notice Validate proxy and subdelegation rules. Proxy-specific delegations override address-specific delegations.
      *
      * @param proxyRules The base rules of the Proxy.
      * @param sender The sender address to validate.
@@ -432,12 +432,12 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     ) public view override returns (address proxy) {
         uint256 authorityLength = authority.length;
 
-        // Validate base proxy rules
-        _validateRules(proxyRules, sender, authorityLength, proposalId, support, address(0), address(0), 1);
+        _validateProxyRules(proxyRules, sender, authorityLength, proposalId, support, address(0), address(0), 1);
 
-        proxy = proxyAddress(authority[0], proxyRules);
         address from = authority[0];
+        proxy = proxyAddress(from, proxyRules);
 
+        // If `sender` is the proxy owner, only the proxy rules are validated.
         if (from == sender) {
             return proxy;
         }
@@ -448,12 +448,16 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
             to = authority[i];
             // Retrieve proxy-specific rules
             subdelegationRules = subDelegationsProxy[proxy][from][to];
-            // If a subdelegation is not present, retrieve address-specific rules
-            // TODO: Check fix
-            // if (subdelegationRules.permissions == 0) subdelegationRules = subDelegations[from][to];
+            // If a subdelegation is not present, fallback to address-specific subdelegation rules
+            if (subdelegationRules.allowance == 0) {
+                subdelegationRules = subDelegations[from][to];
+
+                if (subdelegationRules.allowance == 0) {
+                    revert NotDelegated(from, to);
+                }
+            }
 
             unchecked {
-                // Validate subdelegation rules
                 _validateSubdelegationRules(
                     subdelegationRules,
                     sender,
@@ -586,7 +590,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         hasVoted[proxy][proposalId][voter] = true;
     }
 
-    function _validateRules(
+    function _validateProxyRules(
         ProxyRules memory rules,
         address sender,
         uint256 authorityLength,
@@ -599,10 +603,6 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         /// @dev `maxRedelegation` cannot overflow as it increases by 1 each iteration
         /// @dev block.number + rules.blocksBeforeVoteCloses cannot overflow uint256
         unchecked {
-            // TODO: Check condition
-            // if ((rules.permissions & permissions) != permissions) {
-            //     revert NotDelegated(from, to, permissions);
-            // }
             if (rules.maxRedelegations + redelegationIndex < authorityLength) {
                 revert TooManyRedelegations(from, to);
             }
@@ -638,7 +638,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         address to,
         uint256 redelegationIndex
     ) private view {
-        _validateRules(
+        _validateProxyRules(
             ProxyRules(
                 rules.maxRedelegations,
                 rules.notValidBefore,
