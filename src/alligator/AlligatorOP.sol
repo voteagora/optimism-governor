@@ -192,7 +192,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
             proposalId,
             support,
             reason,
-            abi.encode(bytes.concat(abi.encode(votesToCast), params), msg.sender)
+            bytes.concat(bytes32(votesToCast), params, bytes32(uint256(uint160((msg.sender)))))
         );
 
         emit VoteCast(proxy, msg.sender, authority, proposalId, support);
@@ -236,7 +236,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
                 proposalId,
                 support,
                 reason,
-                abi.encode(bytes.concat(abi.encode(votesToCast), params), msg.sender)
+                bytes.concat(bytes32(votesToCast), params, bytes32(uint256(uint160((msg.sender)))))
             );
 
             unchecked {
@@ -325,7 +325,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
             proposalId,
             support,
             reason,
-            abi.encode(bytes.concat(abi.encode(votesToCast), params), signatory)
+            bytes.concat(bytes32(votesToCast), params, bytes32(uint256(uint160(signatory))))
         );
 
         emit VoteCast(proxy, signatory, authority, proposalId, support);
