@@ -3,5 +3,5 @@ pragma solidity ^0.8.13;
 
 enum AllowanceType {
     Absolute,
-    Percentage
+    Relative
 }
