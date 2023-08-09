@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import {ProxyRules, SubdelegationRules} from "../structs/RulesV2.sol";
+import {BaseRules, SubdelegationRules} from "../structs/RulesV2.sol";
 
 interface IAlligatorOP {
     // =============================================================
     //                      PROXY OPERATIONS
     // =============================================================
 
-    function create(address owner, ProxyRules calldata proxyRules) external returns (address endpoint);
+    function create(address owner, BaseRules calldata proxyRules) external returns (address endpoint);
 
     // =============================================================
     //                     GOVERNOR OPERATIONS
     // =============================================================
 
-    function castVote(ProxyRules calldata proxyRules, address[] calldata authority, uint256 proposalId, uint8 support)
+    function castVote(BaseRules calldata proxyRules, address[] calldata authority, uint256 proposalId, uint8 support)
         external;
 
     function castVoteWithReason(
-        ProxyRules calldata proxyRules,
+        BaseRules calldata proxyRules,
         address[] calldata authority,
         uint256 proposalId,
         uint8 support,
@@ -26,7 +26,7 @@ interface IAlligatorOP {
     ) external;
 
     function castVoteWithReasonAndParams(
-        ProxyRules calldata proxyRules,
+        BaseRules calldata proxyRules,
         address[] calldata authority,
         uint256 proposalId,
         uint8 support,
@@ -35,7 +35,7 @@ interface IAlligatorOP {
     ) external;
 
     function castVoteWithReasonAndParamsBatched(
-        ProxyRules[] calldata proxyRules,
+        BaseRules[] calldata proxyRules,
         address[][] calldata authorities,
         uint256 proposalId,
         uint8 support,
@@ -44,7 +44,7 @@ interface IAlligatorOP {
     ) external;
 
     function castVoteBySig(
-        ProxyRules calldata proxyRules,
+        BaseRules calldata proxyRules,
         address[] calldata authority,
         uint256 proposalId,
         uint8 support,
@@ -54,7 +54,7 @@ interface IAlligatorOP {
     ) external;
 
     function castVoteWithReasonAndParamsBySig(
-        ProxyRules calldata proxyRules,
+        BaseRules calldata proxyRules,
         address[] calldata authority,
         uint256 proposalId,
         uint8 support,
@@ -75,14 +75,14 @@ interface IAlligatorOP {
 
     function subDelegate(
         address proxyOwner,
-        ProxyRules calldata proxyRules,
+        BaseRules calldata proxyRules,
         address to,
         SubdelegationRules calldata subDelegateRules
     ) external;
 
     function subDelegateBatched(
         address proxyOwner,
-        ProxyRules calldata proxyRules,
+        BaseRules calldata proxyRules,
         address[] calldata targets,
         SubdelegationRules calldata subDelegateRules
     ) external;
@@ -98,12 +98,12 @@ interface IAlligatorOP {
     // =============================================================
 
     function validate(
-        ProxyRules memory rules,
+        BaseRules memory rules,
         address sender,
         address[] memory authority,
         uint256 proposalId,
         uint256 support
-    ) external view returns (address proxy);
+    ) external view returns (address proxy, uint256 votesToCast);
 
-    function proxyAddress(address owner, ProxyRules calldata proxyRules) external view returns (address endpoint);
+    function proxyAddress(address owner, BaseRules calldata proxyRules) external view returns (address endpoint);
 }
