@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {OptimismGovernorV5} from "./OptimismGovernorV5.sol";
-import {VotingModule, FractionalVotingModule} from "./modules/FractionalVotingModule.sol";
+import {VotingModule, PartialVotingModule} from "./modules/PartialVotingModule.sol";
 import {GovernorCountingSimpleUpgradeableV2} from "./lib/openzeppelin/v2/GovernorCountingSimpleUpgradeableV2.sol";
 import {GovernorVotesQuorumFractionUpgradeableV2} from
     "./lib/openzeppelin/v2/GovernorVotesQuorumFractionUpgradeableV2.sol";
@@ -12,7 +12,7 @@ import {SignatureCheckerUpgradeable} from "./lib/openzeppelin/SignatureCheckerUp
 import {TimersUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/TimersUpgradeable.sol";
 
 /**
- * - Adds support for fractional voting
+ * - Adds support for partial voting
  * - Deprecate old version of `castVoteWithReasonAndParamsBySig` and add new version with `voter`, `signature` and `nonce`.
  * - Adds support for votable supply oracle
  */
@@ -38,8 +38,8 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
      */
     error GovernorInvalidSignature(address voter);
 
-    /// Thrown when a module does not support fractional voting.
-    error FractionalVotingNotSupported(address module);
+    /// Thrown when a module does not support partial voting.
+    error PartialVotingNotSupported(address module);
 
     /*//////////////////////////////////////////////////////////////
                                LIBRARIES
@@ -68,7 +68,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
 
     /**
      * Total number of `votes` that `account` has cast for `proposalId`.
-     * @dev Replaces non-quantitative `_proposalVotes.hasVoted` to add support for fractional voting.
+     * @dev Replaces non-quantitative `_proposalVotes.hasVoted` to add support for partial voting.
      */
     mapping(uint256 proposalId => mapping(address account => uint256 votes)) public weightCast;
 
@@ -85,15 +85,15 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * Add check to ensure the used `module` supports fractional voting.
+     * Add check to ensure the used `module` supports partial voting.
      */
     function proposeWithModule(VotingModule module, bytes memory proposalData, string memory description)
         public
         override
         returns (uint256)
     {
-        if (!FractionalVotingModule(address(module)).supportsFractionaVoting()) {
-            revert FractionalVotingNotSupported(address(module));
+        if (!PartialVotingModule(address(module)).supportsPartialVoting()) {
+            revert PartialVotingNotSupported(address(module));
         }
 
         return super.proposeWithModule(module, proposalData, description);
@@ -121,16 +121,13 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
             // Derive `voter` from address appended in `params`
             assembly {
                 // TODO: Test if correct
-                // TODO: Append `voter` to `params` sent by alligator
                 /// @dev no need to clean dirty bytes as they are sent already cleaned by alligator
                 voter := mload(add(params, sub(mload(params), 0x20)))
             }
         }
 
         if (proposal.votingModule != address(0)) {
-            FractionalVotingModule(proposal.votingModule)._countVote(
-                proposalId, account, support, weight, params, voter
-            );
+            PartialVotingModule(proposal.votingModule)._countVote(proposalId, account, support, weight, params, voter);
         }
 
         if (params.length == 0) {
@@ -299,11 +296,11 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
 
     /**
      * Params encoding:
-     * - fractional [0..95] = (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes)
-     * - modules [96..] = custom external module params
+     * - partial [0..31] = (uint256 partialVotes)
+     * - modules [32..] = custom external module params
      */
     function COUNTING_MODE() public pure virtual override returns (string memory) {
-        return "support=bravo&quorum=against,for,abstain&params=fractional,modules";
+        return "support=bravo&quorum=against,for,abstain&params=partial,modules";
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -338,12 +335,12 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
  * User
  * - full standard (0 weight) -> ""
  * - full standard -> ""
- * - full module (0 weight) -> (fractional),module
- * - full module -> (fractional),module
+ * - full module (0 weight) -> (partial),module
+ * - full module -> (partial),module
  *
  * Alligator
  * - partial standard (0 weight) -> "" [TODO: DISALLOW ON ALLIGATOR!!] intent-votes should only be used directly from voter address
- * - partial standard -> fractional
- * - partial module (0 weight) -> (fractional),module [TODO: DISALLOW ON ALLIGATOR!!] otherwise alligator would vote with
- * - partial module -> fractional,module
+ * - partial standard -> partial
+ * - partial module (0 weight) -> (partial),module [TODO: DISALLOW ON ALLIGATOR!!] otherwise alligator would vote with
+ * - partial module -> partial,module
  */
