@@ -2,11 +2,11 @@
 pragma solidity ^0.8.19;
 
 import {ApprovalVotingModule, Proposal, VoteType} from "./ApprovalVotingModule.sol";
-import {FractionalVotingModule} from "./FractionalVotingModule.sol";
+import {PartialVotingModule} from "./PartialVotingModule.sol";
 import {SafeCastLib} from "@solady/utils/SafeCastLib.sol";
 import {EnumerableSetUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
 
-contract FractionalApprovalVotingModule is ApprovalVotingModule, FractionalVotingModule {
+contract PartialApprovalVotingModule is ApprovalVotingModule, PartialVotingModule {
     /*//////////////////////////////////////////////////////////////
                                LIBRARIES
     //////////////////////////////////////////////////////////////*/
@@ -47,20 +47,22 @@ contract FractionalApprovalVotingModule is ApprovalVotingModule, FractionalVotin
         Proposal memory proposal = proposals[proposalId];
         _onlyGovernor(proposal.governor);
 
-        (, uint256 forVotes,, uint256[] memory options) = abi.decode(params, (uint256, uint256, uint256, uint256[]));
+        (uint256 partialVotes, uint256[] memory options) = abi.decode(params, (uint256, uint256[]));
 
-        // Record votes only if weight is not 0
-        if ((totalWeight != 0 && support == uint8(VoteType.For)) || forVotes != 0) {
-            uint256 totalOptions = options.length;
-            if (totalOptions == 0) revert InvalidParams();
+        if (support == uint8(VoteType.For)) {
+            // Record votes only if weight is not 0
+            if (totalWeight != 0 || partialVotes != 0) {
+                uint256 totalOptions = options.length;
+                if (totalOptions == 0) revert InvalidParams();
 
-            // Derive `weight` from `forVotes` when partial voting is used, otherwise use `totalWeight`
-            uint128 weight = (forVotes != 0 ? forVotes : totalWeight).toUint128();
+                // Use `partialVotes` when present, otherwise `totalWeight`
+                uint128 weight = (partialVotes != 0 ? partialVotes : totalWeight).toUint128();
 
-            // Use `voter` as `account` when partial voting is used, otherwise use `account`
-            account = voter != address(0) ? voter : account;
+                // Overwrite `account` with `voter` when present (ie passed by Alligator)
+                account = voter != address(0) ? voter : account;
 
-            _recordVote(proposalId, account, weight, options, totalOptions, proposal.settings.maxApprovals);
+                _recordVote(proposalId, account, weight, options, totalOptions, proposal.settings.maxApprovals);
+            }
         }
     }
 
@@ -119,13 +121,13 @@ contract FractionalApprovalVotingModule is ApprovalVotingModule, FractionalVotin
 
     /**
      * Defines the encoding for the expected `params` in `_countVote`.
-     * Encoding: `uint256,uint256,uint256,uint256[]`
+     * Encoding: `uint256,uint256[]`
      *
      * @dev Can be used by clients to interact with modules programmatically without prior knowledge
      * on expected types.
      */
     function VOTE_PARAMS_ENCODING() external pure virtual override returns (string memory) {
-        return "uint256 againstVotes,uint256 forVotes,uint256 abstainVotes,uint256[] optionIds";
+        return "uint256 partialVotes,uint256[] optionIds";
     }
 
     /**
@@ -133,9 +135,9 @@ contract FractionalApprovalVotingModule is ApprovalVotingModule, FractionalVotin
      *
      * - `support=bravo`: Supports vote options 0 = Against, 1 = For, 2 = Abstain, as in `GovernorBravo`.
      * - `quorum=for,abstain`: Against, For and Abstain votes are counted towards quorum.
-     * - `params=fractional,approvalVote`: params needs to be formatted as `VOTE_PARAMS_ENCODING`.
+     * - `params=partial,approvalVote`: params needs to be formatted as `VOTE_PARAMS_ENCODING`.
      */
     function COUNTING_MODE() public pure virtual override returns (string memory) {
-        return "support=bravo&quorum=against,for,abstain&params=fractional,approvalVote";
+        return "support=bravo&quorum=against,for,abstain&params=partial,approvalVote";
     }
 }
