@@ -20,7 +20,6 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     // =============================================================
 
     error BadSignature();
-    error InvalidAuthorityChain();
     error NotDelegated(address from, address to);
     error TooManyRedelegations(address from, address to);
     error NotValidYet(address from, address to, uint256 willBeValidFrom);
@@ -71,6 +70,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     mapping(address proxy => mapping(address from => mapping(address to => SubdelegationRules subdelegationRules)))
         public subDelegationsProxy;
 
+    // Records if a voter has already voted on a specific proposal from a proxy
     mapping(address proxy => mapping(uint256 proposalId => mapping(address voter => bool hasVoted))) hasVoted;
 
     // =============================================================
