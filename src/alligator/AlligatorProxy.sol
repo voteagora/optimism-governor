@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import {IAlligatorOP} from "../interfaces/IAlligatorOP.sol";
 
-contract Proxy {
+contract AlligatorProxy {
     address internal immutable alligator;
     address internal immutable governor;
 

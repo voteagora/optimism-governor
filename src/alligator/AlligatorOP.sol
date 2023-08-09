@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import {Proxy} from "./Proxy.sol";
+import {AlligatorProxy} from "./AlligatorProxy.sol";
 import {BaseRules, SubdelegationRules, AllowanceType} from "../structs/RulesV2.sol";
 import {IAlligatorOP} from "../interfaces/IAlligatorOP.sol";
 import {IRule} from "../interfaces/IRule.sol";
@@ -93,16 +93,16 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     // =============================================================
 
     /**
-     * @notice Deploy a new Proxy for an owner deterministically.
+     * @notice Deploy a new proxy for an owner deterministically.
      *
-     * @param proxyOwner The owner of the Proxy.
-     * @param proxyRules The base rules of the Proxy.
+     * @param proxyOwner The owner of the proxy.
+     * @param proxyRules The base rules of the proxy.
      *
-     * @return endpoint Address of the Proxy
+     * @return endpoint Address of the proxy
      */
     function create(address proxyOwner, BaseRules calldata proxyRules) public override returns (address endpoint) {
         endpoint = address(
-            new Proxy{salt: keccak256(abi.encode(proxyOwner, proxyRules))}(
+            new AlligatorProxy{salt: keccak256(abi.encode(proxyOwner, proxyRules))}(
                 governor
             )
         );
@@ -117,7 +117,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     /**
      * @notice Validate subdelegation rules and cast a vote on the governor.
      *
-     * @param proxyRules The base rules of the Proxy to vote from.
+     * @param proxyRules The base rules of the proxy to vote from.
      * @param authority The authority chain to validate against.
      * @param proposalId The id of the proposal to vote on
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain
@@ -140,7 +140,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     /**
      * @notice Validate subdelegation rules and cast a vote with reason on the governor.
      *
-     * @param proxyRules The base rules of the Proxy to vote from.
+     * @param proxyRules The base rules of the proxy to vote from.
      * @param authority The authority chain to validate against.
      * @param proposalId The id of the proposal to vote on
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain
@@ -167,7 +167,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     /**
      * @notice Validate subdelegation rules and cast a vote with reason on the governor.
      *
-     * @param proxyRules The base rules of the Proxy to vote from.
+     * @param proxyRules The base rules of the proxy to vote from.
      * @param authority The authority chain to validate against.
      * @param proposalId The id of the proposal to vote on
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain
@@ -250,7 +250,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     /**
      * @notice Validate subdelegation rules and cast a vote by signature on the governor.
      *
-     * @param proxyRules The base rules of the Proxy to vote from.
+     * @param proxyRules The base rules of the proxy to vote from.
      * @param authority The authority chain to validate against.
      * @param proposalId The id of the proposal to vote on
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain
@@ -286,7 +286,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     /**
      * @notice Validate subdelegation rules and cast a vote with reason and params by signature on the governor.
      *
-     * @param proxyRules The base rules of the Proxy to vote from.
+     * @param proxyRules The base rules of the proxy to vote from.
      * @param authority The authority chain to validate against.
      * @param proposalId The id of the proposal to vote on
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain
@@ -369,11 +369,11 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     }
 
     /**
-     * @notice Subdelegate one Proxy to an address with rules.
-     * Creates a Proxy for `proxyOwner` and `proxyRules` if it does not exist.
+     * @notice Subdelegate one proxy to an address with rules.
+     * Creates a proxy for `proxyOwner` and `proxyRules` if it does not exist.
      *
      * @param proxyOwner Owner of the proxy being subdelegated.
-     * @param proxyRules The base rules of the Proxy to sign from.
+     * @param proxyRules The base rules of the proxy to sign from.
      * @param to The address to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegation.
      */
@@ -393,11 +393,11 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     }
 
     /**
-     * @notice Subdelegate one Proxy to multiple addresses with rules.
-     * Creates a Proxy for `proxyOwner` and `proxyRules` if it does not exist.
+     * @notice Subdelegate one proxy to multiple addresses with rules.
+     * Creates a proxy for `proxyOwner` and `proxyRules` if it does not exist.
      *
      * @param proxyOwner Owner of the proxy being subdelegated.
-     * @param proxyRules The base rules of the Proxy to sign from.
+     * @param proxyRules The base rules of the proxy to sign from.
      * @param targets The addresses to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegations.
      */
@@ -429,9 +429,9 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     // =============================================================
 
     /**
-     * @notice Validate proxy and subdelegation rules. Proxy-specific delegations override address-specific delegations.
+     * @notice Validate proxy and subdelegation rules. proxy-specific delegations override address-specific delegations.
      *
-     * @param proxyRules The base rules of the Proxy.
+     * @param proxyRules The base rules of the proxy.
      * @param sender The sender address to validate.
      * @param authority The authority chain to validate against.
      * @param proposalId The id of the proposal for which validation is being performed.
@@ -515,10 +515,10 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     /**
      * @notice Returns the address of the proxy contract for a given owner.
      *
-     * @param proxyOwner The owner of the Proxy.
-     * @param proxyRules The base rules of the Proxy.
+     * @param proxyOwner The owner of the proxy.
+     * @param proxyRules The base rules of the proxy.
      *
-     * @return endpoint The address of the Proxy.
+     * @return endpoint The address of the proxy.
      */
     function proxyAddress(address proxyOwner, BaseRules memory proxyRules)
         public
@@ -536,7 +536,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
                             bytes32(uint256(uint160(proxyOwner))), // salt
                             keccak256(
                                 abi.encodePacked(
-                                    type(Proxy).creationCode,
+                                    type(AlligatorProxy).creationCode,
                                     abi.encode(
                                         governor,
                                         proxyRules.maxRedelegations,
@@ -561,7 +561,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     /**
      * @notice Cast a vote on the governor.
      *
-     * @param proxy The address of the Proxy
+     * @param proxy The address of the proxy
      * @param voter The address of the voter
      * @param proposalId The id of the proposal to vote on
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain
@@ -575,7 +575,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     /**
      * @notice Cast a vote on the governor with reason.
      *
-     * @param proxy The address of the Proxy
+     * @param proxy The address of the proxy
      * @param voter The address of the voter
      * @param proposalId The id of the proposal to vote on
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain
@@ -618,7 +618,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
      * @notice Retrieve number of the proposal's snapshot.
      *
      * @param proposalId The id of the proposal to vote on
-     * @param proxy The address of the Proxy
+     * @param proxy The address of the proxy
      * @return weightCast Weight cast by the proxy
      */
     function _weightCast(uint256 proposalId, address proxy) internal view returns (uint256 weightCast) {
