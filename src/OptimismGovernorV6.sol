@@ -142,86 +142,53 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     /**
      * See {Governor-_countVote}.
      *
-     * @dev If `params` is empty, or the first 96 bytes corresponding to `againstVotes`, `forVotes` or `abstainVotes`
-     * are 0, then standard nominal voting is used. Otherwise Fractional voting is used.
+     * @dev If `params` is empty, or the first 32 bytes corresponding to `partialVotes`
+     * are 0, then standard nominal voting is used. Otherwise Partial voting is used.
+     * @dev `partialVotes` must be less than or equal to the delegate's remaining weight on the proposal
+     * @dev This function can be called multiple times for the same `account` and `proposalId`
+     * @dev Partial votes are still final once cast and cannot be modified
      */
     function _countVote(uint256 proposalId, address account, uint8 support, uint256 totalWeight, bytes memory params)
         internal
         virtual
         override(GovernorCountingSimpleUpgradeableV2, GovernorUpgradeableV2)
     {
-        uint256 againstVotes;
-        uint256 forVotes;
-        uint256 abstainVotes;
+        uint256 partialVotes;
 
         if (params.length != 0) {
-            /// @dev we decode voting data from the first 96 bytes of `params`
-            (againstVotes, forVotes, abstainVotes) = abi.decode(params, (uint256, uint256, uint256));
+            /// @dev we decode voting data from the first 32 bytes of `params`
+            (partialVotes) = abi.decode(params, (uint256));
         }
 
-        if (againstVotes == 0 && forVotes == 0 && abstainVotes == 0) {
-            _countVoteNominal(proposalId, account, totalWeight, support);
-        } else {
-            _countVoteFractional(proposalId, account, totalWeight, againstVotes, forVotes, abstainVotes);
-        }
-    }
+        if (partialVotes == 0) {
+            require(!hasVoted(proposalId, account), "Governor: vote already cast");
 
-    /**
-     * @dev Count votes with full weight cast for `support`. This is the standard voting behaviour.
-     */
-    function _countVoteNominal(uint256 proposalId, address account, uint256 totalWeight, uint8 support) internal {
-        require(!hasVoted(proposalId, account), "Governor: vote already cast");
-
-        if (totalWeight != 0) {
-            weightCast[proposalId][account] = totalWeight;
-            ProposalVote storage proposalVote = _proposalVotes[proposalId];
-
-            if (support == uint8(VoteType.Against)) {
-                proposalVote.againstVotes += totalWeight;
-            } else if (support == uint8(VoteType.For)) {
-                proposalVote.forVotes += totalWeight;
-            } else if (support == uint8(VoteType.Abstain)) {
-                proposalVote.abstainVotes += totalWeight;
+            if (totalWeight != 0) {
+                // Count as nominal vote
+                partialVotes = totalWeight;
             } else {
-                revert("GovernorVotingSimple: invalid value for enum VoteType");
-            }
-        } else {
-            if (support > MAX_VOTE_TYPE) {
-                revert("GovernorVotingSimple: invalid value for enum VoteType");
-            }
+                if (support > MAX_VOTE_TYPE) {
+                    revert("GovernorVotingSimple: invalid value for enum VoteType");
+                }
 
-            // Set flag to prevent `account` from revoting with null weight
-            _proposalVotes[proposalId].hasVoted[account] = true;
+                // Set flag to prevent `account` from revoting with null weight
+                _proposalVotes[proposalId].hasVoted[account] = true;
+            }
         }
-    }
 
-    /**
-     * Count votes with fractional weight.
-     *
-     * @dev The sum of the three vote weights must be less than or equal to the
-     * delegate's remaining weight on the proposal
-     * @dev This function can be called multiple times for the same `account` and
-     * `proposalId`
-     * @dev Partial votes are still final once cast and cannot be modified
-     */
-    function _countVoteFractional(
-        uint256 proposalId,
-        address account,
-        uint256 totalWeight,
-        uint256 againstVotes,
-        uint256 forVotes,
-        uint256 abstainVotes
-    ) internal {
-        require(
-            (weightCast[proposalId][account] += againstVotes + forVotes + abstainVotes) <= totalWeight,
-            "Governor: total weight exceeded"
-        );
+        require((weightCast[proposalId][account] += partialVotes) <= totalWeight, "Governor: total weight exceeded");
 
         ProposalVote storage proposalVote = _proposalVotes[proposalId];
 
-        if (againstVotes != 0) proposalVote.againstVotes += againstVotes;
-        if (forVotes != 0) proposalVote.forVotes += forVotes;
-        if (abstainVotes != 0) proposalVote.abstainVotes += abstainVotes;
+        if (support == uint8(VoteType.Against)) {
+            proposalVote.againstVotes += partialVotes;
+        } else if (support == uint8(VoteType.For)) {
+            proposalVote.forVotes += partialVotes;
+        } else if (support == uint8(VoteType.Abstain)) {
+            proposalVote.abstainVotes += partialVotes;
+        } else {
+            revert("GovernorVotingSimple: invalid value for enum VoteType");
+        }
     }
 
     /**
