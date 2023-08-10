@@ -10,3 +10,6 @@ out/
 # Dotenv file
 .env
 broadcast
+
+# Upgrades
+deployments/

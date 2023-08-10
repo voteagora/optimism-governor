@@ -1,27 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {GovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/GovernorUpgradeable.sol";
+import {GovernorUpgradeableV1} from "./lib/v1/GovernorUpgradeableV1.sol";
+import {GovernorCountingSimpleUpgradeableV1} from "./lib/v1/GovernorCountingSimpleUpgradeableV1.sol";
+import {GovernorVotesQuorumFractionUpgradeableV1} from "./lib/v1/GovernorVotesQuorumFractionUpgradeableV1.sol";
+import {GovernorVotesUpgradeableV1} from "./lib/v1/GovernorVotesUpgradeableV1.sol";
+import {GovernorSettingsUpgradeableV1} from "./lib/v1/GovernorSettingsUpgradeableV1.sol";
 import {IGovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/IGovernorUpgradeable.sol";
-import {GovernorCountingSimpleUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorCountingSimpleUpgradeable.sol";
-import {GovernorVotesQuorumFractionUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
-import {GovernorVotesUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesUpgradeable.sol";
-import {GovernorSettingsUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorSettingsUpgradeable.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 import {TimersUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/TimersUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 contract OptimismGovernorV2 is
     Initializable,
-    GovernorUpgradeable,
-    GovernorCountingSimpleUpgradeable,
-    GovernorVotesUpgradeable,
-    GovernorVotesQuorumFractionUpgradeable,
-    GovernorSettingsUpgradeable
+    GovernorUpgradeableV1,
+    GovernorCountingSimpleUpgradeableV1,
+    GovernorVotesUpgradeableV1,
+    GovernorVotesQuorumFractionUpgradeableV1,
+    GovernorSettingsUpgradeableV1
 {
     using TimersUpgradeable for TimersUpgradeable.BlockNumber;
 
@@ -66,17 +62,17 @@ contract OptimismGovernorV2 is
     function proposalThreshold()
         public
         view
-        override(GovernorSettingsUpgradeable, GovernorUpgradeable)
+        override(GovernorSettingsUpgradeableV1, GovernorUpgradeableV1)
         returns (uint256)
     {
-        return GovernorSettingsUpgradeable.proposalThreshold();
+        return GovernorSettingsUpgradeableV1.proposalThreshold();
     }
 
     function COUNTING_MODE()
         public
         pure
         virtual
-        override(GovernorCountingSimpleUpgradeable, IGovernorUpgradeable)
+        override(GovernorCountingSimpleUpgradeableV1, IGovernorUpgradeable)
         returns (string memory)
     {
         return "support=bravo&quorum=against,for,abstain";
@@ -91,7 +87,7 @@ contract OptimismGovernorV2 is
         internal
         view
         virtual
-        override(GovernorCountingSimpleUpgradeable, GovernorUpgradeable)
+        override(GovernorCountingSimpleUpgradeableV1, GovernorUpgradeableV1)
         returns (bool)
     {
         (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes) = proposalVotes(proposalId);

@@ -43,10 +43,39 @@ The contracts in this repo are designed to be used by the following roles:
   - Vote on proposals
   - Delegate votes to another address (via OP token contract)
 
+## Versions
+
+5 versions of the OP governor implementation have been deployed.
+
+### V1
+
+Main implementation
+
+### V2
+
+- Set `quorumDenominator` to 100_000
+
+### V3
+
+- Added manager role: `cancel` proposal
+
+### V4
+
+- Fixes incorrect quorum for a past block
+
+### V5
+
+- Added support for voting modules
+
+  - Update OZ `Governor` storage to add `moduleAddress` in `ProposalCore` struct
+  - Updated / added new functions and events in [`OptimismGovernorV5`](/src/OptimismGovernorV5.sol) to interact with external modules
+  - Updated `COUNTING_MODE` to also include `params=modules`
+
+- Added [`ApprovalVotingModule`](/src/modules/ApprovalVotingModule.sol)
+
 ## Deployment
 
 - [`0xcDF27F107725988f2261Ce2256bDfCdE8B382B10`](https://optimistic.etherscan.io/address/0xcdf27f107725988f2261ce2256bdfcde8b382b10) - Optimism Governance Proxy
-- [`0x9d66365f4910c522f937c9e6dd4a192f6de89636`](https://optimistic.etherscan.io/address/0x9d66365f4910c522f937c9e6dd4a192f6de89636) - Implementation (v1)
 
 ## See Also
 
