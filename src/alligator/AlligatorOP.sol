@@ -57,7 +57,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     // =============================================================
 
     address public immutable governor;
-    IVotes public immutable op;
+    address public immutable op;
 
     bytes32 internal constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
@@ -82,7 +82,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     //                         CONSTRUCTOR
     // =============================================================
 
-    constructor(address _governor, IVotes _op, address _initOwner) {
+    constructor(address _governor, address _op, address _initOwner) {
         governor = _governor;
         op = _op;
         _transferOwnership(_initOwner);
@@ -132,7 +132,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         (address proxy, uint256 votesToCast) = validate(proxyRules, msg.sender, authority, proposalId, support);
 
         // Format params with `votesToCast` and append voter address
-        _castVote(proxy, msg.sender, proposalId, support, abi.encode(votesToCast, msg.sender));
+        _castVoteWithReasonAndParams(proxy, msg.sender, proposalId, support, "", abi.encode(votesToCast, msg.sender));
 
         emit VoteCast(proxy, msg.sender, authority, proposalId, support);
     }
@@ -182,7 +182,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         uint256 proposalId,
         uint8 support,
         string calldata reason,
-        bytes memory params
+        bytes calldata params
     ) public override whenNotPaused {
         (address proxy, uint256 votesToCast) = validate(proxyRules, msg.sender, authority, proposalId, support);
 
@@ -216,7 +216,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         uint256 proposalId,
         uint8 support,
         string calldata reason,
-        bytes memory params
+        bytes calldata params
     ) public override whenNotPaused {
         uint256 authorityLength = authorities.length;
         require(authorityLength == proxyRules.length);
@@ -278,7 +278,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
 
         (address proxy, uint256 votesToCast) = validate(proxyRules, signatory, authority, proposalId, support);
 
-        _castVote(proxy, signatory, proposalId, support, abi.encode(votesToCast, signatory));
+        _castVoteWithReasonAndParams(proxy, signatory, proposalId, support, "", abi.encode(votesToCast, signatory));
 
         emit VoteCast(proxy, signatory, authority, proposalId, support);
     }
@@ -301,7 +301,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         uint256 proposalId,
         uint8 support,
         string calldata reason,
-        bytes memory params,
+        bytes calldata params,
         uint8 v,
         bytes32 r,
         bytes32 s
@@ -456,7 +456,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         proxy = proxyAddress(from, proxyRules);
 
         // Initialize `voterAllowance` with the proxy's voting power at snapshot block
-        uint256 voterAllowance = op.getPastVotes(proxy, _proposalSnapshot(proposalId));
+        uint256 voterAllowance = IVotes(op).getPastVotes(proxy, _proposalSnapshot(proposalId));
 
         if (voterAllowance == 0) revert NullVotingPower();
 
@@ -559,21 +559,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     // =============================================================
 
     /**
-     * @notice Cast a vote on the governor.
-     *
-     * @param proxy The address of the proxy
-     * @param voter The address of the voter
-     * @param proposalId The id of the proposal to vote on
-     * @param support The support value for the vote. 0=against, 1=for, 2=abstain
-     * @param params The params to be passed to the governor
-     */
-    function _castVote(address proxy, address voter, uint256 proposalId, uint8 support, bytes memory params) internal {
-        _recordVote(proxy, proposalId, voter);
-        IOptimismGovernor(proxy).castVoteWithReasonAndParams(proposalId, support, "", params);
-    }
-
-    /**
-     * @notice Cast a vote on the governor with reason.
+     * @notice Cast a vote on the governor with reason and params.
      *
      * @param proxy The address of the proxy
      * @param voter The address of the voter
@@ -587,7 +573,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         address voter,
         uint256 proposalId,
         uint8 support,
-        string calldata reason,
+        string memory reason,
         bytes memory params
     ) internal {
         _recordVote(proxy, proposalId, voter);
@@ -687,7 +673,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     }
 
     /**
-     * Return the allowance of a voter, used in `validate`. If the allowance of the delegator
+     * Return the allowance of a voter, used in `validate`.
      */
     function _getVoterAllowance(AllowanceType allowanceType, uint256 subdelegationAllowance, uint256 delegatorAllowance)
         private

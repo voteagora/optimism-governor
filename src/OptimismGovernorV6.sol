@@ -142,9 +142,9 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     /**
      * See {Governor-_countVote}.
      *
-     * @dev If `params` is empty, or the first 32 bytes corresponding to `partialVotes`
+     * @dev If `params` is empty, or the first 32 bytes corresponding to `votes`
      * are 0, then standard nominal voting is used. Otherwise Partial voting is used.
-     * @dev `partialVotes` must be less than or equal to the delegate's remaining weight on the proposal
+     * @dev `votes` must be less than or equal to the delegate's remaining weight on the proposal
      * @dev This function can be called multiple times for the same `account` and `proposalId`
      * @dev Partial votes are still final once cast and cannot be modified
      */
@@ -153,19 +153,19 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         virtual
         override(GovernorCountingSimpleUpgradeableV2, GovernorUpgradeableV2)
     {
-        uint256 partialVotes;
+        uint256 votes;
 
         if (params.length != 0) {
-            /// @dev we decode voting data from the first 32 bytes of `params`
-            (partialVotes) = abi.decode(params, (uint256));
+            /// @dev we decode partial votes from the first 32 bytes of `params`
+            (votes) = abi.decode(params, (uint256));
         }
 
-        if (partialVotes == 0) {
+        if (votes == 0) {
             require(!hasVoted(proposalId, account), "Governor: vote already cast");
 
             if (totalWeight != 0) {
                 // Count as nominal vote
-                partialVotes = totalWeight;
+                votes = totalWeight;
             } else {
                 if (support > MAX_VOTE_TYPE) {
                     revert("GovernorVotingSimple: invalid value for enum VoteType");
@@ -176,16 +176,16 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
             }
         }
 
-        require((weightCast[proposalId][account] += partialVotes) <= totalWeight, "Governor: total weight exceeded");
+        require((weightCast[proposalId][account] += votes) <= totalWeight, "Governor: total weight exceeded");
 
         ProposalVote storage proposalVote = _proposalVotes[proposalId];
 
         if (support == uint8(VoteType.Against)) {
-            proposalVote.againstVotes += partialVotes;
+            proposalVote.againstVotes += votes;
         } else if (support == uint8(VoteType.For)) {
-            proposalVote.forVotes += partialVotes;
+            proposalVote.forVotes += votes;
         } else if (support == uint8(VoteType.Abstain)) {
-            proposalVote.abstainVotes += partialVotes;
+            proposalVote.abstainVotes += votes;
         } else {
             revert("GovernorVotingSimple: invalid value for enum VoteType");
         }
