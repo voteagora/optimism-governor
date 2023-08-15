@@ -54,10 +54,6 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     // Max value of `VoteType` enum
     uint8 internal constant MAX_VOTE_TYPE = 2;
 
-    uint256 internal constant MASK_HALF_WORD_RIGHT = 0xffffffffffffffffffffffffffffffff;
-
-    uint256 internal constant ORACLE_DEPLOY_BLOCKNUMBER = 0;
-
     address public immutable alligator;
 
     /*//////////////////////////////////////////////////////////////
@@ -120,7 +116,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         if (account == alligator) {
             // Derive `voter` from address appended in `params`
             assembly {
-                // TODO: Test if correct
+                // TODO: Test this
                 /// @dev no need to clean dirty bytes as they are sent already cleaned by alligator
                 voter := mload(add(params, sub(mload(params), 0x20)))
             }
