@@ -54,7 +54,8 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     // Max value of `VoteType` enum
     uint8 internal constant MAX_VOTE_TYPE = 2;
 
-    address public immutable alligator;
+    // TODO: Add alligator address
+    address public constant alligator = address(0);
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -67,14 +68,6 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
      * @dev Replaces non-quantitative `_proposalVotes.hasVoted` to add support for partial voting.
      */
     mapping(uint256 proposalId => mapping(address account => uint256 votes)) public weightCast;
-
-    /*//////////////////////////////////////////////////////////////
-                              CONSTRUCTOR
-    //////////////////////////////////////////////////////////////*/
-
-    constructor(address alligator_) {
-        alligator = alligator_;
-    }
 
     /*//////////////////////////////////////////////////////////////
                             WRITE FUNCTIONS
