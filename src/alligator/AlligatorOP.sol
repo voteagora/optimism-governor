@@ -516,12 +516,10 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
                         abi.encodePacked(
                             bytes1(0xff),
                             address(this),
-                            bytes32(uint256(uint160(proxyOwner))), // salt
                             keccak256(
-                                abi.encodePacked(
-                                    type(AlligatorProxy).creationCode,
-                                    abi.encode(
-                                        governor,
+                                abi.encode(
+                                    proxyOwner,
+                                    BaseRules(
                                         proxyRules.maxRedelegations,
                                         proxyRules.notValidBefore,
                                         proxyRules.notValidAfter,
@@ -529,7 +527,8 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
                                         proxyRules.customRule
                                     )
                                 )
-                            )
+                            ), // salt
+                            keccak256(abi.encodePacked(type(AlligatorProxy).creationCode, abi.encode(governor)))
                         )
                     )
                 )
