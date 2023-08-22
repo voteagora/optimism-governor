@@ -18,17 +18,6 @@ import {TimersUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/Timer
  */
 contract OptimismGovernorV6 is OptimismGovernorV5 {
     /*//////////////////////////////////////////////////////////////
-                                 EVENTS
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-     * Modified version of `VoteCastWithParams` which includes `voter` address.
-     */
-    event VoteCastWithParams(
-        address account, uint256 proposalId, uint8 support, uint256 weight, string reason, bytes params, address voter
-    );
-
-    /*//////////////////////////////////////////////////////////////
                                  ERRORS
     //////////////////////////////////////////////////////////////*/
 
@@ -53,9 +42,6 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
 
     // Max value of `VoteType` enum
     uint8 internal constant MAX_VOTE_TYPE = 2;
-
-    // TODO: Add alligator address
-    address public constant alligator = address(0);
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -104,25 +90,14 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
 
         _countVote(proposalId, account, support, weight, params);
 
-        address voter;
-        // TODO: Use allowlist of allowed contracts?
-        if (account == alligator) {
-            // Derive `voter` from address appended in `params`
-            assembly {
-                // TODO: Test this
-                /// @dev no need to clean dirty bytes as they are sent already cleaned by alligator
-                voter := mload(add(params, sub(mload(params), 0x20)))
-            }
-        }
-
         if (proposal.votingModule != address(0)) {
-            PartialVotingModule(proposal.votingModule)._countVote(proposalId, account, support, weight, params, voter);
+            VotingModule(proposal.votingModule)._countVote(proposalId, account, support, weight, params);
         }
 
         if (params.length == 0) {
             emit VoteCast(account, proposalId, support, weight, reason);
         } else {
-            emit VoteCastWithParams(account, proposalId, support, weight, reason, params, voter);
+            emit VoteCastWithParams(account, proposalId, support, weight, reason, params);
         }
 
         return weight;

@@ -131,8 +131,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     {
         (address proxy, uint256 votesToCast) = validate(proxyRules, msg.sender, authority, proposalId, support);
 
-        // Format params with `votesToCast` and append voter address
-        _castVoteWithReasonAndParams(proxy, msg.sender, proposalId, support, "", abi.encode(votesToCast, msg.sender));
+        _castVoteWithReasonAndParams(proxy, msg.sender, proposalId, support, "", abi.encode(votesToCast));
 
         emit VoteCast(proxy, msg.sender, authority, proposalId, support);
     }
@@ -157,9 +156,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     ) public override whenNotPaused {
         (address proxy, uint256 votesToCast) = validate(proxyRules, msg.sender, authority, proposalId, support);
 
-        _castVoteWithReasonAndParams(
-            proxy, msg.sender, proposalId, support, reason, abi.encode(votesToCast, msg.sender)
-        );
+        _castVoteWithReasonAndParams(proxy, msg.sender, proposalId, support, reason, abi.encode(votesToCast));
 
         emit VoteCast(proxy, msg.sender, authority, proposalId, support);
     }
@@ -186,13 +183,9 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     ) public override whenNotPaused {
         (address proxy, uint256 votesToCast) = validate(proxyRules, msg.sender, authority, proposalId, support);
 
+        // TODO: Test `bytes.concat` vs `abi.encode`
         _castVoteWithReasonAndParams(
-            proxy,
-            msg.sender,
-            proposalId,
-            support,
-            reason,
-            bytes.concat(bytes32(votesToCast), params, bytes32(uint256(uint160((msg.sender)))))
+            proxy, msg.sender, proposalId, support, reason, bytes.concat(bytes32(votesToCast), params)
         );
 
         emit VoteCast(proxy, msg.sender, authority, proposalId, support);
@@ -231,12 +224,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
             (proxies[i], votesToCast) = validate(rules, msg.sender, authority, proposalId, support);
 
             _castVoteWithReasonAndParams(
-                proxies[i],
-                msg.sender,
-                proposalId,
-                support,
-                reason,
-                bytes.concat(bytes32(votesToCast), params, bytes32(uint256(uint160((msg.sender)))))
+                proxies[i], msg.sender, proposalId, support, reason, bytes.concat(bytes32(votesToCast), params)
             );
 
             unchecked {
@@ -278,7 +266,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
 
         (address proxy, uint256 votesToCast) = validate(proxyRules, signatory, authority, proposalId, support);
 
-        _castVoteWithReasonAndParams(proxy, signatory, proposalId, support, "", abi.encode(votesToCast, signatory));
+        _castVoteWithReasonAndParams(proxy, signatory, proposalId, support, "", abi.encode(votesToCast));
 
         emit VoteCast(proxy, signatory, authority, proposalId, support);
     }
@@ -320,12 +308,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         (address proxy, uint256 votesToCast) = validate(proxyRules, signatory, authority, proposalId, support);
 
         _castVoteWithReasonAndParams(
-            proxy,
-            signatory,
-            proposalId,
-            support,
-            reason,
-            bytes.concat(bytes32(votesToCast), params, bytes32(uint256(uint160(signatory))))
+            proxy, signatory, proposalId, support, reason, bytes.concat(bytes32(votesToCast), params)
         );
 
         emit VoteCast(proxy, signatory, authority, proposalId, support);
@@ -576,7 +559,9 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         string memory reason,
         bytes memory params
     ) internal {
-        _recordVote(proxy, proposalId, voter);
+        if (hasVoted[proxy][proposalId][voter]) revert AlreadyVoted(voter, proposalId);
+        hasVoted[proxy][proposalId][voter] = true;
+
         IOptimismGovernor(proxy).castVoteWithReasonAndParams(proposalId, support, reason, params);
     }
 
@@ -626,11 +611,6 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         } else {
             _unpause();
         }
-    }
-
-    function _recordVote(address proxy, uint256 proposalId, address voter) internal {
-        if (hasVoted[proxy][proposalId][voter]) revert AlreadyVoted(voter, proposalId);
-        hasVoted[proxy][proposalId][voter] = true;
     }
 
     function _validateRules(
@@ -691,7 +671,7 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
 
 /**
  * TODO
+ * - L2 optimization: replace authority chain logic with storage state?
  * - cleanup
  * - tests
- * - L2 optimization: replace authority chain logic with storage state?
  */

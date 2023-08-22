@@ -24,7 +24,6 @@ contract PartialApprovalVotingModule is ApprovalVotingModule, PartialVotingModul
     /*//////////////////////////////////////////////////////////////
                             WRITE FUNCTIONS 
     //////////////////////////////////////////////////////////////*/
-
     /**
      * Count approvals voted by `account`. If voting for, options need to be set in ascending order.
      * @dev Revoting is allowed via partial voting.
@@ -34,16 +33,11 @@ contract PartialApprovalVotingModule is ApprovalVotingModule, PartialVotingModul
      * @param support The type of vote to count.
      * @param totalWeight The total vote weight of the `account`.
      * @param params The ids of the options to vote for sorted in ascending order, encoded as `uint256[]`.
-     * @param voter The account that casted the vote, used with partial voting from alligator.
      */
-    function _countVote(
-        uint256 proposalId,
-        address account,
-        uint8 support,
-        uint256 totalWeight,
-        bytes calldata params,
-        address voter
-    ) external override {
+    function _countVote(uint256 proposalId, address account, uint8 support, uint256 totalWeight, bytes calldata params)
+        external
+        override
+    {
         Proposal memory proposal = proposals[proposalId];
         _onlyGovernor(proposal.governor);
 
@@ -57,9 +51,6 @@ contract PartialApprovalVotingModule is ApprovalVotingModule, PartialVotingModul
 
                 // Use `partialVotes` when present, otherwise `totalWeight`
                 uint128 weight = (partialVotes != 0 ? partialVotes : totalWeight).toUint128();
-
-                // Overwrite `account` with `voter` when present (ie passed by Alligator)
-                account = voter != address(0) ? voter : account;
 
                 _recordVote(proposalId, account, weight, options, totalOptions, proposal.settings.maxApprovals);
             }
