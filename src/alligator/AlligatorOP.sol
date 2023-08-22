@@ -661,7 +661,8 @@ abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         returns (uint256)
     {
         if (allowanceType == AllowanceType.Relative) {
-            return subdelegationAllowance > 1e5 ? delegatorAllowance : delegatorAllowance * subdelegationAllowance / 1e5;
+            return
+                subdelegationAllowance >= 1e5 ? delegatorAllowance : delegatorAllowance * subdelegationAllowance / 1e5;
         }
 
         // else if (allowanceType == AllowanceType.Absolute)
