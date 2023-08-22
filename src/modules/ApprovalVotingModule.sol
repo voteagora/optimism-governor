@@ -125,6 +125,7 @@ contract ApprovalVotingModule is VotingModule {
      */
     function _countVote(uint256 proposalId, address account, uint8 support, uint256 weight, bytes memory params)
         external
+        virtual
         override
     {
         Proposal memory proposal = proposals[proposalId];
