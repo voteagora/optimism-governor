@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {OptimismGovernorV5} from "./OptimismGovernorV5.sol";
+import {IVotableSupplyOracle} from "./interfaces/IVotableSupplyOracle.sol";
 import {VotingModule} from "./modules/VotingModule.sol";
 import {GovernorCountingSimpleUpgradeableV2} from "./lib/openzeppelin/v2/GovernorCountingSimpleUpgradeableV2.sol";
 import {IGovernorUpgradeable} from "./lib/openzeppelin/v2/GovernorUpgradeableV2.sol";
@@ -26,9 +27,6 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
 
     // Max value of `VoteType` enum
     uint8 internal constant MAX_VOTE_TYPE = 2;
-
-    // TODO: Set correct alligator address
-    address public constant alligator = 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9;
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -147,6 +145,28 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     /*//////////////////////////////////////////////////////////////
                              VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /**
+     * Returns the quorum for a block number, in terms of number of votes: `supply * numerator / denominator`.
+     *
+     * @dev Based on `votableSupply` by default, but falls back to `totalSupply` if not available.
+     */
+    function quorum(uint256 blockNumber)
+        public
+        view
+        virtual
+        override(GovernorVotesQuorumFractionUpgradeableV2, IGovernorUpgradeable)
+        returns (uint256)
+    {
+        uint256 supply = votableSupplyOracle.votableSupply(blockNumber);
+
+        // Fallback to total supply if votable supply was unset at `blockNumber`
+        if (supply == 0) {
+            supply = token.getPastTotalSupply(blockNumber);
+        }
+
+        return (supply * quorumNumerator(blockNumber)) / quorumDenominator();
+    }
 
     /**
      * Add support for `weightCast` to check if `account` has voted on `proposalId`.
