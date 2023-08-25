@@ -83,9 +83,9 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         override
         returns (uint256)
     {
-        ProposalCore memory proposal = _proposals[proposalId];
         require(state(proposalId) == ProposalState.Active, "Governor: vote not currently active");
 
+        ProposalCore memory proposal = _proposals[proposalId];
         uint256 weight = _getVotes(account, proposal.voteStart.getDeadline(), "");
 
         _countVote(proposalId, account, support, weight, params);
