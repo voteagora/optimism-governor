@@ -8,13 +8,13 @@ import {IAlligatorOP} from "src/interfaces/IAlligatorOP.sol";
 import {OptimismGovernorV6} from "src/OptimismGovernorV6.sol";
 import {OptimismGovernorV2} from "src/OptimismGovernorV2.sol";
 import {OptimismGovernorV6Mock} from "../mocks/OptimismGovernorV6Mock.sol";
-import "./Addresses.sol";
+import "../utils/Addresses.sol";
 import {GovernanceToken as OptimismToken} from "src/lib/OptimismToken.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 // import {IGovernorMock} from "../mock/IGovernorMock.sol";
 
-abstract contract Setup is Test {
+abstract contract SetupAlligatorOP is Test {
     // =============================================================
     //                             ERRORS
     // =============================================================

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "./utils/Setup.sol";
+import "./setup/SetupAlligatorOP.sol";
 import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {IERC721} from "@openzeppelin/contracts/interfaces/IERC721.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract AlligatorOPTest is Setup {
+contract AlligatorOPTest is SetupAlligatorOP {
     function testDeploy() public {
         assertEq(Ownable(address(alligator)).owner(), address(this));
     }
@@ -128,13 +128,13 @@ contract AlligatorOPTest is Setup {
         authority[1] = Utils.alice;
 
         address[][] memory authorities = new address[][](proxiesNumber);
-        bytes32[] memory proxyRules = new bytes32[](proxiesNumber);
-        BaseRules[] memory proxyRulesUnoptimized = new BaseRules[](proxiesNumber);
+        bytes32[] memory baseRulesHashes = new bytes32[](proxiesNumber);
+        BaseRules[] memory baseProxyRules = new BaseRules[](proxiesNumber);
 
         for (uint256 i = 0; i < proxiesNumber; i++) {
             authorities[i] = authority;
-            proxyRules[i] = bytes32(type(uint256).max);
-            proxyRulesUnoptimized[i] = BaseRules({
+            baseRulesHashes[i] = bytes32(type(uint256).max);
+            baseProxyRules[i] = BaseRules({
                 maxRedelegations: 255,
                 notValidBefore: type(uint32).max,
                 notValidAfter: type(uint32).max,
@@ -147,16 +147,16 @@ contract AlligatorOPTest is Setup {
         bytes memory params = "";
 
         // Current version: 2,05k gas/proxy
-        // console.logBytes(abi.encode(proxyRulesUnoptimized, authorities, proposalId, support, reason, params));
+        // console.logBytes(abi.encode(baseProxyRules, authorities, proposalId, support, reason, params));
 
-        // Optimized proxyRules: 1,55k gas/proxy
-        // console.logBytes(abi.encode(proxyRules, authorities, proposalId, support, reason, params));
+        // Optimized baseRules: 1,55k gas/proxy
+        // console.logBytes(abi.encode(baseRulesHashes, authorities, proposalId, support, reason, params));
 
         // 1 proxy per address: 1,04k gas/proxy
         // console.logBytes(abi.encode(authorities, proposalId, support, reason, params));
 
         // No authority chains: 523 gas/proxy
-        // console.logBytes(abi.encode(proxyRules, proposalId, support, reason, params));
+        // console.logBytes(abi.encode(baseRulesHashes, proposalId, support, reason, params));
     }
 
     /**
