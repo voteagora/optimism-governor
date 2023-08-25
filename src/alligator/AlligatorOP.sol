@@ -285,7 +285,7 @@ contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
      */
     function castVoteWithReasonAndParamsBySig(
         BaseRules calldata proxyRules,
-        address[] calldata authority,
+        address[] memory authority,
         uint256 proposalId,
         uint8 support,
         string calldata reason,
@@ -294,12 +294,20 @@ contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         bytes32 r,
         bytes32 s
     ) external override whenNotPaused {
-        bytes32 domainSeparator =
-            keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, address(this)));
-        bytes32 structHash =
-            keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, support, keccak256(bytes(reason)), keccak256(params)));
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
-        address signatory = ecrecover(digest, v, r, s);
+        address signatory = ecrecover(
+            keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, address(this))),
+                    keccak256(
+                        abi.encode(BALLOT_TYPEHASH, proposalId, support, keccak256(bytes(reason)), keccak256(params))
+                    )
+                )
+            ),
+            v,
+            r,
+            s
+        );
 
         if (signatory == address(0)) {
             revert BadSignature();
