@@ -16,7 +16,7 @@ import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
  * @notice Liquid delegator contract for OP Governor.
  * Based on Alligator V2 (https://github.com/voteagora/liquid-delegator).
  */
-abstract contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
+contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     // =============================================================
     //                             ERRORS
     // =============================================================
