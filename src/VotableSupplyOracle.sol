@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import {IVotableSupplyOracle} from "./interfaces/IVotableSupplyOracle.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Checkpoints} from "@openzeppelin/contracts/utils/Checkpoints.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCastLib} from "@solady/utils/SafeCastLib.sol";
 
 /**
@@ -84,7 +85,57 @@ contract VotableSupplyOracle is IVotableSupplyOracle, Ownable {
         // Otherwise, do the binary search
         return _votableSupplyHistory.getAtBlock(blockNumber);
     }
+
+    /**
+     * @dev Returns the value in the most recent checkpoint, or zero if there are no checkpoints.
+     */
+    function votableSupply() public view returns (uint256) {
+        return _votableSupplyHistory.latest();
+    }
+
+    /**
+     * @dev Returns whether there is a checkpoint in the structure (i.e. it is not empty), and if so the key and value
+     * in the most recent checkpoint.
+     */
+    function latestCheckpoint()
+        public
+        view
+        returns (
+            bool, // exists
+            uint32, // _blockNumber
+            uint224 // _value
+        )
+    {
+        return _votableSupplyHistory.latestCheckpoint();
+    }
+
+    /**
+     * @dev Returns the number of checkpoint.
+     */
+    function nextIndex() public view returns (uint256) {
+        return _votableSupplyHistory.length();
+    }
+
+    /**
+     * @dev Return the index of the last checkpoint whose `blockNumber` is lower than the search `blockNumber`,
+     * or `high` if there is none.
+     */
+    function getIndexBeforeBlock(uint32 blockNumber) public view returns (uint256) {
+        uint256 low = 0;
+        uint256 high = _votableSupplyHistory.length();
+
+        while (low < high) {
+            uint256 mid = Math.average(low, high);
+            if (_votableSupplyHistory._checkpoints[mid]._blockNumber > blockNumber) {
+                high = mid;
+            } else {
+                low = mid + 1;
+            }
+        }
+        return high - 1;
+    }
 }
 
+// TODO: Test `getIndexBeforeBlock` works as expected
 // TODO: Test that blocks prior to init block return 0
-// TODO: Check updateVotableSupplyAt reverts if index is out of bounds
+// TODO: Test updateVotableSupplyAt reverts if index is out of bounds
