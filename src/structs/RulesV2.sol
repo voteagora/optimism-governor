@@ -30,3 +30,12 @@ struct SubdelegationRules {
     AllowanceType allowanceType;
     uint256 allowance;
 }
+
+struct BaseRulesStorage {
+    bool isStored;
+    uint8 maxRedelegations;
+    uint32 notValidBefore;
+    uint32 notValidAfter;
+    uint16 blocksBeforeVoteCloses;
+    address customRule;
+}
