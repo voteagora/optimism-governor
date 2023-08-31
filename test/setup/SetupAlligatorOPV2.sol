@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import "lib/forge-std/src/Test.sol";
 import {IERC721} from "lib/openzeppelin-contracts/contracts/interfaces/IERC721.sol";
-import "src/alligator/AlligatorOPV2.sol";
+import "src/alligator/AlligatorOP_V2.sol";
 import {IAlligatorOPV2} from "src/interfaces/IAlligatorOPV2.sol";
 import {OptimismGovernorV6} from "src/OptimismGovernorV6.sol";
 import {OptimismGovernorV2} from "src/OptimismGovernorV2.sol";

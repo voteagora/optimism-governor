@@ -480,7 +480,6 @@ contract AlligatorOPV2 is IAlligatorOPV2, Ownable, Pausable {
         uint256 authorityLength = authority.length;
 
         BaseRulesStorage memory baseRules = encodedProxyRules[proxyRulesHash];
-        if (!baseRules.isStored) revert ProxyNotExistent();
 
         // Validate base proxy rules
         _validateRules(
@@ -489,6 +488,8 @@ contract AlligatorOPV2 is IAlligatorOPV2, Ownable, Pausable {
 
         address from = authority[0];
         proxy = proxyAddress(from, proxyRulesHash);
+
+        if (proxy.code.length == 0) revert ProxyNotExistent();
 
         // Initialize `voterAllowance` with the proxy's voting power at snapshot block
         uint256 voterAllowance = IVotes(op).getPastVotes(proxy, _proposalSnapshot(proposalId));
