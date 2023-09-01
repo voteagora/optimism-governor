@@ -97,13 +97,5 @@ interface IAlligatorOPV2 {
     //                         VIEW FUNCTIONS
     // =============================================================
 
-    function validate(
-        bytes32 proxyRulesHash,
-        address sender,
-        address[] memory authority,
-        uint256 proposalId,
-        uint256 support
-    ) external view returns (address proxy, uint256 votesToCast);
-
     function proxyAddress(address owner, bytes32 proxyRulesHash) external view returns (address endpoint);
 }
