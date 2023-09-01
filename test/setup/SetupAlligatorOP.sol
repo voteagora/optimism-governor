@@ -3,8 +3,7 @@ pragma solidity ^0.8.13;
 
 import "lib/forge-std/src/Test.sol";
 import {IERC721} from "lib/openzeppelin-contracts/contracts/interfaces/IERC721.sol";
-import "src/alligator/AlligatorOP.sol";
-import {IAlligatorOP} from "src/interfaces/IAlligatorOP.sol";
+import {AllowanceType, BaseRules, SubdelegationRules} from "src/structs/RulesV2.sol";
 import {OptimismGovernorV6} from "src/OptimismGovernorV6.sol";
 import {OptimismGovernorV2} from "src/OptimismGovernorV2.sol";
 import {OptimismGovernorV6Mock} from "../mocks/OptimismGovernorV6Mock.sol";
@@ -20,7 +19,6 @@ abstract contract SetupAlligatorOP is Test {
     // =============================================================
 
     error BadSignature();
-    error NullVotingPower();
     error ZeroVotesToCast();
     error NotDelegated(address from, address to);
     error TooManyRedelegations(address from, address to);
@@ -28,7 +26,6 @@ abstract contract SetupAlligatorOP is Test {
     error NotValidAnymore(address from, address to, uint256 wasValidUntil);
     error TooEarly(address from, address to, uint256 blocksBeforeVoteCloses);
     error InvalidCustomRule(address from, address to, address customRule);
-    error AlreadyVoted(address voter, uint256 proposalId);
 
     // =============================================================
     //                             EVENTS
@@ -64,8 +61,8 @@ abstract contract SetupAlligatorOP is Test {
     // =============================================================
 
     OptimismToken internal op = new OptimismToken();
-    IAlligatorOP internal alligator;
     OptimismGovernorV6Mock internal governor;
+    address internal alligator;
     address internal proxy1;
     address internal proxy2;
     address internal proxy3;
@@ -76,6 +73,7 @@ abstract contract SetupAlligatorOP is Test {
         0,
         address(0)
     );
+    bytes32 baseRulesHash = keccak256(abi.encode(baseRules));
     SubdelegationRules internal subdelegationRules = SubdelegationRules({
         baseRules: baseRules,
         allowanceType: AllowanceType.Relative,
@@ -103,12 +101,9 @@ abstract contract SetupAlligatorOP is Test {
             abi.encodeCall(OptimismGovernorV2.initialize, (IVotesUpgradeable(address(op)), manager))
         );
         governor = OptimismGovernorV6Mock(payable(proxy));
+    }
 
-        alligator = new AlligatorOP(address(governor), address(op), address(this));
-        proxy1 = alligator.create(address(this), baseRules);
-        proxy2 = alligator.create(address(Utils.alice), baseRules);
-        proxy3 = alligator.create(address(Utils.bob), baseRules);
-
+    function _postSetup() internal virtual {
         vm.startPrank(op.owner());
         op.mint(address(this), 1e18);
         op.mint(voter, 1e18);
