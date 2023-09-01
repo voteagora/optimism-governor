@@ -183,10 +183,7 @@ contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     ) public override whenNotPaused {
         (address proxy, uint256 votesToCast) = validate(proxyRules, msg.sender, authority, proposalId, support);
 
-        // TODO: Test `bytes.concat` vs `abi.encode`
-        _castVoteWithReasonAndParams(
-            proxy, msg.sender, proposalId, support, reason, bytes.concat(bytes32(votesToCast), params)
-        );
+        _castVoteWithReasonAndParams(proxy, proposalId, support, reason, abi.encode(bytes32(votesToCast), params));
 
         emit VoteCast(proxy, msg.sender, authority, proposalId, support);
     }
@@ -224,7 +221,7 @@ contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
             (proxies[i], votesToCast) = validate(rules, msg.sender, authority, proposalId, support);
 
             _castVoteWithReasonAndParams(
-                proxies[i], msg.sender, proposalId, support, reason, bytes.concat(bytes32(votesToCast), params)
+                proxies[i], proposalId, support, reason, abi.encode(bytes32(votesToCast), params)
             );
 
             unchecked {
@@ -266,7 +263,7 @@ contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
 
         (address proxy, uint256 votesToCast) = validate(proxyRules, signatory, authority, proposalId, support);
 
-        _castVoteWithReasonAndParams(proxy, signatory, proposalId, support, "", abi.encode(votesToCast));
+        _castVoteWithReasonAndParams(proxy, proposalId, support, "", abi.encode(votesToCast));
 
         emit VoteCast(proxy, signatory, authority, proposalId, support);
     }
@@ -315,9 +312,7 @@ contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
 
         (address proxy, uint256 votesToCast) = validate(proxyRules, signatory, authority, proposalId, support);
 
-        _castVoteWithReasonAndParams(
-            proxy, signatory, proposalId, support, reason, bytes.concat(bytes32(votesToCast), params)
-        );
+        _castVoteWithReasonAndParams(proxy, proposalId, support, reason, abi.encode(bytes32(votesToCast), params));
 
         emit VoteCast(proxy, signatory, authority, proposalId, support);
     }
@@ -676,10 +671,3 @@ contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         return delegatorAllowance > subdelegationAllowance ? subdelegationAllowance : delegatorAllowance;
     }
 }
-
-/**
- * TODO
- * - L2 optimization: replace authority chain logic with storage state?
- * - cleanup
- * - tests
- */
