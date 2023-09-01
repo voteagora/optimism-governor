@@ -97,13 +97,5 @@ interface IAlligatorOP {
     //                         VIEW FUNCTIONS
     // =============================================================
 
-    function validate(
-        BaseRules memory rules,
-        address sender,
-        address[] memory authority,
-        uint256 proposalId,
-        uint256 support
-    ) external view returns (address proxy, uint256 votesToCast);
-
     function proxyAddress(address owner, BaseRules calldata proxyRules) external view returns (address endpoint);
 }
