@@ -43,6 +43,9 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     // Max value of `VoteType` enum
     uint8 internal constant MAX_VOTE_TYPE = 2;
 
+    // TODO: Set correct alligator address
+    address public constant alligator = 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9;
+
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
@@ -72,6 +75,43 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         }
 
         return super.proposeWithModule(module, proposalData, description);
+    }
+
+    /**
+     * @dev Cast a vote assuming `alligator` is sending the correct voting power and
+     * has done the necessary checks.
+     *
+     * @param proposalId The id of the proposal to vote on
+     * @param account The address to cast a vote on behalf of - the voter's proxy address
+     * @param support The support of the vote, `0` for against and `1` for for
+     * @param reason The reason given for the vote by the voter
+     * @param params The params for the vote
+     * @param weight The weight of the vote related to `account`
+     * @return The weight of the cast vote
+     */
+    function castVoteFromAlligator(
+        uint256 proposalId,
+        address account,
+        uint8 support,
+        string memory reason,
+        bytes memory params,
+        uint256 weight
+    ) public virtual returns (uint256) {
+        if (msg.sender != alligator) revert("Unauthorized");
+
+        require(state(proposalId) == ProposalState.Active, "Governor: vote not currently active");
+
+        ProposalCore memory proposal = _proposals[proposalId];
+
+        _countVote(proposalId, account, support, weight, params);
+
+        if (proposal.votingModule != address(0)) {
+            VotingModule(proposal.votingModule)._countVote(proposalId, account, support, weight, params);
+        }
+
+        emit VoteCastWithParams(account, proposalId, support, weight, reason, params);
+
+        return weight;
     }
 
     /**
