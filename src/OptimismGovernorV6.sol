@@ -12,7 +12,7 @@ import {SignatureCheckerUpgradeable} from "./lib/openzeppelin/SignatureCheckerUp
 import {TimersUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/TimersUpgradeable.sol";
 
 /**
- * - Adds support for partial voting
+ * - Adds support for partial voting via Alligator
  * - Deprecate old version of `castVoteWithReasonAndParamsBySig` and add new version with `voter`, `signature` and `nonce`.
  * - Adds support for votable supply oracle
  */
@@ -87,7 +87,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
 
     /**
      * @dev Cast a vote assuming `alligator` is sending the correct voting power, has recorded weight cast
-     * and has done the necessary checks.
+     * for proxy addresses and has done the necessary checks.
      *
      * @param proposalId The id of the proposal to vote on
      * @param voter The address who cast the vote on behalf of the proxy
@@ -150,18 +150,21 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         return super.proposeWithModule(module, proposalData, description);
     }
 
+    // TODO: update logic to correctly handle `votesCast` and modified `params` in both _castVote and _countVote
+
     /**
      * @dev Updated internal vote casting mechanism which delegates counting logic to voting module,
      * in addition to executing standard `_countVote`. See {IGovernor-_castVote}.
      */
     function _castVote(uint256 proposalId, address account, uint8 support, string memory reason, bytes memory params)
         internal
+        virtual
         override
         returns (uint256)
     {
         require(state(proposalId) == ProposalState.Active, "Governor: vote not currently active");
 
-        ProposalCore memory proposal = _proposals[proposalId];
+        ProposalCore storage proposal = _proposals[proposalId];
         uint256 weight = _getVotes(account, proposal.voteStart.getDeadline(), "");
 
         _countVote(proposalId, account, support, weight, params);
@@ -196,9 +199,12 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         uint256 votes;
 
         if (params.length != 0) {
-            /// @dev we decode partial votes from the first 32 bytes of `params`
-            // TODO: handle bytes as bytes.concat, not as abi.encoded
-            (votes) = abi.decode(params, (uint256));
+            assembly {
+                /// @dev we decode partial votes from the first 32 bytes of `params`
+                votes := mload(add(params, 0x20))
+
+                // TODO: modify `params` in place to remove first 32 bytes
+            }
         }
 
         if (votes == 0) {
