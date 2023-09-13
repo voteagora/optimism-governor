@@ -59,6 +59,77 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     mapping(uint256 proposalId => mapping(address account => uint256 votes)) public weightCast;
 
     /*//////////////////////////////////////////////////////////////
+                               ALLIGATOR
+    //////////////////////////////////////////////////////////////*/
+
+    modifier onlyAlligator() {
+        if (msg.sender != alligator) revert("Unauthorized");
+        _;
+    }
+
+    /**
+     * @dev Count `votes` for `account` on `proposalId` and update `weightCast`.
+     * Reverts if `votes` exceeds the remaining weight of `account` on `proposalId`.
+     *
+     * @param proposalId The id of the proposal to vote on
+     * @param account The address for which to count votes for, the proxy
+     * @param votes The number of votes to count
+     * @param accountVotes The total number of votes delegated to `account`
+     */
+    function increaseWeightCast(uint256 proposalId, address account, uint256 votes, uint256 accountVotes)
+        external
+        onlyAlligator
+    {
+        require((weightCast[proposalId][account] += votes) <= accountVotes, "Governor: total weight exceeded");
+    }
+
+    /**
+     * @dev Cast a vote assuming `alligator` is sending the correct voting power, has recorded weight cast
+     * and has done the necessary checks.
+     *
+     * @param proposalId The id of the proposal to vote on
+     * @param voter The address who cast the vote on behalf of the proxy
+     * @param support The support of the vote, `0` for against and `1` for for
+     * @param reason The reason given for the vote by the voter
+     * @param params The params for the vote
+     */
+    function castVoteFromAlligator(
+        uint256 proposalId,
+        address voter,
+        uint8 support,
+        string memory reason,
+        bytes calldata params
+    ) external onlyAlligator {
+        require(state(proposalId) == ProposalState.Active, "Governor: vote not currently active");
+
+        /// @dev we decode partial votes from the first 32 bytes of `params`
+        uint256 votes = uint256(bytes32(params[:32]));
+        params = params[32:];
+
+        // Skip `totalWeight` check and count `votes`
+        ProposalVote storage proposalVote = _proposalVotes[proposalId];
+
+        if (support == uint8(VoteType.Against)) {
+            proposalVote.againstVotes += votes;
+        } else if (support == uint8(VoteType.For)) {
+            proposalVote.forVotes += votes;
+        } else if (support == uint8(VoteType.Abstain)) {
+            proposalVote.abstainVotes += votes;
+        } else {
+            revert("GovernorVotingSimple: invalid value for enum VoteType");
+        }
+
+        address votingModule = _proposals[proposalId].votingModule;
+
+        if (votingModule != address(0)) {
+            VotingModule(votingModule)._countVote(proposalId, voter, support, votes, params);
+        }
+
+        /// @dev `voter` is emitted in the event instead of `proxy`
+        emit VoteCastWithParams(voter, proposalId, support, votes, reason, params);
+    }
+
+    /*//////////////////////////////////////////////////////////////
                             WRITE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
@@ -75,43 +146,6 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         }
 
         return super.proposeWithModule(module, proposalData, description);
-    }
-
-    /**
-     * @dev Cast a vote assuming `alligator` is sending the correct voting power and
-     * has done the necessary checks.
-     *
-     * @param proposalId The id of the proposal to vote on
-     * @param account The address to cast a vote on behalf of - the voter's proxy address
-     * @param support The support of the vote, `0` for against and `1` for for
-     * @param reason The reason given for the vote by the voter
-     * @param params The params for the vote
-     * @param weight The weight of the vote related to `account`
-     * @return The weight of the cast vote
-     */
-    function castVoteFromAlligator(
-        uint256 proposalId,
-        address account,
-        uint8 support,
-        string memory reason,
-        bytes memory params,
-        uint256 weight
-    ) public virtual returns (uint256) {
-        if (msg.sender != alligator) revert("Unauthorized");
-
-        require(state(proposalId) == ProposalState.Active, "Governor: vote not currently active");
-
-        ProposalCore memory proposal = _proposals[proposalId];
-
-        _countVote(proposalId, account, support, weight, params);
-
-        if (proposal.votingModule != address(0)) {
-            VotingModule(proposal.votingModule)._countVote(proposalId, account, support, weight, params);
-        }
-
-        emit VoteCastWithParams(account, proposalId, support, weight, reason, params);
-
-        return weight;
     }
 
     /**
@@ -161,6 +195,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
 
         if (params.length != 0) {
             /// @dev we decode partial votes from the first 32 bytes of `params`
+            // TODO: handle bytes as bytes.concat, not as abi.encoded
             (votes) = abi.decode(params, (uint256));
         }
 
