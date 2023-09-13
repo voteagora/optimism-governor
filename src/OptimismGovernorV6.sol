@@ -40,6 +40,8 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
                            IMMUTABLE STORAGE
     //////////////////////////////////////////////////////////////*/
 
+    uint256 private constant GOVERNOR_VERSION = 1;
+
     // Max value of `VoteType` enum
     uint8 internal constant MAX_VOTE_TYPE = 2;
 
@@ -307,6 +309,13 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
      */
     function COUNTING_MODE() public pure virtual override returns (string memory) {
         return "support=bravo&quorum=against,for,abstain&params=partial,modules";
+    }
+
+    /**
+     * @dev Returns the current version of the governor.
+     */
+    function VERSION() public pure virtual returns (uint256) {
+        return GOVERNOR_VERSION;
     }
 
     /*//////////////////////////////////////////////////////////////
