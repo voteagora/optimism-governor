@@ -5,12 +5,6 @@ import {SubdelegationRules} from "../structs/RulesV3.sol";
 
 interface IAlligatorOPV4 {
     // =============================================================
-    //                      PROXY OPERATIONS
-    // =============================================================
-
-    function create(address owner) external returns (address endpoint);
-
-    // =============================================================
     //                     GOVERNOR OPERATIONS
     // =============================================================
 
@@ -36,7 +30,7 @@ interface IAlligatorOPV4 {
     ) external;
 
     function limitedCastVoteWithReasonAndParamsBatched(
-        uint256[] memory limits,
+        uint256 maxVotingPower,
         address[][] memory authorities,
         uint256 proposalId,
         uint8 support,

@@ -19,15 +19,15 @@ import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
  * Modifications from AlligatorOP:
  * - uses hashed proxy rules to reduce calldata size
  * - Assumes 1 proxy per owner
- * - Add optional limits to castVote methods
+ * - Use proxies without deploying them
+ * - Casts votes in batch directly to governor via `castVoteFromAlligator`
+ * - Add alt methods to limit the sender's voting power when casting votes
  *
  * TODO:
- * - 1. Gigamesh optimization -> ESTIMATE IMPROVEMENT FIRST
- * - 1.5 Make tests to estimate gas variations across contract versions
- * - 2. Make contract upgradeable
- * - 3. Remove authority chains -> ESTIMATE IMPROVEMENT FIRST + CAN WE ADD IT AS AN UPGRADE
- * - 4. Votable supply oracle
- * - 5. Proposal types configurator
+ * - Make contract upgradeable
+ * - Remove authority chains -> ESTIMATE IMPROVEMENT FIRST + CAN WE ADD IT AS AN UPGRADE
+ * - Votable supply oracle
+ * - Proposal types configurator
  */
 contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
     // =============================================================
@@ -78,8 +78,8 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
     // Subdelegation rules `from` => `to`
     mapping(address from => mapping(address to => SubdelegationRules subdelegationRules)) public subDelegations;
 
-    // Records if a voter has already voted on a specific proposal from a proxy
-    mapping(address proxy => mapping(uint256 proposalId => mapping(address voter => uint256))) votesCast;
+    // Records of votes cast across an authority chain, to prevent double voting from the same proxy
+    mapping(address proxy => mapping(uint256 proposalId => mapping(address voter => uint256))) public votesCast;
 
     // =============================================================
     //                         CONSTRUCTOR
@@ -92,27 +92,6 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
     }
 
     // =============================================================
-    //                      PROXY OPERATIONS
-    // =============================================================
-
-    /**
-     * @notice Deploy a new proxy for an owner deterministically.
-     *
-     * @param proxyOwner The owner of the proxy.
-     *
-     * @return endpoint Address of the proxy
-     */
-    function create(address proxyOwner) public override returns (address endpoint) {
-        endpoint = address(
-            new AlligatorProxy{salt: bytes32(uint256(uint160(proxyOwner)))}(
-                governor
-            )
-        );
-
-        emit ProxyDeployed(proxyOwner, endpoint);
-    }
-
-    // =============================================================
     //                     GOVERNOR OPERATIONS
     // =============================================================
 
@@ -122,19 +101,9 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
      * @param authority The authority chain to validate against.
      * @param proposalId The id of the proposal to vote on
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain
-     *
-     * @dev Reverts if the proxy has not been created.
      */
-    function castVote(address[] calldata authority, uint256 proposalId, uint8 support)
-        external
-        override
-        whenNotPaused
-    {
-        (address proxy, uint256 votesToCast, uint256 weight) = validate(msg.sender, authority, proposalId, support);
-
-        _castVoteWithReasonAndParams(proxy, proposalId, support, "", abi.encode(votesToCast), weight);
-
-        emit VoteCast(proxy, msg.sender, authority, proposalId, support);
+    function castVote(address[] calldata authority, uint256 proposalId, uint8 support) public override whenNotPaused {
+        _castVoteWithReasonAndParams(msg.sender, authority, proposalId, support, "", "");
     }
 
     /**
@@ -144,19 +113,13 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
      * @param proposalId The id of the proposal to vote on
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain
      * @param reason The reason given for the vote by the voter
-     *
-     * @dev Reverts if the proxy has not been created.
      */
     function castVoteWithReason(address[] calldata authority, uint256 proposalId, uint8 support, string calldata reason)
         public
         override
         whenNotPaused
     {
-        (address proxy, uint256 votesToCast, uint256 weight) = validate(msg.sender, authority, proposalId, support);
-
-        _castVoteWithReasonAndParams(proxy, proposalId, support, reason, abi.encode(votesToCast), weight);
-
-        emit VoteCast(proxy, msg.sender, authority, proposalId, support);
+        _castVoteWithReasonAndParams(msg.sender, authority, proposalId, support, reason, "");
     }
 
     /**
@@ -167,113 +130,15 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain
      * @param reason The reason given for the vote by the voter
      * @param params The custom params of the vote
-     *
-     * @dev Reverts if the proxy has not been created.
      */
     function castVoteWithReasonAndParams(
         address[] calldata authority,
         uint256 proposalId,
         uint8 support,
-        string calldata reason,
-        bytes calldata params
-    ) public override whenNotPaused {
-        (address proxy, uint256 votesToCast, uint256 weight) = validate(msg.sender, authority, proposalId, support);
-
-        _castVoteWithReasonAndParams(
-            proxy, proposalId, support, reason, abi.encode(bytes32(votesToCast), params), weight
-        );
-
-        emit VoteCast(proxy, msg.sender, authority, proposalId, support);
-    }
-
-    /**
-     * @notice Validate subdelegation rules and cast multiple votes with reason on the governor.
-     *
-     * @param authorities The authority chains to validate against.
-     * @param proposalId The id of the proposal to vote on
-     * @param support The support value for the vote. 0=against, 1=for, 2=abstain
-     * @param reason The reason given for the vote by the voter
-     * @param params The custom params of the vote
-     *
-     * @dev Reverts if the proxy has not been created.
-     */
-    function castVoteWithReasonAndParamsBatched(
-        address[][] memory authorities,
-        uint256 proposalId,
-        uint8 support,
-        string calldata reason,
-        bytes calldata params
-    ) public override whenNotPaused {
-        // TODO: Review this
-        uint256 authorityLength = authorities.length;
-
-        address[] memory proxies = new address[](authorityLength);
-        address[] memory authority;
-        uint256 votesToCast;
-        uint256 weight;
-        uint256 totalWeight;
-        for (uint256 i; i < authorityLength;) {
-            authority = authorities[i];
-            (proxies[i], votesToCast, weight) = validate(msg.sender, authority, proposalId, support);
-            totalWeight += weight;
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        _castVoteWithReasonAndParams(
-            msg.sender, proposalId, support, reason, abi.encode(bytes32(votesToCast), params), totalWeight
-        );
-
-        emit VotesCast(proxies, msg.sender, authorities, proposalId, support);
-    }
-
-    /**
-     * @notice Validate subdelegation rules and cast multiple votes with reason on the governor.
-     * Limits the number of votes for each authority chain
-     *
-     * @param limits The limits for each authority chain
-     * @param authorities The authority chains to validate against.
-     * @param proposalId The id of the proposal to vote on
-     * @param support The support value for the vote. 0=against, 1=for, 2=abstain
-     * @param reason The reason given for the vote by the voter
-     * @param params The custom params of the vote
-     *
-     * @dev Reverts if the proxy has not been created.
-     */
-    function limitedCastVoteWithReasonAndParamsBatched(
-        uint256[] memory limits,
-        address[][] memory authorities,
-        uint256 proposalId,
-        uint8 support,
         string memory reason,
         bytes memory params
     ) public override whenNotPaused {
-        uint256 authorityLength = authorities.length;
-
-        if (limits.length != authorityLength) revert LengthMismatch();
-
-        address[] memory proxies = new address[](authorityLength);
-        address[] memory authority;
-        uint256 votesToCast;
-        uint256 weight;
-        uint256 totalWeight;
-        for (uint256 i; i < authorityLength;) {
-            authority = authorities[i];
-            (proxies[i], votesToCast, weight) = validate(msg.sender, authority, proposalId, support);
-            totalWeight += (weight - limits[i]);
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        _castVoteWithReasonAndParams(
-            msg.sender, proposalId, support, reason, abi.encode(bytes32(votesToCast), params), totalWeight
-        );
-
-        emit VotesCast(proxies, msg.sender, authorities, proposalId, support);
+        _castVoteWithReasonAndParams(msg.sender, authority, proposalId, support, reason, params);
     }
 
     /**
@@ -282,8 +147,6 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
      * @param authority The authority chain to validate against.
      * @param proposalId The id of the proposal to vote on
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain
-     *
-     * @dev Reverts if the proxy has not been created.
      */
     function castVoteBySig(
         address[] calldata authority,
@@ -292,21 +155,25 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external override whenNotPaused {
-        bytes32 domainSeparator =
-            keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, address(this)));
-        bytes32 structHash = keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, support));
-        address signatory = ecrecover(keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash)), v, r, s);
+    ) public override whenNotPaused {
+        address signatory = ecrecover(
+            keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, address(this))),
+                    keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, support))
+                )
+            ),
+            v,
+            r,
+            s
+        );
 
         if (signatory == address(0)) {
             revert BadSignature();
         }
 
-        (address proxy, uint256 votesToCast, uint256 weight) = validate(signatory, authority, proposalId, support);
-
-        _castVoteWithReasonAndParams(proxy, proposalId, support, "", abi.encode(votesToCast), weight);
-
-        emit VoteCast(proxy, signatory, authority, proposalId, support);
+        _castVoteWithReasonAndParams(signatory, authority, proposalId, support, "", "");
     }
 
     /**
@@ -317,46 +184,210 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain
      * @param reason The reason given for the vote by the signatory
      * @param params The custom params of the vote
-     *
-     * @dev Reverts if the proxy has not been created.
      */
     function castVoteWithReasonAndParamsBySig(
-        address[] memory authority,
+        address[] calldata authority,
         uint256 proposalId,
         uint8 support,
-        string calldata reason,
-        bytes calldata params,
+        string memory reason,
+        bytes memory params,
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external override whenNotPaused {
-        // TODO: Solve stack too deep
-        // address signatory = ecrecover(
-        //     keccak256(
-        //         abi.encodePacked(
-        //             "\x19\x01",
-        //             keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, address(this))),
-        //             keccak256(
-        //                 abi.encode(BALLOT_TYPEHASH, proposalId, support, keccak256(bytes(reason)), keccak256(params))
-        //             )
-        //         )
-        //     ),
-        //     v,
-        //     r,
-        //     s
-        // );
+    ) public override whenNotPaused {
+        address signatory = ecrecover(
+            keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, address(this))),
+                    keccak256(
+                        abi.encode(BALLOT_TYPEHASH, proposalId, support, keccak256(bytes(reason)), keccak256(params))
+                    )
+                )
+            ),
+            v,
+            r,
+            s
+        );
 
-        // if (signatory == address(0)) {
-        //     revert BadSignature();
-        // }
+        if (signatory == address(0)) {
+            revert BadSignature();
+        }
 
-        // (address proxy, uint256 votesToCast, uint256 weight) = validate(signatory, authority, proposalId, support);
+        _castVoteWithReasonAndParams(signatory, authority, proposalId, support, reason, params);
+    }
 
-        // _castVoteWithReasonAndParams(
-        //     proxy, proposalId, support, reason, abi.encode(bytes32(votesToCast), params), weight
-        // );
+    /**
+     * @notice Validate subdelegation rules and cast multiple votes with reason on the governor.
+     *
+     * @param authorities The authority chains to validate against.
+     * @param proposalId The id of the proposal to vote on
+     * @param support The support value for the vote. 0=against, 1=for, 2=abstain
+     * @param reason The reason given for the vote by the voter
+     * @param params The custom params of the vote
+     *
+     * @dev Authority chains with 0 votes to cast are skipped instead of triggering a revert.
+     */
+    function castVoteWithReasonAndParamsBatched(
+        address[][] memory authorities,
+        uint256 proposalId,
+        uint8 support,
+        string memory reason,
+        bytes memory params
+    ) public override whenNotPaused {
+        uint256 authorityLength = authorities.length;
 
-        // emit VoteCast(proxy, signatory, authority, proposalId, support);
+        address[] memory proxies = new address[](authorityLength);
+        address[] memory authority;
+        uint256 votesToCast;
+        uint256 totalVotesToCast;
+        uint256 proxyTotalVotes;
+        uint256 k;
+        for (uint256 i; i < authorityLength;) {
+            authority = authorities[i];
+            proxies[i] = proxyAddress(authority[0]);
+            proxyTotalVotes = IVotes(op).getPastVotes(proxies[i], _proposalSnapshot(proposalId));
+
+            (votesToCast, k) = validate(proxies[i], msg.sender, authority, proposalId, support, proxyTotalVotes);
+
+            if (votesToCast != 0) {
+                totalVotesToCast += votesToCast;
+
+                _recordVotesToCast(k, proxies[i], proposalId, authority, votesToCast, proxyTotalVotes);
+            }
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        if (totalVotesToCast == 0) revert ZeroVotesToCast();
+
+        _castVote(msg.sender, proposalId, support, reason, bytes.concat(bytes32(totalVotesToCast), params));
+
+        emit VotesCast(proxies, msg.sender, authorities, proposalId, support);
+    }
+
+    /**
+     * @notice Validate subdelegation rules and cast multiple votes with reason on the governor.
+     * Limits the max number of votes used to `maxVotingPower`, blocking iterations once reached.
+     *
+     * @param maxVotingPower The maximum voting power allowed to be used for the batchVote
+     * @param authorities The authority chains to validate against.
+     * @param proposalId The id of the proposal to vote on
+     * @param support The support value for the vote. 0=against, 1=for, 2=abstain
+     * @param reason The reason given for the vote by the voter
+     * @param params The custom params of the vote
+     *
+     * @dev Authority chains with 0 votes to cast are skipped instead of triggering a revert.
+     */
+    function limitedCastVoteWithReasonAndParamsBatched(
+        uint256 maxVotingPower,
+        address[][] memory authorities,
+        uint256 proposalId,
+        uint8 support,
+        string memory reason,
+        bytes memory params
+    ) public override whenNotPaused {
+        uint256 authorityLength = authorities.length;
+
+        address[] memory proxies = new address[](authorityLength);
+        address[] memory authority;
+        uint256 votesToCast;
+        uint256 totalVotesToCast;
+        uint256 proxyTotalVotes;
+        uint256 k;
+        for (uint256 i; i < authorityLength;) {
+            authority = authorities[i];
+            proxies[i] = proxyAddress(authority[0]);
+            proxyTotalVotes = IVotes(op).getPastVotes(proxies[i], _proposalSnapshot(proposalId));
+
+            (votesToCast, k) = validate(proxies[i], msg.sender, authority, proposalId, support, proxyTotalVotes);
+
+            if (votesToCast != 0) {
+                // Increase `totalVotesToCast` and check if it exceeds `maxVotingPower`
+                if ((totalVotesToCast += votesToCast) < maxVotingPower) {
+                    _recordVotesToCast(k, proxies[i], proposalId, authority, votesToCast, proxyTotalVotes);
+                } else {
+                    // If `totalVotesToCast` exceeds `maxVotingPower`, calculate the remaining votes to cast
+                    votesToCast = maxVotingPower - (totalVotesToCast - votesToCast);
+                    _recordVotesToCast(k, proxies[i], proposalId, authority, votesToCast, proxyTotalVotes);
+                    totalVotesToCast = maxVotingPower;
+
+                    break;
+                }
+            }
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        if (totalVotesToCast == 0) revert ZeroVotesToCast();
+
+        _castVote(msg.sender, proposalId, support, reason, bytes.concat(bytes32(votesToCast), params));
+
+        emit VotesCast(proxies, msg.sender, authorities, proposalId, support);
+    }
+
+    /**
+     * @notice Validate subdelegation rules and cast a vote with reason on the governor.
+     *
+     * @param voter The address of the voter
+     * @param authority The authority chain to validate against.
+     * @param proposalId The id of the proposal to vote on
+     * @param support The support value for the vote. 0=against, 1=for, 2=abstain
+     * @param reason The reason given for the vote by the voter
+     * @param params The custom params of the vote
+     *
+     * @dev Reverts if there are no votes to cast.
+     */
+    function _castVoteWithReasonAndParams(
+        address voter,
+        address[] calldata authority,
+        uint256 proposalId,
+        uint8 support,
+        string memory reason,
+        bytes memory params
+    ) internal {
+        address proxy = proxyAddress(authority[0]);
+        uint256 proxyTotalVotes = IVotes(op).getPastVotes(proxy, _proposalSnapshot(proposalId));
+
+        (uint256 votesToCast, uint256 k) = validate(proxy, voter, authority, proposalId, support, proxyTotalVotes);
+
+        if (votesToCast == 0) revert ZeroVotesToCast();
+
+        _recordVotesToCast(k, proxy, proposalId, authority, votesToCast, proxyTotalVotes);
+        _castVote(proxy, proposalId, support, reason, bytes.concat(bytes32(votesToCast), params));
+
+        emit VoteCast(proxy, voter, authority, proposalId, support);
+    }
+
+    function _recordVotesToCast(
+        uint256 k,
+        address proxy,
+        uint256 proposalId,
+        address[] memory authority,
+        uint256 votesToCast,
+        uint256 proxyTotalVotes
+    ) internal {
+        // Record weight cast for a proxy, on the governor
+        IOptimismGovernor(governor).increaseWeightCast(proposalId, proxy, votesToCast, proxyTotalVotes);
+
+        if (k != 0) {
+            // Record `votesToCast` across the authority chain, only for voters whose allowance does not exceed proxy
+            // remaining votes. This is because it would be unnecessary to do so as if they voted they would exhaust the
+            // proxy votes regardless of votes cast by their delegates.
+            uint256 authorityLength = authority.length;
+            for (k; k < authorityLength;) {
+                /// @dev cumulative votesCast cannot exceed proxy voting power, thus cannot overflow
+                unchecked {
+                    votesCast[proxy][proposalId][authority[k]] += votesToCast;
+
+                    ++k;
+                }
+            }
+        }
     }
 
     // =============================================================
@@ -370,11 +401,7 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
      * @param to The address to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegation.
      */
-    function subDelegate(address to, SubdelegationRules calldata subdelegationRules) external override {
-        if (proxyAddress(msg.sender).code.length == 0) {
-            create(msg.sender);
-        }
-
+    function subDelegate(address to, SubdelegationRules calldata subdelegationRules) public override {
         subDelegations[msg.sender][to] = subdelegationRules;
         emit SubDelegation(msg.sender, to, subdelegationRules);
     }
@@ -387,13 +414,9 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
      * @param subdelegationRules The rules to apply to the subdelegations.
      */
     function subDelegateBatched(address[] calldata targets, SubdelegationRules calldata subdelegationRules)
-        external
+        public
         override
     {
-        if (proxyAddress(msg.sender).code.length == 0) {
-            create(msg.sender);
-        }
-
         uint256 targetsLength = targets.length;
         for (uint256 i; i < targetsLength;) {
             subDelegations[msg.sender][targets[i]] = subdelegationRules;
@@ -413,25 +436,24 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
     /**
      * @notice Validate subdelegation rules and partial delegation allowances.
      *
+     * @param proxy The address of the proxy.
      * @param sender The sender address to validate.
      * @param authority The authority chain to validate against.
      * @param proposalId The id of the proposal for which validation is being performed.
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain, 0xFF=proposal
+     * @param voterAllowance The allowance of the voter.
      *
-     * @return proxy The address of the proxy to cast votes from.
      * @return votesToCast The number of votes to cast by `sender`.
      */
-    function validate(address sender, address[] memory authority, uint256 proposalId, uint256 support)
-        internal
-        returns (address proxy, uint256 votesToCast, uint256 voterAllowance)
-    {
+    function validate(
+        address proxy,
+        address sender,
+        address[] memory authority,
+        uint256 proposalId,
+        uint256 support,
+        uint256 voterAllowance
+    ) internal view returns (uint256 votesToCast, uint256 k) {
         address from = authority[0];
-        proxy = proxyAddress(from);
-
-        if (proxy.code.length == 0) revert ProxyNotExistent();
-
-        // Initialize `voterAllowance` with the proxy's voting power at snapshot block
-        voterAllowance = IVotes(op).getPastVotes(proxy, _proposalSnapshot(proposalId));
 
         /// @dev Cannot underflow as `weightCast` is always less than or equal to total votes.
         unchecked {
@@ -441,11 +463,10 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
 
         // If `sender` is the proxy owner, only the proxy rules are validated.
         if (from == sender) {
-            return (proxy, votesToCast, voterAllowance);
+            return (votesToCast, k);
         }
 
         uint256 delegatorsVotes;
-        uint256 k;
         uint256 toVotesCast;
         address to;
         SubdelegationRules memory subdelegationRules;
@@ -495,6 +516,8 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
             from = to;
         }
 
+        if (from != sender) revert NotDelegated(from, sender);
+
         // Prevent double spending of votes already cast by previous delegators.
         // Reverts for underflow when `delegatorsVotes` exceeds `voterAllowance`, meaning that `sender` has no votes left.
         if (delegatorsVotes != 0) {
@@ -502,23 +525,6 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
         }
 
         votesToCast = voterAllowance > votesToCast ? votesToCast : voterAllowance;
-
-        if (from != sender) revert NotDelegated(from, sender);
-        if (votesToCast == 0) revert ZeroVotesToCast();
-
-        if (k != 0) {
-            // Record `votesToCast` across the authority chain, only for voters whose allowance does not exceed
-            // proxy remaining votes. This is because it would be unnecessary to do so as if they voted they would exhaust the
-            // proxy votes regardless of votes cast by their delegates.
-            for (k; k < authority.length;) {
-                /// @dev cumulative votesCast cannot exceed proxy voting power, thus cannot overflow
-                unchecked {
-                    votesCast[proxy][proposalId][authority[k]] += votesToCast;
-
-                    ++k;
-                }
-            }
-        }
     }
 
     /**
@@ -552,24 +558,16 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
     /**
      * @notice Cast a vote on the governor with reason and params.
      *
-     * @param proxy The address of the proxy
+     * @param voter The address of the voter
      * @param proposalId The id of the proposal to vote on
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain
      * @param reason The reason given for the vote by the voter
      * @param params The params to be passed to the governor
-     * @param weight The weight of the vote
      */
-    function _castVoteWithReasonAndParams(
-        address proxy,
-        uint256 proposalId,
-        uint8 support,
-        string memory reason,
-        bytes memory params,
-        uint256 weight
-    ) internal {
-        IOptimismGovernor(governor).castVoteWithReasonAndParamsFromAlligator(
-            proposalId, proxy, support, reason, params, weight
-        );
+    function _castVote(address voter, uint256 proposalId, uint8 support, string memory reason, bytes memory params)
+        internal
+    {
+        IOptimismGovernor(governor).castVoteFromAlligator(proposalId, voter, support, reason, params);
     }
 
     /**
