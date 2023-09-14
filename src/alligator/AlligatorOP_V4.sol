@@ -235,18 +235,17 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
         string memory reason,
         bytes memory params
     ) public override whenNotPaused {
-        uint256 authorityLength = authorities.length;
-
-        address[] memory proxies = new address[](authorityLength);
+        uint256 snapshotBlock = _proposalSnapshot(proposalId);
+        address[] memory proxies = new address[](authorities.length);
         address[] memory authority;
         uint256 votesToCast;
         uint256 totalVotesToCast;
         uint256 proxyTotalVotes;
         uint256 k;
-        for (uint256 i; i < authorityLength;) {
+        for (uint256 i; i < authorities.length;) {
             authority = authorities[i];
             proxies[i] = proxyAddress(authority[0]);
-            proxyTotalVotes = IVotes(op).getPastVotes(proxies[i], _proposalSnapshot(proposalId));
+            proxyTotalVotes = IVotes(op).getPastVotes(proxies[i], snapshotBlock);
 
             (votesToCast, k) = validate(proxies[i], msg.sender, authority, proposalId, support, proxyTotalVotes);
 
@@ -289,18 +288,17 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
         string memory reason,
         bytes memory params
     ) public override whenNotPaused {
-        uint256 authorityLength = authorities.length;
-
-        address[] memory proxies = new address[](authorityLength);
+        uint256 snapshotBlock = _proposalSnapshot(proposalId);
+        address[] memory proxies = new address[](authorities.length);
         address[] memory authority;
         uint256 votesToCast;
         uint256 totalVotesToCast;
         uint256 proxyTotalVotes;
         uint256 k;
-        for (uint256 i; i < authorityLength;) {
+        for (uint256 i; i < authorities.length;) {
             authority = authorities[i];
             proxies[i] = proxyAddress(authority[0]);
-            proxyTotalVotes = IVotes(op).getPastVotes(proxies[i], _proposalSnapshot(proposalId));
+            proxyTotalVotes = IVotes(op).getPastVotes(proxies[i], snapshotBlock);
 
             (votesToCast, k) = validate(proxies[i], msg.sender, authority, proposalId, support, proxyTotalVotes);
 

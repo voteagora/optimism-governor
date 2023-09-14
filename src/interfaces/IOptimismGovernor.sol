@@ -14,7 +14,7 @@ abstract contract IOptimismGovernor is IGovernor {
         uint8 support,
         string memory reason,
         bytes calldata params
-    ) external virtual returns (uint256);
+    ) external virtual;
 
     function weightCast(uint256 proposalId, address account) external view virtual returns (uint256 votes);
 }
