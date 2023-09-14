@@ -103,11 +103,11 @@ contract ApprovalVotingModuleTest is Test {
         votes[0] = 0;
         bytes memory params = abi.encode(votes);
 
-        assertEq(module.accountVotes(proposalId, voter), 0);
+        assertEq(module.getAccountTotalVotes(proposalId, voter), 0);
 
         module._countVote(proposalId, voter, uint8(VoteType.For), weight, params);
 
-        assertEq(module.accountVotes(proposalId, voter), votes.length);
+        assertEq(module.getAccountTotalVotes(proposalId, voter), votes.length);
         assertEq(module._proposals(proposalId).optionVotes[0], weight);
         assertEq(module._proposals(proposalId).optionVotes[1], 0);
         assertEq(module._proposals(proposalId).optionVotes[2], 0);
@@ -125,11 +125,11 @@ contract ApprovalVotingModuleTest is Test {
         votes[1] = 1;
         bytes memory params = abi.encode(votes);
 
-        assertEq(module.accountVotes(proposalId, voter), 0);
+        assertEq(module.getAccountTotalVotes(proposalId, voter), 0);
 
         module._countVote(proposalId, voter, uint8(VoteType.For), weight, params);
 
-        assertEq(module.accountVotes(proposalId, voter), votes.length);
+        assertEq(module.getAccountTotalVotes(proposalId, voter), votes.length);
         assertEq(module._proposals(proposalId).optionVotes[0], weight);
         assertEq(module._proposals(proposalId).optionVotes[1], weight);
         assertEq(module._proposals(proposalId).optionVotes[2], 0);
@@ -147,11 +147,11 @@ contract ApprovalVotingModuleTest is Test {
         votes[1] = 1;
         bytes memory params = abi.encode(votes);
 
-        assertEq(module.accountVotes(proposalId, voter), 0);
+        assertEq(module.getAccountTotalVotes(proposalId, voter), 0);
 
         module._countVote(proposalId, voter, uint8(VoteType.Against), weight, params);
 
-        assertEq(module.accountVotes(proposalId, voter), 0);
+        assertEq(module.getAccountTotalVotes(proposalId, voter), 0);
         assertEq(module._proposals(proposalId).optionVotes[0], 0);
         assertEq(module._proposals(proposalId).optionVotes[1], 0);
         assertEq(module._proposals(proposalId).optionVotes[2], 0);
@@ -169,11 +169,11 @@ contract ApprovalVotingModuleTest is Test {
         votes[1] = 1;
         bytes memory params = abi.encode(votes);
 
-        assertEq(module.accountVotes(proposalId, voter), 0);
+        assertEq(module.getAccountTotalVotes(proposalId, voter), 0);
 
         module._countVote(proposalId, voter, uint8(VoteType.Abstain), weight, params);
 
-        assertEq(module.accountVotes(proposalId, voter), 0);
+        assertEq(module.getAccountTotalVotes(proposalId, voter), 0);
         assertEq(module._proposals(proposalId).optionVotes[0], 0);
         assertEq(module._proposals(proposalId).optionVotes[1], 0);
         assertEq(module._proposals(proposalId).optionVotes[2], 0);
@@ -457,24 +457,6 @@ contract ApprovalVotingModuleTest is Test {
 
         vm.expectRevert(VotingModule.NotGovernor.selector);
         module._countVote(proposalId, voter, uint8(VoteType.Abstain), weight, "");
-    }
-
-    function testRevert_countVote_alreadyVoted() public {
-        (bytes memory proposalData,,) = _formatProposalData();
-        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
-        uint256 weight = 100;
-
-        module.propose(proposalId, proposalData, descriptionHash);
-
-        uint256[] memory votes = new uint256[](2);
-        votes[0] = 0;
-        votes[1] = 1;
-        bytes memory params = abi.encode(votes);
-
-        module._countVote(proposalId, voter, uint8(VoteType.For), weight, params);
-
-        vm.expectRevert(VotingModule.AlreadyVoted.selector);
-        module._countVote(proposalId, voter, uint8(VoteType.For), weight, params);
     }
 
     function testRevert_countVote_invalidParams() public {

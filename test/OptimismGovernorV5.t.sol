@@ -196,9 +196,9 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
         assertEq(module._proposals(proposalId).optionVotes[0], 1e18);
         assertEq(module._proposals(proposalId).optionVotes[1], 0);
         assertTrue(governor.hasVoted(proposalId, voter));
-        assertEq(module.accountVotes(proposalId, voter), optionVotes.length);
+        assertEq(module.getAccountTotalVotes(proposalId, voter), optionVotes.length);
         assertTrue(governor.hasVoted(proposalId, altVoter));
-        assertEq(module.accountVotes(proposalId, altVoter), 0);
+        assertEq(module.getAccountTotalVotes(proposalId, altVoter), 0);
     }
 
     function testExecuteWithModule() public {
