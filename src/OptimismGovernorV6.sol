@@ -127,13 +127,14 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     {
         require(state(proposalId) == ProposalState.Active, "Governor: vote not currently active");
 
-        ProposalCore storage proposal = _proposals[proposalId];
-        uint256 weight = _getVotes(account, proposal.voteStart.getDeadline(), "");
+        uint256 weight = _getVotes(account, _proposals[proposalId].voteStart.getDeadline(), "");
 
         _countVote(proposalId, account, support, weight, params);
 
-        if (proposal.votingModule != address(0)) {
-            VotingModule(proposal.votingModule)._countVote(proposalId, account, support, weight, params);
+        address votingModule = _proposals[proposalId].votingModule;
+
+        if (votingModule != address(0)) {
+            VotingModule(votingModule)._countVote(proposalId, account, support, weight, params);
         }
 
         if (params.length == 0) {

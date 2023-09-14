@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {OptimismGovernorV5} from "./OptimismGovernorV5.sol";
-import {VotingModule, PartialVotingModule} from "./modules/PartialVotingModule.sol";
+import {VotingModule} from "./modules/VotingModule.sol";
 import {GovernorCountingSimpleUpgradeableV2} from "./lib/openzeppelin/v2/GovernorCountingSimpleUpgradeableV2.sol";
 import {GovernorVotesQuorumFractionUpgradeableV2} from
     "./lib/openzeppelin/v2/GovernorVotesQuorumFractionUpgradeableV2.sol";
@@ -136,21 +136,6 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     /*//////////////////////////////////////////////////////////////
                             WRITE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-
-    /**
-     * Add check to ensure the used `module` supports partial voting.
-     */
-    function proposeWithModule(VotingModule module, bytes memory proposalData, string memory description)
-        public
-        override
-        returns (uint256)
-    {
-        if (!PartialVotingModule(address(module)).supportsPartialVoting()) {
-            revert PartialVotingNotSupported(address(module));
-        }
-
-        return super.proposeWithModule(module, proposalData, description);
-    }
 
     // TODO: update logic to correctly handle `votesCast` and modified `params` in both _castVote and _countVote
 
