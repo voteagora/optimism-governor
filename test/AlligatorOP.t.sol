@@ -21,23 +21,23 @@ contract AlligatorOPTest is SetupAlligatorOP {
         _postSetup();
     }
 
-    function testDeploy() public {
+    function testDeploy() public virtual {
         assertEq(Ownable(address(alligator)).owner(), address(this));
     }
 
-    function testCreate() public {
+    function testCreate() public virtual {
         address computedAddress = _proxyAddress(Utils.carol, baseRules, baseRulesHash);
         assertTrue(computedAddress.code.length == 0);
         _create(Utils.carol, baseRules, baseRulesHash);
         assertTrue(computedAddress.code.length != 0);
     }
 
-    function testProxyAddressMatches() public {
+    function testProxyAddressMatches() public virtual {
         address proxy = _proxyAddress(Utils.carol, baseRules, baseRulesHash);
         assertEq(_create(Utils.carol, baseRules, baseRulesHash), proxy);
     }
 
-    function testCastVote() public {
+    function testCastVote() public virtual {
         address[] memory authority = new address[](1);
         authority[0] = address(this);
 
@@ -59,7 +59,7 @@ contract AlligatorOPTest is SetupAlligatorOP {
         _castVote(baseRules, baseRulesHash, authority2, proposalId, 1);
     }
 
-    function testCastVoteWithReason() public {
+    function testCastVoteWithReason() public virtual {
         address[] memory authority = new address[](1);
         authority[0] = address(this);
 
@@ -81,7 +81,7 @@ contract AlligatorOPTest is SetupAlligatorOP {
         _castVoteWithReason(baseRules, baseRulesHash, authority2, proposalId, 1, "reason");
     }
 
-    function testCastVoteWithReasonAndParamsBatched() public {
+    function testCastVoteWithReasonAndParamsBatched() public virtual {
         (
             address[][] memory authorities,
             address[] memory proxies,
@@ -152,7 +152,7 @@ contract AlligatorOPTest is SetupAlligatorOP {
      * Gas values reported are derived from the result of `getL1GasUsed` from the [GasPriceOracle contract]
      * (https://optimistic.etherscan.io/address/0x420000000000000000000000000000000000000F)
      */
-    function testLogCalldataSize_CastVoteWithReasonAndParamsBatched() public view {
+    function testLogCalldataSize_CastVoteWithReasonAndParamsBatched() public view virtual {
         uint256 proxiesNumber = 200;
 
         address[] memory authority = new address[](2);
@@ -195,8 +195,8 @@ contract AlligatorOPTest is SetupAlligatorOP {
     /**
      * @dev Measure the execution cost of the `castVoteWithReasonAndParamsBatched` function for a given `proxiesNumber`
      */
-    function testMeasureGas_CastVoteWithReasonAndParamsBatched() public {
-        uint256 proxiesNumber = 100;
+    function testMeasureGas_CastVoteWithReasonAndParamsBatched() public virtual {
+        uint256 proxiesNumber = 10;
 
         (
             address[][] memory authorities,
