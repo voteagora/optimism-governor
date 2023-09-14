@@ -196,7 +196,7 @@ contract AlligatorOPTest is SetupAlligatorOP {
      * @dev Measure the execution cost of the `castVoteWithReasonAndParamsBatched` function for a given `proxiesNumber`
      */
     function testMeasureGas_CastVoteWithReasonAndParamsBatched() public virtual {
-        uint256 proxiesNumber = 10;
+        uint256 proxiesNumber = 100;
 
         (
             address[][] memory authorities,
