@@ -10,16 +10,19 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 /**
  * Modifications:
  * - Inherited `GovernorUpgradeableV2`
+ * - Replaced `token` with immutable version to optimize gas
  */
 abstract contract GovernorVotesUpgradeableV2 is Initializable, GovernorUpgradeableV2 {
-    IVotesUpgradeable public token;
+    IVotesUpgradeable public constant token = IVotesUpgradeable(0x4200000000000000000000000000000000000042);
+
+    IVotesUpgradeable public token_unused;
 
     function __GovernorVotes_init(IVotesUpgradeable tokenAddress) internal onlyInitializing {
         __GovernorVotes_init_unchained(tokenAddress);
     }
 
     function __GovernorVotes_init_unchained(IVotesUpgradeable tokenAddress) internal onlyInitializing {
-        token = tokenAddress;
+        token_unused = tokenAddress;
     }
 
     /**
