@@ -60,7 +60,7 @@ abstract contract SetupAlligatorOP is Test {
     //                            STORAGE
     // =============================================================
 
-    OptimismToken internal op = new OptimismToken();
+    OptimismToken internal op = OptimismToken(0x4200000000000000000000000000000000000042);
     OptimismGovernorV6Mock internal governor;
     address internal alligator;
     address internal proxy1;
@@ -94,6 +94,8 @@ abstract contract SetupAlligatorOP is Test {
     // =============================================================
 
     function setUp() public virtual {
+        vm.etch(address(op), address(new OptimismToken()).code);
+
         governor = new OptimismGovernorV6Mock();
         TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
             address(governor),

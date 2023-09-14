@@ -80,7 +80,8 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
     }
 
     function setUp() public override {
-        op = new OptimismToken();
+        vm.etch(address(op), address(new OptimismToken()).code);
+
         module = new ApprovalVotingModuleMock();
         OptimismGovernorV5Mock implementation = new OptimismGovernorV5Mock();
         TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
