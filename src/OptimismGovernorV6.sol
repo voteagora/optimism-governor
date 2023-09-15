@@ -73,6 +73,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
      * @param voter The address who cast the vote on behalf of the proxy
      * @param support The support of the vote, `0` for against and `1` for for
      * @param reason The reason given for the vote by the voter
+     * @param votes The number of votes to count
      * @param params The params for the vote
      */
     function castVoteFromAlligator(
@@ -80,13 +81,10 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         address voter,
         uint8 support,
         string memory reason,
+        uint256 votes,
         bytes calldata params
     ) external onlyAlligator {
         require(state(proposalId) == ProposalState.Active, "Governor: vote not currently active");
-
-        /// @dev we decode partial votes from the first 32 bytes of `params`
-        uint256 votes = uint256(bytes32(params[:32]));
-        params = params[32:];
 
         // Skip `totalWeight` check and count `votes`
         ProposalVote storage proposalVote = _proposalVotes[proposalId];

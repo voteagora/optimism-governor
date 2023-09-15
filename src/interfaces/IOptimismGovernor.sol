@@ -13,6 +13,7 @@ abstract contract IOptimismGovernor is IGovernor {
         address voter,
         uint8 support,
         string memory reason,
+        uint256 votes,
         bytes calldata params
     ) external virtual;
 

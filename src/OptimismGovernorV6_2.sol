@@ -95,6 +95,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
      * @param voter The address who cast the vote on behalf of the proxy
      * @param support The support of the vote, `0` for against and `1` for for
      * @param reason The reason given for the vote by the voter
+     * @param votes The number of votes to count
      * @param params The params for the vote
      */
     function castVoteFromAlligator(
@@ -102,13 +103,10 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         address voter,
         uint8 support,
         string memory reason,
+        uint256 votes,
         bytes calldata params
     ) external onlyAlligator {
         require(state(proposalId) == ProposalState.Active, "Governor: vote not currently active");
-
-        /// @dev we decode partial votes from the first 32 bytes of `params`
-        uint256 votes = uint256(bytes32(params[:32]));
-        params = params[32:];
 
         // Skip `totalWeight` check and count `votes`
         ProposalVote storage proposalVote = _proposalVotes[proposalId];
@@ -138,6 +136,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     //////////////////////////////////////////////////////////////*/
 
     // TODO: update logic to correctly handle `votesCast` and modified `params` in both _castVote and _countVote
+    // Or alternatively, if it doesn't need to be generalized, expose a function `castVoteFromCustodialAlligator`
 
     /**
      * @dev Updated internal vote casting mechanism which delegates counting logic to voting module,
@@ -151,25 +150,27 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     {
         require(state(proposalId) == ProposalState.Active, "Governor: vote not currently active");
 
-        ProposalCore storage proposal = _proposals[proposalId];
-        uint256 weight = _getVotes(account, proposal.voteStart.getDeadline(), "");
+        uint256 weight = _getVotes(account, _proposals[proposalId].voteStart.getDeadline(), "");
 
         /**
-         * TODO: At this point we want the following to happen
-         *
-         *  `weight` = params[:32] // get votesToCast from first 32 bytes
-         *  if (!approvedDelegators[msg.sender]) {
-         *       `params` = params[32:] // get remaining params
-         *  } else {
-         *       `account` = params[32:52] // get voter address from the next 20 bytes
-         *       `params` = params[52:] // get remaining params
+         * TODO:
+         *  if (params.length != 0) {
+         *      weight = params[:32] // get votesToCast from first 32 bytes
+         *      if (!approvedDelegators[msg.sender]) {
+         *           params = params[32:] // get remaining params
+         *      } else {
+         *           account = params[32:52] // get voter address from the next 20 bytes
+         *           params = params[52:] // get remaining params
+         *      }
          *  }
          */
 
         _countVote(proposalId, account, support, weight, params);
 
-        if (proposal.votingModule != address(0)) {
-            VotingModule(proposal.votingModule)._countVote(proposalId, account, support, weight, params);
+        address votingModule = _proposals[proposalId].votingModule;
+
+        if (votingModule != address(0)) {
+            VotingModule(votingModule)._countVote(proposalId, account, support, weight, params);
         }
 
         if (params.length == 0) {

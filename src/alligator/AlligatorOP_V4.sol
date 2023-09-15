@@ -262,7 +262,7 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
 
         if (totalVotesToCast == 0) revert ZeroVotesToCast();
 
-        _castVote(msg.sender, proposalId, support, reason, bytes.concat(bytes32(totalVotesToCast), params));
+        _castVote(msg.sender, proposalId, support, reason, totalVotesToCast, params);
 
         emit VotesCast(proxies, msg.sender, authorities, proposalId, support);
     }
@@ -323,7 +323,7 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
 
         if (totalVotesToCast == 0) revert ZeroVotesToCast();
 
-        _castVote(msg.sender, proposalId, support, reason, bytes.concat(bytes32(votesToCast), params));
+        _castVote(msg.sender, proposalId, support, reason, totalVotesToCast, params);
 
         emit VotesCast(proxies, msg.sender, authorities, proposalId, support);
     }
@@ -356,7 +356,7 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
         if (votesToCast == 0) revert ZeroVotesToCast();
 
         _recordVotesToCast(k, proxy, proposalId, authority, votesToCast, proxyTotalVotes);
-        _castVote(proxy, proposalId, support, reason, bytes.concat(bytes32(votesToCast), params));
+        _castVote(proxy, proposalId, support, reason, votesToCast, params);
 
         emit VoteCast(proxy, voter, authority, proposalId, support);
     }
@@ -562,10 +562,15 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
      * @param reason The reason given for the vote by the voter
      * @param params The params to be passed to the governor
      */
-    function _castVote(address voter, uint256 proposalId, uint8 support, string memory reason, bytes memory params)
-        internal
-    {
-        IOptimismGovernor(governor).castVoteFromAlligator(proposalId, voter, support, reason, params);
+    function _castVote(
+        address voter,
+        uint256 proposalId,
+        uint8 support,
+        string memory reason,
+        uint256 votes,
+        bytes memory params
+    ) internal {
+        IOptimismGovernor(governor).castVoteFromAlligator(proposalId, voter, support, reason, votes, params);
     }
 
     /**
