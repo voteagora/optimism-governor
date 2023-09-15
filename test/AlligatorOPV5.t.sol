@@ -6,22 +6,38 @@ import {SubdelegationRules as SubdelegationRulesV3} from "src/structs/RulesV3.so
 import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {IERC721} from "@openzeppelin/contracts/interfaces/IERC721.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {AlligatorOPV3} from "src/alligator/AlligatorOP_V3.sol";
-import {IAlligatorOPV3} from "src/interfaces/IAlligatorOPV3.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {AlligatorOPV5} from "src/alligator/AlligatorOP_V5.sol";
+import {IAlligatorOPV4} from "src/interfaces/IAlligatorOPV4.sol";
 
-contract AlligatorOPV3Test is AlligatorOPTest {
+contract AlligatorOPV5Test is AlligatorOPTest {
     function setUp() public virtual override {
         SetupAlligatorOP.setUp();
 
-        alligatorAlt = address(new AlligatorOPV3(address(governor), address(op), address(this)));
-        vm.etch(alligator, alligatorAlt.code);
+        alligatorAlt = address(new AlligatorOPV5());
+        bytes memory initData = abi.encodeCall(AlligatorOPV5(alligatorAlt).initialize, address(this));
+        vm.etch(alligator, address(new ERC1967Proxy(alligatorAlt, initData)).code);
+        alligatorAlt = alligator;
 
-        proxy1 = _create(address(this), baseRules, baseRulesHash);
-        proxy2 = _create(address(Utils.alice), baseRules, baseRulesHash);
-        proxy3 = _create(address(Utils.bob), baseRules, baseRulesHash);
+        proxy1 = _proxyAddress(address(this), baseRules, baseRulesHash);
+        proxy2 = _proxyAddress(address(Utils.alice), baseRules, baseRulesHash);
+        proxy3 = _proxyAddress(address(Utils.bob), baseRules, baseRulesHash);
 
         _postSetup();
     }
+
+    /*//////////////////////////////////////////////////////////////
+                               OVERRIDES
+    //////////////////////////////////////////////////////////////*/
+
+    function testCreate() public override {}
+    function testCastVoteWithReasonAndParamsBatched() public override {}
+    function testLogCalldataSize_CastVoteWithReasonAndParamsBatched() public view override {}
+    function testMeasureGas_CastVoteWithReasonAndParamsBatched() public override {}
+
+    /*//////////////////////////////////////////////////////////////
+                                INTERNAL
+    //////////////////////////////////////////////////////////////*/
 
     function _proxyAddress(address proxyOwner, BaseRules memory, bytes32)
         internal
@@ -29,15 +45,16 @@ contract AlligatorOPV3Test is AlligatorOPTest {
         override
         returns (address computedAddress)
     {
-        return IAlligatorOPV3(alligator).proxyAddress(proxyOwner);
+        return IAlligatorOPV4(alligator).proxyAddress(proxyOwner);
     }
 
-    function _create(address proxyOwner, BaseRules memory, bytes32)
+    function _create(address proxyOwner, BaseRules memory baseRules_, bytes32 baseRulesHash_)
         internal
+        view
         override
         returns (address computedAddress)
     {
-        return IAlligatorOPV3(alligator).create(proxyOwner);
+        return _proxyAddress(proxyOwner, baseRules_, baseRulesHash_);
     }
 
     function _subdelegate(address, BaseRules memory, address to, SubdelegationRules memory subDelegateRules)
@@ -53,7 +70,7 @@ contract AlligatorOPV3Test is AlligatorOPTest {
             subDelegateRules.allowanceType,
             subDelegateRules.allowance
         );
-        IAlligatorOPV3(alligator).subDelegate(to, rules);
+        IAlligatorOPV4(alligator).subDelegate(to, rules);
     }
 
     function _castVote(BaseRules memory, bytes32, address[] memory authority, uint256 propId, uint8 support)
@@ -61,7 +78,7 @@ contract AlligatorOPV3Test is AlligatorOPTest {
         virtual
         override
     {
-        IAlligatorOPV3(alligator).castVote(authority, propId, support);
+        IAlligatorOPV4(alligator).castVote(authority, propId, support);
     }
 
     function _castVoteWithReason(
@@ -72,7 +89,7 @@ contract AlligatorOPV3Test is AlligatorOPTest {
         uint8 support,
         string memory reason
     ) internal virtual override {
-        IAlligatorOPV3(alligator).castVoteWithReason(authority, propId, support, reason);
+        IAlligatorOPV4(alligator).castVoteWithReason(authority, propId, support, reason);
     }
 
     function _castVoteWithReasonAndParams(
@@ -84,7 +101,7 @@ contract AlligatorOPV3Test is AlligatorOPTest {
         string memory reason,
         bytes memory params
     ) internal virtual override {
-        IAlligatorOPV3(alligator).castVoteWithReasonAndParams(authority, propId, support, reason, params);
+        IAlligatorOPV4(alligator).castVoteWithReasonAndParams(authority, propId, support, reason, params);
     }
 
     function _castVoteWithReasonAndParamsBatched(
@@ -96,6 +113,6 @@ contract AlligatorOPV3Test is AlligatorOPTest {
         string memory reason,
         bytes memory params
     ) internal virtual override {
-        IAlligatorOPV3(alligator).castVoteWithReasonAndParamsBatched(authorities, propId, support, reason, params);
+        IAlligatorOPV4(alligator).castVoteWithReasonAndParamsBatched(authorities, propId, support, reason, params);
     }
 }

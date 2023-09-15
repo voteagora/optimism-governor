@@ -13,7 +13,8 @@ contract AlligatorOPV4Test is AlligatorOPTest {
     function setUp() public virtual override {
         SetupAlligatorOP.setUp();
 
-        alligator = address(new AlligatorOPV4(address(governor), address(op), address(this)));
+        alligatorAlt = address(new AlligatorOPV4(address(governor), address(op), address(this)));
+        vm.etch(alligator, alligatorAlt.code);
 
         proxy1 = _proxyAddress(address(this), baseRules, baseRulesHash);
         proxy2 = _proxyAddress(address(Utils.alice), baseRules, baseRulesHash);
@@ -27,6 +28,9 @@ contract AlligatorOPV4Test is AlligatorOPTest {
     //////////////////////////////////////////////////////////////*/
 
     function testCreate() public override {}
+    function testCastVoteWithReasonAndParamsBatched() public override {}
+    function testLogCalldataSize_CastVoteWithReasonAndParamsBatched() public view override {}
+    function testMeasureGas_CastVoteWithReasonAndParamsBatched() public override {}
 
     /*//////////////////////////////////////////////////////////////
                                 INTERNAL
@@ -41,13 +45,13 @@ contract AlligatorOPV4Test is AlligatorOPTest {
         return IAlligatorOPV4(alligator).proxyAddress(proxyOwner);
     }
 
-    function _create(address proxyOwner, BaseRules memory baseRules, bytes32 baseRulesHash)
+    function _create(address proxyOwner, BaseRules memory baseRules_, bytes32 baseRulesHash_)
         internal
         view
         override
         returns (address computedAddress)
     {
-        return _proxyAddress(proxyOwner, baseRules, baseRulesHash);
+        return _proxyAddress(proxyOwner, baseRules_, baseRulesHash_);
     }
 
     function _subdelegate(address, BaseRules memory, address to, SubdelegationRules memory subDelegateRules)

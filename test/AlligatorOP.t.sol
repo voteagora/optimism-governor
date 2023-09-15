@@ -12,7 +12,8 @@ contract AlligatorOPTest is SetupAlligatorOP {
     function setUp() public virtual override {
         SetupAlligatorOP.setUp();
 
-        alligator = address(new AlligatorOP(address(governor), address(op), address(this)));
+        alligatorAlt = address(new AlligatorOP(address(governor), address(op), address(this)));
+        vm.etch(alligator, alligatorAlt.code);
 
         proxy1 = _create(address(this), baseRules, baseRulesHash);
         proxy2 = _create(address(Utils.alice), baseRules, baseRulesHash);
@@ -22,7 +23,7 @@ contract AlligatorOPTest is SetupAlligatorOP {
     }
 
     function testDeploy() public virtual {
-        assertEq(Ownable(address(alligator)).owner(), address(this));
+        assertEq(Ownable(address(alligatorAlt)).owner(), address(this));
     }
 
     function testCreate() public virtual {

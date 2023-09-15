@@ -6,11 +6,10 @@ import {SubdelegationRules, AllowanceType} from "../structs/RulesV3.sol";
 import {IAlligatorOPV4} from "../interfaces/IAlligatorOPV4.sol";
 import {IRule} from "../interfaces/IRule.sol";
 import {IOptimismGovernor} from "../interfaces/IOptimismGovernor.sol";
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
-import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * @notice Liquid delegator contract for OP Governor.
@@ -22,8 +21,14 @@ import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
  * - Use proxies without deploying them
  * - Casts votes in batch directly to governor via `castVoteFromAlligator`
  * - Add alt methods to limit the sender's voting power when casting votes
+ * - Upgradeable version of the contract
+ *
+ * TODO:
+ * - Remove authority chains -> ESTIMATE IMPROVEMENT FIRST + CAN WE ADD IT AS AN UPGRADE
+ * - Votable supply oracle
+ * - Proposal types configurator
  */
-contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
+contract AlligatorOPV5 is IAlligatorOPV4, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable {
     // =============================================================
     //                             ERRORS
     // =============================================================
@@ -57,8 +62,9 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
     //                       IMMUTABLE STORAGE
     // =============================================================
 
-    address public immutable governor;
-    address public immutable op;
+    address public constant governor = 0xcDF27F107725988f2261Ce2256bDfCdE8B382B10;
+
+    address public constant op = 0x4200000000000000000000000000000000000042;
 
     bytes32 internal constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
@@ -79,9 +85,13 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
     //                         CONSTRUCTOR
     // =============================================================
 
-    constructor(address _governor, address _op, address _initOwner) {
-        governor = _governor;
-        op = _op;
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address _initOwner) external initializer {
+        PausableUpgradeable.__Pausable_init();
         _transferOwnership(_initOwner);
     }
 
@@ -601,6 +611,8 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
     // =============================================================
     //                     RESTRICTED, INTERNAL
     // =============================================================
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
      * @notice Pauses and unpauses propose, vote and sign operations.

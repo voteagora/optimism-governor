@@ -61,8 +61,10 @@ abstract contract SetupAlligatorOP is Test {
     // =============================================================
 
     OptimismToken internal op = OptimismToken(0x4200000000000000000000000000000000000042);
-    OptimismGovernorV6Mock internal governor;
-    address internal alligator;
+    OptimismGovernorV6Mock internal governor =
+        OptimismGovernorV6Mock(payable(0xcDF27F107725988f2261Ce2256bDfCdE8B382B10));
+    address internal alligator = 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9;
+    address internal alligatorAlt;
     address internal proxy1;
     address internal proxy2;
     address internal proxy3;
@@ -95,14 +97,8 @@ abstract contract SetupAlligatorOP is Test {
 
     function setUp() public virtual {
         vm.etch(address(op), address(new OptimismToken()).code);
-
-        governor = new OptimismGovernorV6Mock();
-        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
-            address(governor),
-            admin,
-            abi.encodeCall(OptimismGovernorV2.initialize, (IVotesUpgradeable(address(op)), manager))
-        );
-        governor = OptimismGovernorV6Mock(payable(proxy));
+        vm.etch(address(governor), address(new OptimismGovernorV6Mock()).code);
+        governor.initialize(IVotesUpgradeable(address(op)), manager);
     }
 
     function _postSetup() internal virtual {

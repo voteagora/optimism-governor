@@ -12,7 +12,8 @@ contract AlligatorOPV2Test is AlligatorOPTest {
     function setUp() public virtual override {
         SetupAlligatorOP.setUp();
 
-        alligator = address(new AlligatorOPV2(address(governor), address(op), address(this)));
+        alligatorAlt = address(new AlligatorOPV2(address(governor), address(op), address(this)));
+        vm.etch(alligator, alligatorAlt.code);
 
         proxy1 = _create(address(this), baseRules, baseRulesHash);
         proxy2 = _create(address(Utils.alice), baseRules, baseRulesHash);
