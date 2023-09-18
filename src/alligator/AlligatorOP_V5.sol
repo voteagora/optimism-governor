@@ -51,6 +51,7 @@ contract AlligatorOPV5 is IAlligatorOPV4, UUPSUpgradeable, OwnableUpgradeable, P
     event ProxyDeployed(address indexed owner, address proxy);
     event SubDelegation(address indexed from, address indexed to, SubdelegationRules subdelegationRules);
     event SubDelegations(address indexed from, address[] to, SubdelegationRules subdelegationRules);
+    event SubDelegations(address indexed from, address[] to, SubdelegationRules[] subdelegationRules);
     event VoteCast(
         address indexed proxy, address indexed voter, address[] authority, uint256 proposalId, uint8 support
     );
@@ -410,7 +411,6 @@ contract AlligatorOPV5 is IAlligatorOPV4, UUPSUpgradeable, OwnableUpgradeable, P
 
     /**
      * @notice Subdelegate `targets` with `subdelegationRules`.
-     * Creates a proxy for `msg.sender` if it does not exist.
      *
      * @param targets The addresses to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegations.
@@ -422,6 +422,30 @@ contract AlligatorOPV5 is IAlligatorOPV4, UUPSUpgradeable, OwnableUpgradeable, P
         uint256 targetsLength = targets.length;
         for (uint256 i; i < targetsLength;) {
             subDelegations[msg.sender][targets[i]] = subdelegationRules;
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        emit SubDelegations(msg.sender, targets, subdelegationRules);
+    }
+
+    /**
+     * @notice Subdelegate `targets` with different `subdelegationRules` for each target.
+     *
+     * @param targets The addresses to subdelegate to.
+     * @param subdelegationRules The rules to apply to the subdelegations.
+     */
+    function subDelegateBatched(address[] calldata targets, SubdelegationRules[] calldata subdelegationRules)
+        public
+        override
+    {
+        uint256 targetsLength = targets.length;
+        if (targetsLength != subdelegationRules.length) revert LengthMismatch();
+
+        for (uint256 i; i < targetsLength;) {
+            subDelegations[msg.sender][targets[i]] = subdelegationRules[i];
 
             unchecked {
                 ++i;
