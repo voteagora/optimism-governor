@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {VotingModule} from "./VotingModule.sol";
 import {SafeCastLib} from "@solady/utils/SafeCastLib.sol";
+import {EnumerableSetUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
 
 enum VoteType {
     Against,
@@ -62,36 +63,15 @@ contract ApprovalVotingModule is VotingModule {
     //////////////////////////////////////////////////////////////*/
 
     using SafeCastLib for uint256;
-
-    /*//////////////////////////////////////////////////////////////
-                           IMMUTABLE STORAGE
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-     * Defines the encoding for the expected `proposalData` in `propose`.
-     * Encoding: `(ProposalOption[], ProposalSettings)`
-     *
-     * @dev Can be used by clients to interact with modules programmatically without prior knowledge
-     * on expected types.
-     */
-    string public constant override PROPOSAL_DATA_ENCODING =
-        "((uint256 budgetTokensSpent,address[] targets,uint256[] values,bytes[] calldatas,string description)[] proposalOptions,(uint8 maxApprovals,uint8 criteria,address budgetToken,uint128 criteriaValue,uint128 budgetAmount) proposalSettings)";
-
-    /**
-     * Defines the encoding for the expected `params` in `_countVote`.
-     * Encoding: `uint256[]`
-     *
-     * @dev Can be used by clients to interact with modules programmatically without prior knowledge
-     * on expected types.
-     */
-    string public constant override VOTE_PARAMS_ENCODING = "uint256[] optionIds";
+    using EnumerableSetUpgradeable for EnumerableSetUpgradeable.UintSet;
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
 
     mapping(uint256 proposalId => Proposal) public proposals;
-    mapping(uint256 proposalId => mapping(address account => uint256 votes)) public accountVotes;
+    mapping(uint256 proposalId => mapping(address account => EnumerableSetUpgradeable.UintSet votes)) private
+        accountVotesSet;
 
     /*//////////////////////////////////////////////////////////////
                             WRITE FUNCTIONS
@@ -143,45 +123,27 @@ contract ApprovalVotingModule is VotingModule {
      * @param proposalId The id of the proposal.
      * @param account The account to count votes for.
      * @param support The type of vote to count.
-     * @param weight The weight of the vote.
+     * @param weight The total vote weight of the `account`.
      * @param params The ids of the options to vote for sorted in ascending order, encoded as `uint256[]`.
      */
     function _countVote(uint256 proposalId, address account, uint8 support, uint256 weight, bytes memory params)
         external
+        virtual
         override
     {
         Proposal memory proposal = proposals[proposalId];
         _onlyGovernor(proposal.governor);
-        if (accountVotes[proposalId][account] != 0) revert AlreadyVoted();
 
         if (support == uint8(VoteType.For)) {
-            uint256[] memory options = abi.decode(params, (uint256[]));
-            uint256 totalOptions = options.length;
-            if (totalOptions == 0) revert InvalidParams();
-            if (totalOptions > proposal.settings.maxApprovals) revert MaxApprovalsExceeded();
+            if (weight != 0) {
+                uint256[] memory options = abi.decode(params, (uint256[]));
+                uint256 totalOptions = options.length;
+                if (totalOptions == 0) revert InvalidParams();
 
-            uint128 weight_ = weight.toUint128();
-            uint256 option;
-            uint256 prevOption;
-            for (uint256 i; i < totalOptions;) {
-                option = options[i];
-
-                // Revert if `option` is not strictly ascending
-                if (i != 0) {
-                    if (option <= prevOption) revert OptionsNotStrictlyAscending();
-                }
-
-                prevOption = option;
-
-                /// @dev Revert if `option` is out of bounds
-                proposals[proposalId].optionVotes[option] += weight_;
-
-                unchecked {
-                    ++i;
-                }
+                _recordVote(
+                    proposalId, account, weight.toUint128(), options, totalOptions, proposal.settings.maxApprovals
+                );
             }
-
-            accountVotes[proposalId][account] = totalOptions;
         }
     }
 
@@ -311,6 +273,20 @@ contract ApprovalVotingModule is VotingModule {
     //////////////////////////////////////////////////////////////*/
 
     /**
+     * Return the ids of the options voted by `account` on `proposalId`.
+     */
+    function getAccountVotes(uint256 proposalId, address account) external view returns (uint256[] memory) {
+        return accountVotesSet[proposalId][account].values();
+    }
+
+    /**
+     * Return the total number of votes cast by `account` on `proposalId`.
+     */
+    function getAccountTotalVotes(uint256 proposalId, address account) external view returns (uint256) {
+        return accountVotesSet[proposalId][account].length();
+    }
+
+    /**
      * @dev Return true if at least one option satisfies the passing criteria.
      * Used by governor in `_voteSucceeded`. See {Governor-_voteSucceeded}.
      *
@@ -337,6 +313,29 @@ contract ApprovalVotingModule is VotingModule {
     }
 
     /**
+     * Defines the encoding for the expected `proposalData` in `propose`.
+     * Encoding: `(ProposalOption[], ProposalSettings)`
+     *
+     * @dev Can be used by clients to interact with modules programmatically without prior knowledge
+     * on expected types.
+     */
+    function PROPOSAL_DATA_ENCODING() external pure virtual override returns (string memory) {
+        return
+        "((uint256 budgetTokensSpent,address[] targets,uint256[] values,bytes[] calldatas,string description)[] proposalOptions,(uint8 maxApprovals,uint8 criteria,address budgetToken,uint128 criteriaValue,uint128 budgetAmount) proposalSettings)";
+    }
+
+    /**
+     * Defines the encoding for the expected `params` in `_countVote`.
+     * Encoding: `uint256[]`
+     *
+     * @dev Can be used by clients to interact with modules programmatically without prior knowledge
+     * on expected types.
+     */
+    function VOTE_PARAMS_ENCODING() external pure virtual override returns (string memory) {
+        return "uint256[] optionIds";
+    }
+
+    /**
      * @dev See {IGovernor-COUNTING_MODE}.
      *
      * - `support=bravo`: Supports vote options 0 = Against, 1 = For, 2 = Abstain, as in `GovernorBravo`.
@@ -357,6 +356,41 @@ contract ApprovalVotingModule is VotingModule {
     /*//////////////////////////////////////////////////////////////
                                 INTERNAL
     //////////////////////////////////////////////////////////////*/
+
+    function _recordVote(
+        uint256 proposalId,
+        address account,
+        uint128 weight,
+        uint256[] memory options,
+        uint256 totalOptions,
+        uint256 maxApprovals
+    ) internal {
+        uint256 option;
+        uint256 prevOption;
+        for (uint256 i; i < totalOptions;) {
+            option = options[i];
+
+            accountVotesSet[proposalId][account].add(option);
+
+            // Revert if `option` is not strictly ascending
+            if (i != 0) {
+                if (option <= prevOption) revert OptionsNotStrictlyAscending();
+            }
+
+            prevOption = option;
+
+            /// @dev Revert if `option` is out of bounds
+            proposals[proposalId].optionVotes[option] += weight;
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        if (accountVotesSet[proposalId][account].length() > maxApprovals) {
+            revert MaxApprovalsExceeded();
+        }
+    }
 
     // Sort `options` by `optionVotes` in descending order
     function _sortOptions(uint128[] memory optionVotes, ProposalOption[] memory options)

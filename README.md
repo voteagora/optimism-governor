@@ -1,6 +1,6 @@
 # Optimism On-Chain Governance
 
-This repo conatins the code for the Optimism On-Chain Governance system.
+This repo contains the code for the Optimism On-Chain Governance system.
 
 ## Motivation
 
@@ -66,12 +66,24 @@ Main implementation
 ### V5
 
 - Added support for voting modules
-
   - Update OZ `Governor` storage to add `moduleAddress` in `ProposalCore` struct
   - Updated / added new functions and events in [`OptimismGovernorV5`](/src/OptimismGovernorV5.sol) to interact with external modules
   - Updated `COUNTING_MODE` to also include `params=modules`
-
 - Added [`ApprovalVotingModule`](/src/modules/ApprovalVotingModule.sol)
+
+### V6
+
+- [`Governor`](/src/OptimismGovernorV6.sol)
+  - Added support for partial voting
+  - Added votable supply oracle and integrated into Governor (wip)
+  - Added support for different proposal types (wip)
+- Modules with partial voting support
+  - Added abstract contract [`PartialVotingModule`](/src/modules/PartialVotingModule.sol)
+  - Added [`PartialApprovalVotingModule`](/src/modules/PartialApprovalVotingModule.sol)
+- Liquid delegation protocol
+  - Added [`Alligator V2`](/src/alligator/AlligatorOP.sol) and related [`AlligatorProxy`](/src/alligator/AlligatorProxy.sol) with partial voting support
+
+> Note: V6 is work in progress
 
 ## Deployment
 
