@@ -661,8 +661,7 @@ contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         /// @dev `maxRedelegation` cannot overflow as it increases by 1 each iteration
         /// @dev block.number + rules.blocksBeforeVoteCloses cannot overflow uint256
         unchecked {
-            // TODO: Test if this condition is correct for nested subdelegations
-            if (rules.maxRedelegations + redelegationIndex < authorityLength) {
+            if (uint256(rules.maxRedelegations) + redelegationIndex < authorityLength) {
                 revert TooManyRedelegations(from, to);
             }
             if (block.timestamp < rules.notValidBefore) {
