@@ -28,8 +28,8 @@ contract VotableSupplyOracle is IVotableSupplyOracle, Ownable {
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    constructor(address owner, uint256 initVotableSupply) {
-        _transferOwnership(owner);
+    constructor(address initOwner, uint256 initVotableSupply) {
+        _transferOwnership(initOwner);
 
         // Initialize votable supply
         _votableSupplyHistory._checkpoints.push(

@@ -4,6 +4,8 @@ pragma solidity ^0.8.19;
 import {OptimismGovernorV5} from "./OptimismGovernorV5.sol";
 import {IVotableSupplyOracle} from "./interfaces/IVotableSupplyOracle.sol";
 import {VotingModule} from "./modules/VotingModule.sol";
+import {GovernorVotesQuorumFractionUpgradeableV2} from
+    "./lib/openzeppelin/v2/GovernorVotesQuorumFractionUpgradeableV2.sol";
 import {GovernorCountingSimpleUpgradeableV2} from "./lib/openzeppelin/v2/GovernorCountingSimpleUpgradeableV2.sol";
 import {IGovernorUpgradeable} from "./lib/openzeppelin/v2/GovernorUpgradeableV2.sol";
 import {TimersUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/TimersUpgradeable.sol";
@@ -27,6 +29,12 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
 
     // Max value of `VoteType` enum
     uint8 internal constant MAX_VOTE_TYPE = 2;
+
+    // TODO: Set correct alligator address
+    address public constant alligator = 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9;
+
+    // TODO: Set correct votableSupplyOracle address
+    IVotableSupplyOracle public constant votableSupplyOracle = IVotableSupplyOracle(address(1));
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
