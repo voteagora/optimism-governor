@@ -99,48 +99,115 @@ contract AlligatorOPTest is SetupAlligatorOP {
         assertEq(governor.hasVoted(proposalId, _proxyAddress(Utils.bob, baseRules, baseRulesHash)), true);
     }
 
-    function _formatBatchData()
-        internal
-        returns (
-            address[][] memory authorities,
-            address[] memory proxies,
-            BaseRules[] memory proxyRules,
-            bytes32[] memory proxyRulesHashes
-        )
-    {
-        address[] memory authority1 = new address[](4);
-        authority1[0] = address(this);
-        authority1[1] = Utils.alice;
-        authority1[2] = Utils.bob;
-        authority1[3] = Utils.carol;
+    /*//////////////////////////////////////////////////////////////
+                              TEST REVERTS
+    //////////////////////////////////////////////////////////////*/
 
-        address[] memory authority2 = new address[](2);
-        authority2[0] = Utils.bob;
-        authority2[1] = Utils.carol;
+    function testRevert_validate_TooManyRedelegations() public {
+        address[] memory authority = new address[](4);
+        authority[0] = address(this);
+        authority[1] = Utils.alice;
+        authority[2] = Utils.bob;
+        authority[3] = Utils.carol;
 
-        authorities = new address[][](2);
-        authorities[0] = authority1;
-        authorities[1] = authority2;
-
+        subdelegationRules.baseRules.maxRedelegations = 0;
         _subdelegate(address(this), baseRules, Utils.alice, subdelegationRules);
+
+        subdelegationRules.baseRules.maxRedelegations = 255;
         vm.prank(Utils.alice);
         _subdelegate(address(this), baseRules, Utils.bob, subdelegationRules);
         vm.prank(Utils.bob);
         _subdelegate(address(this), baseRules, Utils.carol, subdelegationRules);
+
+        vm.prank(Utils.carol);
+        vm.expectRevert(abi.encodeWithSelector(TooManyRedelegations.selector, address(this), Utils.alice));
+        _castVote(baseRules, baseRulesHash, authority, proposalId, 1);
+
+        subdelegationRules.baseRules.maxRedelegations = 1;
+        _subdelegate(address(this), baseRules, Utils.alice, subdelegationRules);
+        vm.prank(Utils.carol);
+        vm.expectRevert(abi.encodeWithSelector(TooManyRedelegations.selector, address(this), Utils.alice));
+        _castVote(baseRules, baseRulesHash, authority, proposalId, 1);
+
+        address[] memory authority2 = new address[](3);
+        authority2[0] = address(this);
+        authority2[1] = Utils.alice;
+        authority2[2] = Utils.bob;
+
         vm.prank(Utils.bob);
-        _subdelegate(Utils.bob, baseRules, Utils.carol, subdelegationRules);
+        _castVote(baseRules, baseRulesHash, authority2, proposalId, 1);
+    }
 
-        proxies = new address[](2);
-        proxies[0] = _proxyAddress(address(this), baseRules, baseRulesHash);
-        proxies[1] = _proxyAddress(Utils.bob, baseRules, baseRulesHash);
+    /*//////////////////////////////////////////////////////////////
+                              FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
-        proxyRules = new BaseRules[](2);
-        proxyRules[0] = baseRules;
-        proxyRules[1] = baseRules;
+    function _proxyAddress(address proxyOwner, BaseRules memory rules, bytes32)
+        internal
+        view
+        virtual
+        returns (address computedAddress)
+    {
+        return IAlligatorOP(alligator).proxyAddress(proxyOwner, rules);
+    }
 
-        proxyRulesHashes = new bytes32[](2);
-        proxyRulesHashes[0] = baseRulesHash;
-        proxyRulesHashes[1] = baseRulesHash;
+    function _create(address proxyOwner, BaseRules memory rules, bytes32)
+        internal
+        virtual
+        returns (address computedAddress)
+    {
+        return IAlligatorOP(alligator).create(proxyOwner, rules);
+    }
+
+    function _subdelegate(
+        address proxyOwner,
+        BaseRules memory rules,
+        address to,
+        SubdelegationRules memory subDelegateRules
+    ) internal virtual {
+        IAlligatorOP(alligator).subDelegate(proxyOwner, rules, to, subDelegateRules);
+    }
+
+    function _castVote(BaseRules memory rules, bytes32, address[] memory authority, uint256 propId, uint8 support)
+        internal
+        virtual
+    {
+        IAlligatorOP(alligator).castVote(rules, authority, propId, support);
+    }
+
+    function _castVoteWithReason(
+        BaseRules memory rules,
+        bytes32,
+        address[] memory authority,
+        uint256 propId,
+        uint8 support,
+        string memory reason
+    ) internal virtual {
+        IAlligatorOP(alligator).castVoteWithReason(rules, authority, propId, support, reason);
+    }
+
+    function _castVoteWithReasonAndParams(
+        BaseRules memory rules,
+        bytes32,
+        address[] memory authority,
+        uint256 propId,
+        uint8 support,
+        string memory reason,
+        bytes memory params
+    ) internal virtual {
+        IAlligatorOP(alligator).castVoteWithReasonAndParams(rules, authority, propId, support, reason, params);
+    }
+
+    function _castVoteWithReasonAndParamsBatched(
+        BaseRules[] memory rules,
+        bytes32[] memory,
+        address[][] memory authorities,
+        uint256 propId,
+        uint8 support,
+        string memory reason,
+        bytes memory params
+    ) internal virtual {
+        IAlligatorOP(alligator).castVoteWithReasonAndParamsBatched(rules, authorities, propId, support, reason, params);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -218,6 +285,50 @@ contract AlligatorOPTest is SetupAlligatorOP {
         }
     }
 
+    function _formatBatchData()
+        internal
+        returns (
+            address[][] memory authorities,
+            address[] memory proxies,
+            BaseRules[] memory proxyRules,
+            bytes32[] memory proxyRulesHashes
+        )
+    {
+        address[] memory authority1 = new address[](4);
+        authority1[0] = address(this);
+        authority1[1] = Utils.alice;
+        authority1[2] = Utils.bob;
+        authority1[3] = Utils.carol;
+
+        address[] memory authority2 = new address[](2);
+        authority2[0] = Utils.bob;
+        authority2[1] = Utils.carol;
+
+        authorities = new address[][](2);
+        authorities[0] = authority1;
+        authorities[1] = authority2;
+
+        _subdelegate(address(this), baseRules, Utils.alice, subdelegationRules);
+        vm.prank(Utils.alice);
+        _subdelegate(address(this), baseRules, Utils.bob, subdelegationRules);
+        vm.prank(Utils.bob);
+        _subdelegate(address(this), baseRules, Utils.carol, subdelegationRules);
+        vm.prank(Utils.bob);
+        _subdelegate(Utils.bob, baseRules, Utils.carol, subdelegationRules);
+
+        proxies = new address[](2);
+        proxies[0] = _proxyAddress(address(this), baseRules, baseRulesHash);
+        proxies[1] = _proxyAddress(Utils.bob, baseRules, baseRulesHash);
+
+        proxyRules = new BaseRules[](2);
+        proxyRules[0] = baseRules;
+        proxyRules[1] = baseRules;
+
+        proxyRulesHashes = new bytes32[](2);
+        proxyRulesHashes[0] = baseRulesHash;
+        proxyRulesHashes[1] = baseRulesHash;
+    }
+
     function _formatBatchDataAlt(uint256 proxiesNumber)
         internal
         returns (
@@ -262,73 +373,5 @@ contract AlligatorOPTest is SetupAlligatorOP {
             proxyRules[i] = baseRules;
             proxyRulesHashes[i] = baseRulesHash;
         }
-    }
-
-    function _proxyAddress(address proxyOwner, BaseRules memory rules, bytes32)
-        internal
-        view
-        virtual
-        returns (address computedAddress)
-    {
-        return IAlligatorOP(alligator).proxyAddress(proxyOwner, rules);
-    }
-
-    function _create(address proxyOwner, BaseRules memory rules, bytes32)
-        internal
-        virtual
-        returns (address computedAddress)
-    {
-        return IAlligatorOP(alligator).create(proxyOwner, rules);
-    }
-
-    function _subdelegate(
-        address proxyOwner,
-        BaseRules memory rules,
-        address to,
-        SubdelegationRules memory subDelegateRules
-    ) internal virtual {
-        IAlligatorOP(alligator).subDelegate(proxyOwner, rules, to, subDelegateRules);
-    }
-
-    function _castVote(BaseRules memory rules, bytes32, address[] memory authority, uint256 propId, uint8 support)
-        internal
-        virtual
-    {
-        IAlligatorOP(alligator).castVote(rules, authority, propId, support);
-    }
-
-    function _castVoteWithReason(
-        BaseRules memory rules,
-        bytes32,
-        address[] memory authority,
-        uint256 propId,
-        uint8 support,
-        string memory reason
-    ) internal virtual {
-        IAlligatorOP(alligator).castVoteWithReason(rules, authority, propId, support, reason);
-    }
-
-    function _castVoteWithReasonAndParams(
-        BaseRules memory rules,
-        bytes32,
-        address[] memory authority,
-        uint256 propId,
-        uint8 support,
-        string memory reason,
-        bytes memory params
-    ) internal virtual {
-        IAlligatorOP(alligator).castVoteWithReasonAndParams(rules, authority, propId, support, reason, params);
-    }
-
-    function _castVoteWithReasonAndParamsBatched(
-        BaseRules[] memory rules,
-        bytes32[] memory,
-        address[][] memory authorities,
-        uint256 propId,
-        uint8 support,
-        string memory reason,
-        bytes memory params
-    ) internal virtual {
-        IAlligatorOP(alligator).castVoteWithReasonAndParamsBatched(rules, authorities, propId, support, reason, params);
     }
 }

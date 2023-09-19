@@ -28,9 +28,6 @@ contract AlligatorOPV4Test is AlligatorOPTest {
     //////////////////////////////////////////////////////////////*/
 
     function testCreate() public override {}
-    function testCastVoteWithReasonAndParamsBatched() public override {}
-    function testLogCalldataSize_CastVoteWithReasonAndParamsBatched() public view override {}
-    function testMeasureGas_CastVoteWithReasonAndParamsBatched() public override {}
 
     /*//////////////////////////////////////////////////////////////
                                 INTERNAL
