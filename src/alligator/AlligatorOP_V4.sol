@@ -393,7 +393,7 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
      * @param to The address to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegation.
      */
-    function subDelegate(address to, SubdelegationRules calldata subdelegationRules) public override {
+    function subDelegate(address to, SubdelegationRules calldata subdelegationRules) public override whenNotPaused {
         subDelegations[msg.sender][to] = subdelegationRules;
         emit SubDelegation(msg.sender, to, subdelegationRules);
     }
@@ -408,6 +408,7 @@ contract AlligatorOPV4 is IAlligatorOPV4, Ownable, Pausable {
     function subDelegateBatched(address[] calldata targets, SubdelegationRules calldata subdelegationRules)
         public
         override
+        whenNotPaused
     {
         uint256 targetsLength = targets.length;
         for (uint256 i; i < targetsLength;) {

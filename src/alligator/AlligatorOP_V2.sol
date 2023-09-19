@@ -360,7 +360,11 @@ contract AlligatorOPV2 is IAlligatorOPV2, Ownable, Pausable {
      * @param to The address to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegation.
      */
-    function subDelegateAll(address to, SubdelegationRules calldata subdelegationRules) external override {
+    function subDelegateAll(address to, SubdelegationRules calldata subdelegationRules)
+        external
+        override
+        whenNotPaused
+    {
         subDelegations[msg.sender][to] = subdelegationRules;
         emit SubDelegation(msg.sender, to, subdelegationRules);
     }
@@ -374,6 +378,7 @@ contract AlligatorOPV2 is IAlligatorOPV2, Ownable, Pausable {
     function subDelegateAllBatched(address[] calldata targets, SubdelegationRules calldata subdelegationRules)
         external
         override
+        whenNotPaused
     {
         uint256 targetsLength = targets.length;
         for (uint256 i; i < targetsLength;) {
@@ -401,7 +406,7 @@ contract AlligatorOPV2 is IAlligatorOPV2, Ownable, Pausable {
         BaseRules calldata proxyRules,
         address to,
         SubdelegationRules calldata subdelegationRules
-    ) external override {
+    ) external override whenNotPaused {
         bytes32 proxyRulesHash = keccak256(abi.encode(proxyRules));
 
         address proxy = proxyAddress(proxyOwner, proxyRulesHash);
@@ -427,7 +432,7 @@ contract AlligatorOPV2 is IAlligatorOPV2, Ownable, Pausable {
         BaseRules calldata proxyRules,
         address[] calldata targets,
         SubdelegationRules calldata subdelegationRules
-    ) external override {
+    ) external override whenNotPaused {
         bytes32 proxyRulesHash = keccak256(abi.encode(proxyRules));
 
         address proxy = proxyAddress(proxyOwner, proxyRulesHash);

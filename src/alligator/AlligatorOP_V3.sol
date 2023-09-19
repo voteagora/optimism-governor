@@ -305,7 +305,7 @@ contract AlligatorOPV3 is IAlligatorOPV3, Ownable, Pausable {
      * @param to The address to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegation.
      */
-    function subDelegate(address to, SubdelegationRules calldata subdelegationRules) external override {
+    function subDelegate(address to, SubdelegationRules calldata subdelegationRules) external override whenNotPaused {
         if (proxyAddress(msg.sender).code.length == 0) {
             create(msg.sender);
         }
@@ -324,6 +324,7 @@ contract AlligatorOPV3 is IAlligatorOPV3, Ownable, Pausable {
     function subDelegateBatched(address[] calldata targets, SubdelegationRules calldata subdelegationRules)
         external
         override
+        whenNotPaused
     {
         if (proxyAddress(msg.sender).code.length == 0) {
             create(msg.sender);

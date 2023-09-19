@@ -326,7 +326,11 @@ contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
      * @param to The address to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegation.
      */
-    function subDelegateAll(address to, SubdelegationRules calldata subdelegationRules) external override {
+    function subDelegateAll(address to, SubdelegationRules calldata subdelegationRules)
+        external
+        override
+        whenNotPaused
+    {
         subDelegations[msg.sender][to] = subdelegationRules;
         emit SubDelegation(msg.sender, to, subdelegationRules);
     }
@@ -340,6 +344,7 @@ contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
     function subDelegateAllBatched(address[] calldata targets, SubdelegationRules calldata subdelegationRules)
         external
         override
+        whenNotPaused
     {
         uint256 targetsLength = targets.length;
         for (uint256 i; i < targetsLength;) {
@@ -367,7 +372,7 @@ contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         BaseRules calldata proxyRules,
         address to,
         SubdelegationRules calldata subdelegationRules
-    ) external override {
+    ) external override whenNotPaused {
         address proxy = proxyAddress(proxyOwner, proxyRules);
         if (proxy.code.length == 0) {
             create(proxyOwner, proxyRules);
@@ -391,7 +396,7 @@ contract AlligatorOP is IAlligatorOP, Ownable, Pausable {
         BaseRules calldata proxyRules,
         address[] calldata targets,
         SubdelegationRules calldata subdelegationRules
-    ) external override {
+    ) external override whenNotPaused {
         address proxy = proxyAddress(proxyOwner, proxyRules);
         if (proxy.code.length == 0) {
             create(proxyOwner, proxyRules);
