@@ -207,7 +207,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         bytes32 s
     ) public override whenNotPaused {
         address signatory =
-            _getSignatory(keccak256(abi.encode(BALLOT_TYPEHASH, authority, proposalId, support)), v, r, s);
+            _getSignatory(keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, support, authority)), v, r, s);
 
         _castVoteWithReasonAndParams(signatory, authority, proposalId, support, "", "");
     }
@@ -233,7 +233,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     ) public override whenNotPaused {
         address signatory = _getSignatory(
             keccak256(
-                abi.encode(BALLOT_TYPEHASH, authority, proposalId, support, keccak256(bytes(reason)), keccak256(params))
+                abi.encode(BALLOT_TYPEHASH, proposalId, support, authority, keccak256(bytes(reason)), keccak256(params))
             ),
             v,
             r,
@@ -268,10 +268,10 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
             keccak256(
                 abi.encode(
                     BALLOT_TYPEHASH,
-                    maxVotingPower,
-                    authorities,
                     proposalId,
                     support,
+                    maxVotingPower,
+                    authorities,
                     keccak256(bytes(reason)),
                     keccak256(params)
                 )
