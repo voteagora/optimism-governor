@@ -3,22 +3,61 @@ pragma solidity ^0.8.19;
 
 import {OptimismGovernorV5} from "./OptimismGovernorV5.sol";
 import {IVotableSupplyOracle} from "./interfaces/IVotableSupplyOracle.sol";
+import {IProposalTypesConfigurator} from "./interfaces/IProposalTypesConfigurator.sol";
 import {VotingModule} from "./modules/VotingModule.sol";
 import {GovernorVotesQuorumFractionUpgradeableV2} from
     "./lib/openzeppelin/v2/GovernorVotesQuorumFractionUpgradeableV2.sol";
 import {GovernorCountingSimpleUpgradeableV2} from "./lib/openzeppelin/v2/GovernorCountingSimpleUpgradeableV2.sol";
 import {IGovernorUpgradeable} from "./lib/openzeppelin/v2/GovernorUpgradeableV2.sol";
 import {TimersUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/TimersUpgradeable.sol";
+import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 /**
  * Modifications from OptimismGovernorV5
  * - Adds support for partial voting, only via Alligator
+ * - Adds support for votable supply oracle
+ * - Adds support for proposal types
  */
 contract OptimismGovernorV6 is OptimismGovernorV5 {
+    /*//////////////////////////////////////////////////////////////
+                                 EVENTS
+    //////////////////////////////////////////////////////////////*/
+
+    event ProposalCreated(
+        uint256 proposalId,
+        address proposer,
+        address[] targets,
+        uint256[] values,
+        string[] signatures,
+        bytes[] calldatas,
+        uint256 startBlock,
+        uint256 endBlock,
+        string description,
+        uint8 proposalType
+    );
+    event ProposalCreated(
+        uint256 proposalId,
+        address proposer,
+        address votingModule,
+        bytes proposalData,
+        uint256 startBlock,
+        uint256 endBlock,
+        string description,
+        uint8 proposalType
+    );
+    event ProposalTypeUpdated(uint256 proposalId, uint8 proposalType);
+
+    /*//////////////////////////////////////////////////////////////
+                                 ERRORS
+    //////////////////////////////////////////////////////////////*/
+
+    error InvalidProposalType(uint8 proposalType);
+
     /*//////////////////////////////////////////////////////////////
                                LIBRARIES
     //////////////////////////////////////////////////////////////*/
 
+    using SafeCastUpgradeable for uint256;
     using TimersUpgradeable for TimersUpgradeable.BlockNumber;
 
     /*//////////////////////////////////////////////////////////////
@@ -35,6 +74,9 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
 
     // TODO: Set correct votableSupplyOracle address
     IVotableSupplyOracle public constant votableSupplyOracle = IVotableSupplyOracle(address(1));
+
+    // TODO: Set correct proposalTypesConfigurator address
+    IProposalTypesConfigurator public constant proposalTypesConfigurator = IProposalTypesConfigurator(address(2));
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -116,8 +158,120 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     }
 
     /*//////////////////////////////////////////////////////////////
-                            WRITE FUNCTIONS
+                           GOVERNOR FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @dev Updated version in which `proposalType` is set and checked.
+     */
+    function propose(
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        string memory description,
+        uint8 proposalType
+    ) public virtual onlyManager returns (uint256) {
+        require(
+            getVotes(_msgSender(), block.number - 1) >= proposalThreshold(),
+            "Governor: proposer votes below proposal threshold"
+        );
+
+        uint256 proposalId = hashProposal(targets, values, calldatas, keccak256(bytes(description)));
+
+        require(targets.length == values.length, "Governor: invalid proposal length");
+        require(targets.length == calldatas.length, "Governor: invalid proposal length");
+        require(targets.length > 0, "Governor: empty proposal");
+        // Revert if `proposalType` is unset
+        if (proposalTypesConfigurator.proposalTypes(proposalType).quorum == 0) revert InvalidProposalType(proposalType);
+
+        ProposalCore storage proposal = _proposals[proposalId];
+        require(proposal.voteStart.isUnset(), "Governor: proposal already exists");
+
+        uint64 snapshot = block.number.toUint64() + votingDelay().toUint64();
+        uint64 deadline = snapshot + votingPeriod().toUint64();
+
+        proposal.voteStart.setDeadline(snapshot);
+        proposal.voteEnd.setDeadline(deadline);
+        proposal.proposalType = proposalType;
+
+        emit ProposalCreated(
+            proposalId,
+            _msgSender(),
+            targets,
+            values,
+            new string[](targets.length),
+            calldatas,
+            snapshot,
+            deadline,
+            description,
+            proposalType
+        );
+
+        return proposalId;
+    }
+
+    /**
+     * @dev Updated version in which `proposalType` is set and checked.
+     */
+    function proposeWithModule(
+        VotingModule module,
+        bytes memory proposalData,
+        string memory description,
+        uint8 proposalType
+    ) public virtual onlyManager returns (uint256) {
+        require(
+            getVotes(_msgSender(), block.number - 1) >= proposalThreshold(),
+            "Governor: proposer votes below proposal threshold"
+        );
+        require(approvedModules[address(module)], "Governor: module not approved");
+
+        // Revert if `proposalType` is unset
+        if (proposalTypesConfigurator.proposalTypes(proposalType).quorum == 0) revert InvalidProposalType(proposalType);
+
+        bytes32 descriptionHash = keccak256(bytes(description));
+
+        uint256 proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
+
+        ProposalCore storage proposal = _proposals[proposalId];
+        require(proposal.voteStart.isUnset(), "Governor: proposal already exists");
+
+        uint64 snapshot = block.number.toUint64() + votingDelay().toUint64();
+        uint64 deadline = snapshot + votingPeriod().toUint64();
+
+        proposal.voteStart.setDeadline(snapshot);
+        proposal.voteEnd.setDeadline(deadline);
+        proposal.votingModule = address(module);
+        proposal.proposalType = proposalType;
+
+        module.propose(proposalId, proposalData, descriptionHash);
+
+        emit ProposalCreated(
+            proposalId, _msgSender(), address(module), proposalData, snapshot, deadline, description, proposalType
+        );
+
+        return proposalId;
+    }
+
+    /**
+     * Updated version in which default `proposalType` is set to 0.
+     */
+    function propose(
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        string memory description
+    ) public virtual override returns (uint256) {
+        return propose(targets, values, calldatas, description, 0);
+    }
+
+    function proposeWithModule(VotingModule module, bytes memory proposalData, string memory description)
+        public
+        virtual
+        override
+        returns (uint256)
+    {
+        return proposeWithModule(module, proposalData, description, 0);
+    }
 
     /**
      * @dev Updated internal vote casting mechanism which delegates counting logic to voting module,
@@ -155,6 +309,19 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     //////////////////////////////////////////////////////////////*/
 
     /**
+     * Add support for `weightCast` to check if `account` has voted on `proposalId`.
+     */
+    function hasVoted(uint256 proposalId, address account)
+        public
+        view
+        virtual
+        override(GovernorCountingSimpleUpgradeableV2, IGovernorUpgradeable)
+        returns (bool)
+    {
+        return weightCast[proposalId][account] != 0 || _proposalVotes[proposalId].hasVoted[account];
+    }
+
+    /**
      * @dev Returns the votable supply for the current block number.
      */
     function votableSupply() public view virtual returns (uint256) {
@@ -169,38 +336,68 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     }
 
     /**
-     * Returns the quorum for a block number, in terms of number of votes: `supply * numerator / denominator`.
+     * Returns the quorum for a proposalId, in terms of number of votes: `supply * numerator / denominator`.
      *
      * @dev Based on `votableSupply` by default, but falls back to `totalSupply` if not available.
+     * @dev Supply is calculated at the proposal snapshot block
+     * @dev Quorum value is derived from `proposalTypesConfigurator`
      */
-    function quorum(uint256 blockNumber)
+    function quorum(uint256 proposalId)
         public
         view
         virtual
         override(GovernorVotesQuorumFractionUpgradeableV2, IGovernorUpgradeable)
         returns (uint256)
     {
-        uint256 supply = votableSupply(blockNumber);
+        uint256 snapshotBlock = proposalSnapshot(proposalId);
+        uint256 supply = votableSupply(snapshotBlock);
 
-        // Fallback to total supply if votable supply was unset at `blockNumber`
+        // Fallback to total supply if votable supply was unset at `snapshotBlock`
         if (supply == 0) {
-            supply = token.getPastTotalSupply(blockNumber);
+            supply = token.getPastTotalSupply(snapshotBlock);
         }
 
-        return (supply * quorumNumerator(blockNumber)) / quorumDenominator();
+        uint256 proposalTypeId = _proposals[proposalId].proposalType;
+
+        return (supply * proposalTypesConfigurator.proposalTypes(proposalTypeId).quorum) / 10_000;
     }
 
     /**
-     * Add support for `weightCast` to check if `account` has voted on `proposalId`.
+     * Updated version in which quorum is based on `proposalId` instead of snapshot block
      */
-    function hasVoted(uint256 proposalId, address account)
-        public
-        view
-        virtual
-        override(GovernorCountingSimpleUpgradeableV2, IGovernorUpgradeable)
-        returns (bool)
-    {
-        return weightCast[proposalId][account] != 0 || _proposalVotes[proposalId].hasVoted[account];
+    function _quorumReached(uint256 proposalId) internal view virtual override returns (bool) {
+        (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes) = proposalVotes(proposalId);
+
+        return quorum(proposalId) <= againstVotes + forVotes + abstainVotes;
+    }
+
+    /**
+     * @dev Added logic based on approval voting threshold to determine if vote has succeeded.
+     */
+    function _voteSucceeded(uint256 proposalId) internal view virtual override returns (bool) {
+        ProposalCore storage proposal = _proposals[proposalId];
+
+        address votingModule = proposal.votingModule;
+        if (votingModule != address(0)) {
+            if (!VotingModule(votingModule)._voteSucceeded(proposalId)) return false;
+        }
+
+        ProposalVote storage proposalVote = _proposalVotes[proposalId];
+
+        uint256 forVotes = proposalVote.forVotes;
+        uint256 totalVotes = forVotes + proposalVote.againstVotes;
+
+        return (forVotes * 10_000) / totalVotes
+            >= proposalTypesConfigurator.proposalTypes(proposal.proposalType).approvalThreshold;
+    }
+
+    /**
+     * @dev Allows manager to modify the proposalType of a proposal, in case it was set incorrectly.
+     */
+    function editProposalType(uint256 proposalId, uint8 proposalType) external onlyManager {
+        if (proposalTypesConfigurator.proposalTypes(proposalType).quorum == 0) revert InvalidProposalType(proposalType);
+        _proposals[proposalId].proposalType = proposalType;
+        emit ProposalTypeUpdated(proposalId, proposalType);
     }
 
     /**

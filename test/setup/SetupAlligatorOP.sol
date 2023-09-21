@@ -91,6 +91,8 @@ abstract contract SetupAlligatorOP is Test {
     address altVoter2 = makeAddr("altVoter2");
     uint256 proposalId;
 
+    // TODO: Fix test setup to also set proposalConfigurator
+
     // =============================================================
     //                             SETUP
     // =============================================================
