@@ -2,7 +2,10 @@
 pragma solidity ^0.8.19;
 
 import {OptimismGovernorV5} from "./OptimismGovernorV5.sol";
+import {IVotableSupplyOracle} from "./interfaces/IVotableSupplyOracle.sol";
 import {VotingModule} from "./modules/VotingModule.sol";
+import {GovernorVotesQuorumFractionUpgradeableV2} from
+    "./lib/openzeppelin/v2/GovernorVotesQuorumFractionUpgradeableV2.sol";
 import {GovernorCountingSimpleUpgradeableV2} from "./lib/openzeppelin/v2/GovernorCountingSimpleUpgradeableV2.sol";
 import {IGovernorUpgradeable} from "./lib/openzeppelin/v2/GovernorUpgradeableV2.sol";
 import {TimersUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/TimersUpgradeable.sol";
@@ -29,6 +32,9 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
 
     // TODO: Set correct alligator address
     address public constant alligator = 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9;
+
+    // TODO: Set correct votableSupplyOracle address
+    IVotableSupplyOracle public constant votableSupplyOracle = IVotableSupplyOracle(address(1));
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -147,6 +153,42 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     /*//////////////////////////////////////////////////////////////
                              VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @dev Returns the votable supply for the current block number.
+     */
+    function votableSupply() public view virtual returns (uint256) {
+        return votableSupplyOracle.votableSupply(block.number);
+    }
+
+    /**
+     * @dev Returns the votable supply for `blockNumber`.
+     */
+    function votableSupply(uint256 blockNumber) public view virtual returns (uint256) {
+        return votableSupplyOracle.votableSupply(blockNumber);
+    }
+
+    /**
+     * Returns the quorum for a block number, in terms of number of votes: `supply * numerator / denominator`.
+     *
+     * @dev Based on `votableSupply` by default, but falls back to `totalSupply` if not available.
+     */
+    function quorum(uint256 blockNumber)
+        public
+        view
+        virtual
+        override(GovernorVotesQuorumFractionUpgradeableV2, IGovernorUpgradeable)
+        returns (uint256)
+    {
+        uint256 supply = votableSupply(blockNumber);
+
+        // Fallback to total supply if votable supply was unset at `blockNumber`
+        if (supply == 0) {
+            supply = token.getPastTotalSupply(blockNumber);
+        }
+
+        return (supply * quorumNumerator(blockNumber)) / quorumDenominator();
+    }
 
     /**
      * Add support for `weightCast` to check if `account` has voted on `proposalId`.

@@ -18,4 +18,6 @@ abstract contract IOptimismGovernor is IGovernor {
     ) external virtual;
 
     function weightCast(uint256 proposalId, address account) external view virtual returns (uint256 votes);
+
+    function votableSupply() public view virtual returns (uint256 supply) {}
 }
