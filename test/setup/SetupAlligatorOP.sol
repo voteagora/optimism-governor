@@ -70,7 +70,7 @@ abstract contract SetupAlligatorOP is Test {
     ProposalTypesConfigurator internal proposalTypesConfigurator =
         new ProposalTypesConfigurator(IOptimismGovernor(address(governor)));
 
-    address internal alligator = 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9;
+    address internal alligator = 0xa0Cb889707d426A7A386870A03bc70d1b0697598;
     address internal alligatorAlt;
     address internal proxy1;
     address internal proxy2;

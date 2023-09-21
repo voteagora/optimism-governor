@@ -13,10 +13,9 @@ import {IAlligatorOPV5} from "src/interfaces/IAlligatorOPV5.sol";
 contract AlligatorOPV5Test is AlligatorOPTest {
     function setUp() public virtual override {
         SetupAlligatorOP.setUp();
-
         alligatorAlt = address(new AlligatorOPV5());
-        bytes memory initData = abi.encodeCall(AlligatorOPV5(alligatorAlt).initialize, address(this));
-        vm.etch(alligator, address(new ERC1967Proxy(alligatorAlt, initData)).code);
+        bytes memory initData = abi.encodeCall(AlligatorOPV5(alligator).initialize, address(this));
+        alligator = address(new ERC1967Proxy(alligatorAlt, initData));
         alligatorAlt = alligator;
 
         proxy1 = _proxyAddress(address(this), baseRules, baseRulesHash);
