@@ -155,6 +155,20 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     //////////////////////////////////////////////////////////////*/
 
     /**
+     * @dev Returns the votable supply for the current block number.
+     */
+    function votableSupply() public view virtual returns (uint256) {
+        return votableSupplyOracle.votableSupply(block.number);
+    }
+
+    /**
+     * @dev Returns the votable supply for `blockNumber`.
+     */
+    function votableSupply(uint256 blockNumber) public view virtual returns (uint256) {
+        return votableSupplyOracle.votableSupply(blockNumber);
+    }
+
+    /**
      * Returns the quorum for a block number, in terms of number of votes: `supply * numerator / denominator`.
      *
      * @dev Based on `votableSupply` by default, but falls back to `totalSupply` if not available.
@@ -166,7 +180,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         override(GovernorVotesQuorumFractionUpgradeableV2, IGovernorUpgradeable)
         returns (uint256)
     {
-        uint256 supply = votableSupplyOracle.votableSupply(blockNumber);
+        uint256 supply = votableSupply(blockNumber);
 
         // Fallback to total supply if votable supply was unset at `blockNumber`
         if (supply == 0) {
