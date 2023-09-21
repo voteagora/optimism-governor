@@ -6,12 +6,14 @@ import {IERC721} from "lib/openzeppelin-contracts/contracts/interfaces/IERC721.s
 import {AllowanceType, BaseRules, SubdelegationRules} from "src/structs/RulesV2.sol";
 import {OptimismGovernorV6} from "src/OptimismGovernorV6.sol";
 import {OptimismGovernorV2} from "src/OptimismGovernorV2.sol";
+import {VotableSupplyOracle} from "src/VotableSupplyOracle.sol";
+import {ProposalTypesConfigurator} from "src/ProposalTypesConfigurator.sol";
+import {IOptimismGovernor} from "src/interfaces/IOptimismGovernor.sol";
 import {OptimismGovernorV6Mock} from "../mocks/OptimismGovernorV6Mock.sol";
 import "../utils/Addresses.sol";
 import {GovernanceToken as OptimismToken} from "src/lib/OptimismToken.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
-// import {IGovernorMock} from "../mock/IGovernorMock.sol";
 
 abstract contract SetupAlligatorOP is Test {
     // =============================================================
@@ -63,6 +65,11 @@ abstract contract SetupAlligatorOP is Test {
     OptimismToken internal op = OptimismToken(0x4200000000000000000000000000000000000042);
     OptimismGovernorV6Mock internal governor =
         OptimismGovernorV6Mock(payable(0xcDF27F107725988f2261Ce2256bDfCdE8B382B10));
+
+    VotableSupplyOracle internal votableSupplyOracle = new VotableSupplyOracle(address(this), 0);
+    ProposalTypesConfigurator internal proposalTypesConfigurator =
+        new ProposalTypesConfigurator(IOptimismGovernor(address(governor)));
+
     address internal alligator = 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9;
     address internal alligatorAlt;
     address internal proxy1;
@@ -91,8 +98,6 @@ abstract contract SetupAlligatorOP is Test {
     address altVoter2 = makeAddr("altVoter2");
     uint256 proposalId;
 
-    // TODO: Fix test setup to also set proposalConfigurator
-
     // =============================================================
     //                             SETUP
     // =============================================================
@@ -100,6 +105,7 @@ abstract contract SetupAlligatorOP is Test {
     function setUp() public virtual {
         vm.etch(address(op), address(new OptimismToken()).code);
         vm.etch(address(governor), address(new OptimismGovernorV6Mock()).code);
+
         governor.initialize(IVotesUpgradeable(address(op)), manager);
     }
 
@@ -119,6 +125,10 @@ abstract contract SetupAlligatorOP is Test {
         op.delegate(proxy2);
         vm.prank(altVoter2);
         op.delegate(proxy3);
+
+        votableSupplyOracle._updateVotableSupply(op.totalSupply());
+        vm.prank(manager);
+        proposalTypesConfigurator.setProposalType(0, 1_000, 5_000, "Test");
 
         proposalId = _propose("Test");
     }

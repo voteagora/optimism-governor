@@ -73,10 +73,12 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     address public constant alligator = 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9;
 
     // TODO: Set correct votableSupplyOracle address
-    IVotableSupplyOracle public constant votableSupplyOracle = IVotableSupplyOracle(address(1));
+    IVotableSupplyOracle public constant votableSupplyOracle =
+        IVotableSupplyOracle(0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f);
 
     // TODO: Set correct proposalTypesConfigurator address
-    IProposalTypesConfigurator public constant proposalTypesConfigurator = IProposalTypesConfigurator(address(2));
+    IProposalTypesConfigurator public constant proposalTypesConfigurator =
+        IProposalTypesConfigurator(0x2e234DAe75C793f67A35089C9d99245E1C58470b);
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
