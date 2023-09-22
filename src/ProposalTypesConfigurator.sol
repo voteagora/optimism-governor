@@ -5,7 +5,7 @@ import {IProposalTypesConfigurator} from "./interfaces/IProposalTypesConfigurato
 import {IOptimismGovernor} from "./interfaces/IOptimismGovernor.sol";
 
 /**
- * Oracle managed by Optimism Governance to keep track of the total votable supply of OP tokens.
+ * Contract that stores proposalTypes for Optimism Governor.
  */
 contract ProposalTypesConfigurator is IProposalTypesConfigurator {
     /*//////////////////////////////////////////////////////////////

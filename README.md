@@ -74,16 +74,19 @@ Main implementation
 ### V6
 
 - [`Governor`](/src/OptimismGovernorV6.sol)
-  - Added support for partial voting
-  - Added votable supply oracle and integrated into Governor (wip)
-  - Added support for different proposal types (wip)
-- Modules with partial voting support
-  - Added abstract contract [`PartialVotingModule`](/src/modules/PartialVotingModule.sol)
-  - Added [`PartialApprovalVotingModule`](/src/modules/PartialApprovalVotingModule.sol)
-- Liquid delegation protocol
-  - Added [`Alligator V2`](/src/alligator/AlligatorOP.sol) and related [`AlligatorProxy`](/src/alligator/AlligatorProxy.sol) with partial voting support
-
-> Note: V6 is work in progress
+  - Added support for external voting modules
+  - Added support for partial voting via Alligator
+  - Added votable supply oracle
+  - Added support for proposal types
+- Voting modules with partial voting support
+  - [`VotingModule`](/src/modules/VotingModule.sol)
+  - [`ApprovalVotingModule`](/src/modules/ApprovalVotingModule.sol)
+- Liquid delegation protocol [`Alligator V5`](/src/alligator/AlligatorOP_V5.sol)
+  - Added support for partial voting and several gas improvements.
+- [`ProposalTypesConfigurator`](/src/ProposalTypesConfigurator.sol)
+  - Allows Governor manager to add, remove and update proposal types
+- [`VotableSupplyOracle`](/src/VotableSupplyOracle.sol)
+  - Allows contract owner to update votable supply used by the governor
 
 ## Deployment
 
