@@ -10,4 +10,6 @@ interface IVotableSupplyOracle {
     function _updateVotableSupply(uint256 newVotableSupply) external;
 
     function votableSupply(uint256 blockNumber) external view returns (uint256);
+
+    function votableSupply() external view returns (uint256);
 }

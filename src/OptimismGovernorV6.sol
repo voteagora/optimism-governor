@@ -52,6 +52,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     //////////////////////////////////////////////////////////////*/
 
     error InvalidProposalType(uint8 proposalType);
+    error InvalidProposalId();
 
     /*//////////////////////////////////////////////////////////////
                                LIBRARIES
@@ -327,7 +328,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
      * @dev Returns the votable supply for the current block number.
      */
     function votableSupply() public view virtual returns (uint256) {
-        return votableSupplyOracle.votableSupply(block.number);
+        return votableSupplyOracle.votableSupply();
     }
 
     /**
@@ -338,7 +339,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     }
 
     /**
-     * Returns the quorum for a proposalId, in terms of number of votes: `supply * numerator / denominator`.
+     * Returns the quorum for a `proposalId`, in terms of number of votes: `supply * numerator / denominator`.
      *
      * @dev Based on `votableSupply` by default, but falls back to `totalSupply` if not available.
      * @dev Supply is calculated at the proposal snapshot block
@@ -397,8 +398,11 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
      * @dev Allows manager to modify the proposalType of a proposal, in case it was set incorrectly.
      */
     function editProposalType(uint256 proposalId, uint8 proposalType) external onlyManager {
+        if (proposalSnapshot(proposalId) == 0) revert InvalidProposalId();
         if (proposalTypesConfigurator.proposalTypes(proposalType).quorum == 0) revert InvalidProposalType(proposalType);
+
         _proposals[proposalId].proposalType = proposalType;
+
         emit ProposalTypeUpdated(proposalId, proposalType);
     }
 
