@@ -42,9 +42,7 @@ contract AlligatorOPTest is SetupAlligatorOP {
         address[] memory authority = new address[](1);
         authority[0] = address(this);
 
-        vm.expectEmit(true, true, false, true);
-        emit VoteCast(_proxyAddress(address(this), baseRules, baseRulesHash), address(this), authority, proposalId, 1);
-        _castVote(baseRules, baseRulesHash, authority, proposalId, 1);
+        standardCastVote(authority);
 
         address[] memory authority2 = new address[](2);
         authority2[0] = address(Utils.alice);
@@ -53,20 +51,14 @@ contract AlligatorOPTest is SetupAlligatorOP {
         vm.prank(Utils.alice);
         _subdelegate(Utils.alice, baseRules, address(this), subdelegationRules);
 
-        vm.expectEmit(true, true, false, true);
-        emit VoteCast(
-            _proxyAddress(address(Utils.alice), baseRules, baseRulesHash), address(this), authority2, proposalId, 1
-        );
-        _castVote(baseRules, baseRulesHash, authority2, proposalId, 1);
+        standardCastVote(authority2);
     }
 
     function testCastVoteWithReason() public virtual {
         address[] memory authority = new address[](1);
         authority[0] = address(this);
 
-        vm.expectEmit(true, true, false, true);
-        emit VoteCast(_proxyAddress(address(this), baseRules, baseRulesHash), address(this), authority, proposalId, 1);
-        _castVoteWithReason(baseRules, baseRulesHash, authority, proposalId, 1, "reason");
+        standardCastVoteWithReason(authority, "reason");
 
         address[] memory authority2 = new address[](2);
         authority2[0] = address(Utils.alice);
@@ -75,11 +67,23 @@ contract AlligatorOPTest is SetupAlligatorOP {
         vm.prank(Utils.alice);
         _subdelegate(Utils.alice, baseRules, address(this), subdelegationRules);
 
-        vm.expectEmit(true, true, false, true);
-        emit VoteCast(
-            _proxyAddress(address(Utils.alice), baseRules, baseRulesHash), address(this), authority2, proposalId, 1
-        );
-        _castVoteWithReason(baseRules, baseRulesHash, authority2, proposalId, 1, "reason");
+        standardCastVoteWithReason(authority2, "reason");
+    }
+
+    function testCastVoteWithReasonAndParams() public virtual {
+        address[] memory authority = new address[](1);
+        authority[0] = address(this);
+
+        standardCastVoteWithReasonAndParams(authority, "reason", "params");
+
+        address[] memory authority2 = new address[](2);
+        authority2[0] = address(Utils.alice);
+        authority2[1] = address(this);
+
+        vm.prank(Utils.alice);
+        _subdelegate(Utils.alice, baseRules, address(this), subdelegationRules);
+
+        standardCastVoteWithReasonAndParams(authority2, "reason", "params");
     }
 
     function testCastVoteWithReasonAndParamsBatched() public virtual {
@@ -90,13 +94,13 @@ contract AlligatorOPTest is SetupAlligatorOP {
             bytes32[] memory proxyRulesHashes
         ) = _formatBatchData();
 
-        vm.prank(Utils.carol);
-        vm.expectEmit(true, true, false, true);
-        emit VotesCast(proxies, Utils.carol, authorities, proposalId, 1);
-        _castVoteWithReasonAndParamsBatched(proxyRules, proxyRulesHashes, authorities, proposalId, 1, "reason", "");
+        standardCastVoteWithReasonAndParamsBatched(
+            authorities, proxies, proxyRules, proxyRulesHashes, "reason", "params"
+        );
 
-        assertEq(governor.hasVoted(proposalId, _proxyAddress(address(this), baseRules, baseRulesHash)), true);
-        assertEq(governor.hasVoted(proposalId, _proxyAddress(Utils.bob, baseRules, baseRulesHash)), true);
+        for (uint256 i = 0; i < proxies.length; i++) {
+            assertEq(governor.hasVoted(proposalId, proxies[i]), true);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -208,6 +212,46 @@ contract AlligatorOPTest is SetupAlligatorOP {
         bytes memory params
     ) internal virtual {
         IAlligatorOP(alligator).castVoteWithReasonAndParamsBatched(rules, authorities, propId, support, reason, params);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                HELPERS
+    //////////////////////////////////////////////////////////////*/
+
+    function standardCastVote(address[] memory authority) public virtual {
+        vm.expectEmit();
+        emit VoteCast(_proxyAddress(authority[0], baseRules, baseRulesHash), address(this), authority, proposalId, 1);
+        _castVote(baseRules, baseRulesHash, authority, proposalId, 1);
+    }
+
+    function standardCastVoteWithReason(address[] memory authority, string memory reason) public virtual {
+        vm.expectEmit();
+        emit VoteCast(_proxyAddress(authority[0], baseRules, baseRulesHash), address(this), authority, proposalId, 1);
+        _castVoteWithReason(baseRules, baseRulesHash, authority, proposalId, 1, reason);
+    }
+
+    function standardCastVoteWithReasonAndParams(address[] memory authority, string memory reason, bytes memory params)
+        public
+        virtual
+    {
+        vm.expectEmit();
+        emit VoteCast(_proxyAddress(authority[0], baseRules, baseRulesHash), address(this), authority, proposalId, 1);
+        _castVoteWithReasonAndParams(baseRules, baseRulesHash, authority, proposalId, 1, reason, params);
+    }
+
+    function standardCastVoteWithReasonAndParamsBatched(
+        address[][] memory authorities,
+        address[] memory proxies,
+        BaseRules[] memory proxyRules,
+        bytes32[] memory proxyRulesHashes,
+        string memory reason,
+        bytes memory params
+    ) public virtual {
+        vm.prank(Utils.carol);
+
+        vm.expectEmit();
+        emit VotesCast(proxies, Utils.carol, authorities, proposalId, 1);
+        _castVoteWithReasonAndParamsBatched(proxyRules, proxyRulesHashes, authorities, proposalId, 1, reason, params);
     }
 
     /*//////////////////////////////////////////////////////////////
