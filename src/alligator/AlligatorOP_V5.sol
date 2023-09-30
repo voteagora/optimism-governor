@@ -314,7 +314,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         if (votesToCast == 0) revert ZeroVotesToCast();
 
         _recordVotesToCast(k, proxy, proposalId, authority, votesToCast, proxyTotalVotes);
-        _castVote(proxy, proposalId, support, reason, votesToCast, params);
+        _castVote(voter, proposalId, support, reason, votesToCast, params);
 
         emit VoteCast(proxy, voter, authority, proposalId, support);
     }
