@@ -48,6 +48,9 @@ abstract contract SetupAlligatorOP is Test {
     event VotesCast(
         address[] proxies, address indexed voter, address[][] authorities, uint256 proposalId, uint8 support
     );
+    event VoteCastWithParams(
+        address indexed voter, uint256 proposalId, uint8 support, uint256 weight, string reason, bytes params
+    );
 
     // =============================================================
     //                       IMMUTABLE STORAGE
