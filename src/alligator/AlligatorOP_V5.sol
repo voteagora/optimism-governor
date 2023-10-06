@@ -593,14 +593,26 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     }
 
     /**
-     * @notice Returns the address of the proxy contract for a given owner.
+     * Returns the address of the proxy contract for a given owner.
      *
      * @param proxyOwner The owner of the proxy.
-     *
      * @return endpoint The address of the proxy.
      */
     function proxyAddress(address proxyOwner) public view override returns (address endpoint) {
-        endpoint = address(uint160(uint256(keccak256(abi.encodePacked(address(this), proxyOwner, governor)))));
+        endpoint = address(
+            uint160(
+                uint256(
+                    keccak256(
+                        abi.encodePacked(
+                            bytes1(0xff),
+                            address(this),
+                            bytes32(uint256(uint160(proxyOwner))), // salt
+                            keccak256(abi.encodePacked(type(AlligatorProxy).creationCode, abi.encode(governor)))
+                        )
+                    )
+                )
+            )
+        );
     }
 
     // =============================================================
