@@ -517,7 +517,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         uint256 proposalId,
         uint256 support,
         uint256 voterAllowance
-    ) public view returns (uint256 votesToCast, uint256 k) {
+    ) internal view returns (uint256 votesToCast, uint256 k) {
         address from = authority[0];
 
         /// @dev Cannot underflow as `weightCast` is always less than or equal to total votes.
