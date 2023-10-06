@@ -40,7 +40,9 @@ abstract contract VotingModule {
         virtual
         returns (address[] memory targets, uint256[] memory values, bytes[] memory calldatas);
 
-    function _voteSucceeded(uint256 proposalId) external view virtual returns (bool);
+    function _voteSucceeded(uint256 /* proposalId */ ) external view virtual returns (bool) {
+        return true;
+    }
 
     function COUNTING_MODE() external pure virtual returns (string memory);
 
