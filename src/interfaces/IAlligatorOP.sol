@@ -69,22 +69,22 @@ interface IAlligatorOP {
     //                        SUBDELEGATIONS
     // =============================================================
 
-    function subDelegateAll(address to, SubdelegationRules calldata subDelegateRules) external;
+    function subdelegateAll(address to, SubdelegationRules calldata subdelegateRules) external;
 
-    function subDelegateAllBatched(address[] calldata targets, SubdelegationRules calldata subDelegateRules) external;
+    function subdelegateAllBatched(address[] calldata targets, SubdelegationRules calldata subdelegateRules) external;
 
-    function subDelegate(
+    function subdelegate(
         address proxyOwner,
         BaseRules calldata proxyRules,
         address to,
-        SubdelegationRules calldata subDelegateRules
+        SubdelegationRules calldata subdelegateRules
     ) external;
 
-    function subDelegateBatched(
+    function subdelegateBatched(
         address proxyOwner,
         BaseRules calldata proxyRules,
         address[] calldata targets,
-        SubdelegationRules calldata subDelegateRules
+        SubdelegationRules calldata subdelegateRules
     ) external;
 
     // =============================================================

@@ -12,7 +12,7 @@ import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /**
- * @notice Liquid delegator contract for OP Governor.
+ * Liquid delegator contract for OP Governor.
  * Based on Alligator V2 (https://github.com/voteagora/liquid-delegator).
  *
  * Modifications from AlligatorOP:
@@ -73,7 +73,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     // =============================================================
 
     // Subdelegation rules `from` => `to`
-    mapping(address from => mapping(address to => SubdelegationRules subdelegationRules)) public subDelegations;
+    mapping(address from => mapping(address to => SubdelegationRules subdelegationRules)) public subdelegations;
 
     // Records of votes cast across an authority chain, to prevent double voting from the same proxy
     mapping(address proxy => mapping(uint256 proposalId => mapping(address voter => uint256))) public votesCast;
@@ -97,7 +97,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     // =============================================================
 
     /**
-     * @notice Validate subdelegation rules and cast a vote on the governor.
+     * Validate subdelegation rules and cast a vote on the governor.
      *
      * @param authority The authority chain to validate against.
      * @param proposalId The id of the proposal to vote on
@@ -108,7 +108,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     }
 
     /**
-     * @notice Validate subdelegation rules and cast a vote with reason on the governor.
+     * Validate subdelegation rules and cast a vote with reason on the governor.
      *
      * @param authority The authority chain to validate against.
      * @param proposalId The id of the proposal to vote on
@@ -124,7 +124,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     }
 
     /**
-     * @notice Validate subdelegation rules and cast a vote with reason on the governor.
+     * Validate subdelegation rules and cast a vote with reason on the governor.
      *
      * @param authority The authority chain to validate against.
      * @param proposalId The id of the proposal to vote on
@@ -143,7 +143,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     }
 
     /**
-     * @notice Validate subdelegation rules and cast multiple votes with reason on the governor.
+     * Validate subdelegation rules and cast multiple votes with reason on the governor.
      *
      * @param authorities The authority chains to validate against.
      * @param proposalId The id of the proposal to vote on
@@ -166,7 +166,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     }
 
     /**
-     * @notice Validate subdelegation rules and cast multiple votes with reason on the governor.
+     * Validate subdelegation rules and cast multiple votes with reason on the governor.
      * Limits the max number of votes used to `maxVotingPower`, blocking iterations once reached.
      *
      * @param maxVotingPower The maximum voting power allowed to be used for the batchVote
@@ -192,7 +192,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     }
 
     /**
-     * @notice Validate subdelegation rules and cast a vote by signature on the governor.
+     * Validate subdelegation rules and cast a vote by signature on the governor.
      *
      * @param authority The authority chain to validate against.
      * @param proposalId The id of the proposal to vote on
@@ -213,7 +213,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     }
 
     /**
-     * @notice Validate subdelegation rules and cast a vote with reason and params by signature on the governor.
+     * Validate subdelegation rules and cast a vote with reason and params by signature on the governor.
      *
      * @param authority The authority chain to validate against.
      * @param proposalId The id of the proposal to vote on
@@ -244,7 +244,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     }
 
     /**
-     * @notice Validate subdelegation rules and cast a vote with reason and params by signature on the governor.
+     * Validate subdelegation rules and cast a vote with reason and params by signature on the governor.
      *
      * @param maxVotingPower The maximum voting power allowed to be used for the batchVote
      * @param authorities The authority chains to validate against.
@@ -287,7 +287,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     }
 
     /**
-     * @notice Validate subdelegation rules and cast a vote with reason on the governor.
+     * Validate subdelegation rules and cast a vote with reason on the governor.
      *
      * @param voter The address of the voter
      * @param authority The authority chain to validate against.
@@ -320,7 +320,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     }
 
     /**
-     * @notice Validate subdelegation rules and cast multiple votes with reason on the governor.
+     * Validate subdelegation rules and cast multiple votes with reason on the governor.
      * Limits the max number of votes used to `maxVotingPower`, blocking iterations once reached.
      *
      * @param voter The address of the voter
@@ -435,31 +435,31 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     // =============================================================
 
     /**
-     * @notice Subdelegate `to` with `subdelegationRules`.
+     * Subdelegate `to` with `subdelegationRules`.
      * Creates a proxy for `msg.sender` if it does not exist.
      *
      * @param to The address to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegation.
      */
-    function subDelegate(address to, SubdelegationRules calldata subdelegationRules) public override whenNotPaused {
-        subDelegations[msg.sender][to] = subdelegationRules;
+    function subdelegate(address to, SubdelegationRules calldata subdelegationRules) public override whenNotPaused {
+        subdelegations[msg.sender][to] = subdelegationRules;
         emit SubDelegation(msg.sender, to, subdelegationRules);
     }
 
     /**
-     * @notice Subdelegate `targets` with `subdelegationRules`.
+     * Subdelegate `targets` with `subdelegationRules`.
      *
      * @param targets The addresses to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegations.
      */
-    function subDelegateBatched(address[] calldata targets, SubdelegationRules calldata subdelegationRules)
+    function subdelegateBatched(address[] calldata targets, SubdelegationRules calldata subdelegationRules)
         public
         override
         whenNotPaused
     {
         uint256 targetsLength = targets.length;
         for (uint256 i; i < targetsLength;) {
-            subDelegations[msg.sender][targets[i]] = subdelegationRules;
+            subdelegations[msg.sender][targets[i]] = subdelegationRules;
 
             unchecked {
                 ++i;
@@ -470,12 +470,12 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     }
 
     /**
-     * @notice Subdelegate `targets` with different `subdelegationRules` for each target.
+     * Subdelegate `targets` with different `subdelegationRules` for each target.
      *
      * @param targets The addresses to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegations.
      */
-    function subDelegateBatched(address[] calldata targets, SubdelegationRules[] calldata subdelegationRules)
+    function subdelegateBatched(address[] calldata targets, SubdelegationRules[] calldata subdelegationRules)
         public
         override
         whenNotPaused
@@ -484,7 +484,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         if (targetsLength != subdelegationRules.length) revert LengthMismatch();
 
         for (uint256 i; i < targetsLength;) {
-            subDelegations[msg.sender][targets[i]] = subdelegationRules[i];
+            subdelegations[msg.sender][targets[i]] = subdelegationRules[i];
 
             unchecked {
                 ++i;
@@ -499,7 +499,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     // =============================================================
 
     /**
-     * @notice Validate subdelegation rules and partial delegation allowances.
+     * Validate subdelegation rules and partial delegation allowances.
      *
      * @param proxy The address of the proxy.
      * @param sender The sender address to validate.
@@ -538,7 +538,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         for (uint256 i = 1; i < authority.length;) {
             to = authority[i];
 
-            subdelegationRules = subDelegations[from][to];
+            subdelegationRules = subdelegations[from][to];
 
             if (subdelegationRules.allowance == 0) {
                 revert NotDelegated(from, to);
@@ -584,7 +584,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         if (from != sender) revert NotDelegated(from, sender);
 
         // Prevent double spending of votes already cast by previous delegators.
-        // Reverts for underflow when `delegatorsVotes` exceeds `voterAllowance`, meaning that `sender` has no votes left.
+        // Reverts for underflow when `delegatorsVotes > voterAllowance`, meaning that `sender` has no votes left.
         if (delegatorsVotes != 0) {
             voterAllowance -= delegatorsVotes;
         }
@@ -620,7 +620,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     // =============================================================
 
     /**
-     * @notice Cast a vote on the governor with reason and params.
+     * Cast a vote on the governor with reason and params.
      *
      * @param voter The address of the voter
      * @param proposalId The id of the proposal to vote on
@@ -640,7 +640,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     }
 
     /**
-     * @notice Retrieve number of the proposal's end block.
+     * Retrieve number of the proposal's end block.
      *
      * @param proposalId The id of the proposal to vote on
      * @return endBlock Proposal's end block number
@@ -650,7 +650,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     }
 
     /**
-     * @notice Retrieve number of the proposal's snapshot.
+     * Retrieve number of the proposal's snapshot.
      *
      * @param proposalId The id of the proposal to vote on
      * @return snapshotBlock Proposal's snapshot block number
@@ -660,7 +660,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     }
 
     /**
-     * @notice Retrieve number of the proposal's snapshot.
+     * Retrieve number of the proposal's snapshot.
      *
      * @param proposalId The id of the proposal to vote on
      * @param proxy The address of the proxy
@@ -677,7 +677,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
-     * @notice Pauses and unpauses propose, vote and sign operations.
+     * Pauses and unpauses propose, vote and sign operations.
      *
      * @dev Only contract owner can toggle pause.
      */

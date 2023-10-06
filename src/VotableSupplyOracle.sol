@@ -135,7 +135,3 @@ contract VotableSupplyOracle is IVotableSupplyOracle, Ownable {
         return high - 1;
     }
 }
-
-// TODO: Test `getIndexBeforeBlock` works as expected
-// TODO: Test that blocks prior to init block return 0
-// TODO: Test updateVotableSupplyAt reverts if index is out of bounds

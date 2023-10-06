@@ -66,7 +66,7 @@ contract AlligatorOPV3 is IAlligatorOPV3, Ownable, Pausable {
     // =============================================================
 
     // Subdelegation rules `from` => `to`
-    mapping(address from => mapping(address to => SubdelegationRules subdelegationRules)) public subDelegations;
+    mapping(address from => mapping(address to => SubdelegationRules subdelegationRules)) public subdelegations;
 
     // Records if a voter has already voted on a specific proposal from a proxy
     mapping(address proxy => mapping(uint256 proposalId => mapping(address voter => uint256))) votesCast;
@@ -305,12 +305,12 @@ contract AlligatorOPV3 is IAlligatorOPV3, Ownable, Pausable {
      * @param to The address to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegation.
      */
-    function subDelegate(address to, SubdelegationRules calldata subdelegationRules) external override whenNotPaused {
+    function subdelegate(address to, SubdelegationRules calldata subdelegationRules) external override whenNotPaused {
         if (proxyAddress(msg.sender).code.length == 0) {
             create(msg.sender);
         }
 
-        subDelegations[msg.sender][to] = subdelegationRules;
+        subdelegations[msg.sender][to] = subdelegationRules;
         emit SubDelegation(msg.sender, to, subdelegationRules);
     }
 
@@ -321,7 +321,7 @@ contract AlligatorOPV3 is IAlligatorOPV3, Ownable, Pausable {
      * @param targets The addresses to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegations.
      */
-    function subDelegateBatched(address[] calldata targets, SubdelegationRules calldata subdelegationRules)
+    function subdelegateBatched(address[] calldata targets, SubdelegationRules calldata subdelegationRules)
         external
         override
         whenNotPaused
@@ -332,7 +332,7 @@ contract AlligatorOPV3 is IAlligatorOPV3, Ownable, Pausable {
 
         uint256 targetsLength = targets.length;
         for (uint256 i; i < targetsLength;) {
-            subDelegations[msg.sender][targets[i]] = subdelegationRules;
+            subdelegations[msg.sender][targets[i]] = subdelegationRules;
 
             unchecked {
                 ++i;
@@ -388,7 +388,7 @@ contract AlligatorOPV3 is IAlligatorOPV3, Ownable, Pausable {
         for (uint256 i = 1; i < authority.length;) {
             to = authority[i];
 
-            subdelegationRules = subDelegations[from][to];
+            subdelegationRules = subdelegations[from][to];
 
             if (subdelegationRules.allowance == 0) {
                 revert NotDelegated(from, to);

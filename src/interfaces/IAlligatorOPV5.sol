@@ -74,11 +74,11 @@ interface IAlligatorOPV5 {
     //                        SUBDELEGATIONS
     // =============================================================
 
-    function subDelegate(address to, SubdelegationRules calldata subDelegateRules) external;
+    function subdelegate(address to, SubdelegationRules calldata subdelegateRules) external;
 
-    function subDelegateBatched(address[] calldata targets, SubdelegationRules calldata subDelegateRules) external;
+    function subdelegateBatched(address[] calldata targets, SubdelegationRules calldata subdelegateRules) external;
 
-    function subDelegateBatched(address[] calldata targets, SubdelegationRules[] calldata subdelegationRules)
+    function subdelegateBatched(address[] calldata targets, SubdelegationRules[] calldata subdelegationRules)
         external;
     // =============================================================
     //                          RESTRICTED
@@ -93,13 +93,4 @@ interface IAlligatorOPV5 {
     function proxyAddress(address owner) external view returns (address endpoint);
 
     function votesCast(address proxy, uint256 proposalId, address voter) external view returns (uint256 votes);
-
-    function validate(
-        address proxy,
-        address sender,
-        address[] memory authority,
-        uint256 proposalId,
-        uint256 support,
-        uint256 voterAllowance
-    ) external view returns (uint256 votesToCast, uint256 k);
 }

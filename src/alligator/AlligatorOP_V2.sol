@@ -71,11 +71,11 @@ contract AlligatorOPV2 is IAlligatorOPV2, Ownable, Pausable {
     // =============================================================
 
     // Subdelegation rules `from` => `to`
-    mapping(address from => mapping(address to => SubdelegationRules subdelegationRules)) public subDelegations;
+    mapping(address from => mapping(address to => SubdelegationRules subdelegationRules)) public subdelegations;
 
     // Subdelegation rules `from` => `to`, for a specific proxy
     mapping(address proxy => mapping(address from => mapping(address to => SubdelegationRules subdelegationRules)))
-        public subDelegationsProxy;
+        public subdelegationsProxy;
 
     // Records if a voter has already voted on a specific proposal from a proxy
     mapping(address proxy => mapping(uint256 proposalId => mapping(address voter => uint256))) votesCast;
@@ -360,12 +360,12 @@ contract AlligatorOPV2 is IAlligatorOPV2, Ownable, Pausable {
      * @param to The address to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegation.
      */
-    function subDelegateAll(address to, SubdelegationRules calldata subdelegationRules)
+    function subdelegateAll(address to, SubdelegationRules calldata subdelegationRules)
         external
         override
         whenNotPaused
     {
-        subDelegations[msg.sender][to] = subdelegationRules;
+        subdelegations[msg.sender][to] = subdelegationRules;
         emit SubDelegation(msg.sender, to, subdelegationRules);
     }
 
@@ -375,14 +375,14 @@ contract AlligatorOPV2 is IAlligatorOPV2, Ownable, Pausable {
      * @param targets The addresses to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegations.
      */
-    function subDelegateAllBatched(address[] calldata targets, SubdelegationRules calldata subdelegationRules)
+    function subdelegateAllBatched(address[] calldata targets, SubdelegationRules calldata subdelegationRules)
         external
         override
         whenNotPaused
     {
         uint256 targetsLength = targets.length;
         for (uint256 i; i < targetsLength;) {
-            subDelegations[msg.sender][targets[i]] = subdelegationRules;
+            subdelegations[msg.sender][targets[i]] = subdelegationRules;
 
             unchecked {
                 ++i;
@@ -401,7 +401,7 @@ contract AlligatorOPV2 is IAlligatorOPV2, Ownable, Pausable {
      * @param to The address to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegation.
      */
-    function subDelegate(
+    function subdelegate(
         address proxyOwner,
         BaseRules calldata proxyRules,
         address to,
@@ -414,7 +414,7 @@ contract AlligatorOPV2 is IAlligatorOPV2, Ownable, Pausable {
             _create(proxyOwner, proxyRules, proxyRulesHash);
         }
 
-        subDelegationsProxy[proxy][msg.sender][to] = subdelegationRules;
+        subdelegationsProxy[proxy][msg.sender][to] = subdelegationRules;
         emit ProxySubdelegation(proxy, msg.sender, to, subdelegationRules);
     }
 
@@ -427,7 +427,7 @@ contract AlligatorOPV2 is IAlligatorOPV2, Ownable, Pausable {
      * @param targets The addresses to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegations.
      */
-    function subDelegateBatched(
+    function subdelegateBatched(
         address proxyOwner,
         BaseRules calldata proxyRules,
         address[] calldata targets,
@@ -442,7 +442,7 @@ contract AlligatorOPV2 is IAlligatorOPV2, Ownable, Pausable {
 
         uint256 targetsLength = targets.length;
         for (uint256 i; i < targetsLength;) {
-            subDelegationsProxy[proxy][msg.sender][targets[i]] = subdelegationRules;
+            subdelegationsProxy[proxy][msg.sender][targets[i]] = subdelegationRules;
 
             unchecked {
                 ++i;
@@ -514,11 +514,11 @@ contract AlligatorOPV2 is IAlligatorOPV2, Ownable, Pausable {
         for (uint256 i = 1; i < authority.length;) {
             to = authority[i];
 
-            subdelegationRules = subDelegationsProxy[proxy][from][to];
+            subdelegationRules = subdelegationsProxy[proxy][from][to];
 
             // If a subdelegation is not present, fallback to address-specific subdelegation rules
             if (subdelegationRules.allowance == 0) {
-                subdelegationRules = subDelegations[from][to];
+                subdelegationRules = subdelegations[from][to];
 
                 if (subdelegationRules.allowance == 0) {
                     revert NotDelegated(from, to);

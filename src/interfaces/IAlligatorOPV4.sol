@@ -62,9 +62,9 @@ interface IAlligatorOPV4 {
     //                        SUBDELEGATIONS
     // =============================================================
 
-    function subDelegate(address to, SubdelegationRules calldata subDelegateRules) external;
+    function subdelegate(address to, SubdelegationRules calldata subdelegateRules) external;
 
-    function subDelegateBatched(address[] calldata targets, SubdelegationRules calldata subDelegateRules) external;
+    function subdelegateBatched(address[] calldata targets, SubdelegationRules calldata subdelegateRules) external;
 
     // =============================================================
     //                          RESTRICTED
