@@ -11,9 +11,10 @@ contract OptimismGovernorV6Mock is OptimismGovernorV6 {
         __GovernorCountingSimple_init();
         __GovernorVotes_init(_votingToken);
         __GovernorVotesQuorumFraction_init({quorumNumeratorValue: 30});
-        __GovernorSettings_init({initialVotingDelay: 0, initialVotingPeriod: 100, initialProposalThreshold: 0});
+        __GovernorSettings_init({initialVotingDelay: 0, initialVotingPeriod: 46027, initialProposalThreshold: 0});
 
         manager = _manager;
+        _setVotingPeriod(200);
     }
 
     function quorumReached(uint256 proposalId) public view returns (bool) {
@@ -22,5 +23,9 @@ contract OptimismGovernorV6Mock is OptimismGovernorV6 {
 
     function voteSucceeded(uint256 proposalId) public view returns (bool) {
         return _voteSucceeded(proposalId);
+    }
+
+    function proposals(uint256 proposalId) public view returns (ProposalCore memory) {
+        return _proposals[proposalId];
     }
 }
