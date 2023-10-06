@@ -7,7 +7,6 @@ import {UpgradeScripts} from "upgrade-scripts/UpgradeScripts.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {OptimismGovernorV2} from "../src/OptimismGovernorV2.sol";
 import {VotingModule} from "../src/modules/VotingModule.sol";
 import {
     ApprovalVotingModule,
@@ -20,7 +19,7 @@ import {OptimismGovernorV5Mock} from "./mocks/OptimismGovernorV5Mock.sol";
 import {OptimismGovernorV4UpgradeMock} from "./mocks/OptimismGovernorV4UpgradeMock.sol";
 import {OptimismGovernorV5UpgradeMock} from "./mocks/OptimismGovernorV5UpgradeMock.sol";
 import {ApprovalVotingModuleMock} from "./mocks/ApprovalVotingModuleMock.sol";
-import {OptimismGovernorV3Test} from "./OptimismGovernorV3.t.sol";
+import {IGovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/IGovernorUpgradeable.sol";
 
 enum ProposalState {
     Pending,
@@ -39,7 +38,7 @@ enum VoteType {
     Abstain
 }
 
-contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test {
+contract OptimismGovernorV5Test is Test, UpgradeScripts {
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -63,12 +62,15 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
 
+    address internal admin = makeAddr("admin");
+    address internal manager = makeAddr("manager");
     string description = "a nice description";
     address voter = makeAddr("voter");
     address altVoter = makeAddr("altVoter");
 
-    OptimismGovernorV5Mock private governor;
-    ApprovalVotingModuleMock private module;
+    OptimismToken internal op = OptimismToken(0x4200000000000000000000000000000000000042);
+    address internal governor;
+    ApprovalVotingModuleMock internal module;
 
     /*//////////////////////////////////////////////////////////////
                                  SETUP
@@ -79,16 +81,18 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
         UPGRADE_SCRIPTS_BYPASS_SAFETY = true; // disable to run upgrade checks
     }
 
-    function setUp() public override {
+    function _preSetUp(address impl) public virtual {
         vm.etch(address(op), address(new OptimismToken()).code);
 
-        module = new ApprovalVotingModuleMock();
-        OptimismGovernorV5Mock implementation = new OptimismGovernorV5Mock();
-        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
-            address(implementation),
+        address proxy = address(
+            new TransparentUpgradeableProxy(
+            impl,
             admin,
-            abi.encodeCall(OptimismGovernorV2.initialize, (IVotesUpgradeable(address(op)), manager))
+            abi.encodeCall(OptimismGovernorV5Mock.initialize, (IVotesUpgradeable(address(op)), manager))
+            )
         );
+
+        module = new ApprovalVotingModuleMock();
 
         vm.startPrank(op.owner());
         op.mint(voter, 1e18);
@@ -100,76 +104,184 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
         vm.prank(altVoter);
         op.delegate(altVoter);
 
-        governor = OptimismGovernorV5Mock(payable(proxy));
+        governor = proxy;
 
         vm.prank(manager);
-        governor.setModuleApproval(address(module), true);
+        _governorV5().setModuleApproval(address(module), true);
+    }
 
-        _setUp(payable(proxy));
+    function setUp() public virtual {
+        address implementation = address(new OptimismGovernorV5Mock());
+        _preSetUp(implementation);
     }
 
     /*//////////////////////////////////////////////////////////////
                                  TESTS
     //////////////////////////////////////////////////////////////*/
 
-    function testUpgrade() public {
+    function testUpgrade() public virtual {
         address implementationV4 = setUpContract("OptimismGovernorV4UpgradeMock");
         address implementationV5 = setUpContract("OptimismGovernorV5UpgradeMock");
         upgradeSafetyChecks("OptimismGovernorV5UpgradeMock", implementationV4, implementationV5);
     }
 
-    function testSetModuleApproval() public {
-        address module_ = makeAddr("module");
+    function testUpdateSettings() public virtual {
         vm.startPrank(manager);
-        assertEq(governor.approvedModules(address(module_)), false);
+        _governorV5().setVotingDelay(7);
+        _governorV5().setVotingPeriod(14);
+        _governorV5().setProposalThreshold(2);
+        vm.stopPrank();
 
-        governor.setModuleApproval(address(module_), true);
-        assertEq(governor.approvedModules(address(module_)), true);
+        assertEq(_governorV5().votingDelay(), 7);
+        assertEq(_governorV5().votingPeriod(), 14);
+        assertEq(_governorV5().proposalThreshold(), 2);
 
-        governor.setModuleApproval(address(module_), false);
-        assertEq(governor.approvedModules(address(module_)), false);
+        vm.expectRevert("Only the manager can call this function");
+        _governorV5().setVotingDelay(70);
+        vm.expectRevert("Only the manager can call this function");
+        _governorV5().setVotingPeriod(140);
+        vm.expectRevert("Only the manager can call this function");
+        _governorV5().setProposalThreshold(20);
+    }
+
+    function testPropose() public virtual {
+        address[] memory targets = new address[](1);
+        targets[0] = address(this);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
+
+        vm.prank(manager);
+        uint256 proposalId = _governorV5().propose(targets, values, calldatas, "Test");
+
+        uint256 deadline = _governorV5().proposalDeadline(proposalId);
+        vm.prank(manager);
+        _governorV5().setProposalDeadline(proposalId, uint64(deadline + 1 days));
+
+        assertEq(_governorV5().proposalDeadline(proposalId), deadline + 1 days);
+
+        vm.expectRevert("Only the manager can call this function");
+        _governorV5().propose(targets, values, calldatas, "From someone else");
+    }
+
+    function testExecute() public virtual {
+        vm.prank(op.owner());
+        op.mint(address(this), 1e30);
+        op.delegate(address(this));
+        // vm.roll(block.number + 1);
+
+        address[] memory targets = new address[](1);
+        targets[0] = address(this);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
+
+        vm.startPrank(manager);
+        _governorV5().setVotingDelay(0);
+        _governorV5().setVotingPeriod(14);
+        _governorV5().updateQuorumNumerator(0);
+        uint256 proposalId = _governorV5().propose(targets, values, calldatas, "Test");
+        vm.stopPrank();
+
+        vm.roll(block.number + 1);
+        _governorV5().castVote(proposalId, 1);
+
+        vm.roll(block.number + 14);
+
+        vm.expectRevert("Only the manager can call this function");
+        _governorV5().execute(targets, values, calldatas, keccak256("Test"));
+
+        vm.prank(manager);
+        _governorV5().execute(targets, values, calldatas, keccak256("Test"));
+
+        assertEq(uint256(_governorV5().state(proposalId)), uint256(IGovernorUpgradeable.ProposalState.Executed));
+    }
+
+    function testCancel() public virtual {
+        vm.prank(op.owner());
+        op.mint(address(this), 1000);
+        op.delegate(address(this));
+        // vm.roll(block.number + 1);
+
+        address[] memory targets = new address[](1);
+        targets[0] = address(this);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
+
+        vm.startPrank(manager);
+        _governorV5().setVotingDelay(0);
+        _governorV5().setVotingPeriod(14);
+        _governorV5().updateQuorumNumerator(0);
+        uint256 proposalId = _governorV5().propose(targets, values, calldatas, "Test");
+        vm.stopPrank();
+
+        vm.expectRevert("Only the manager can call this function");
+        _governorV5().cancel(targets, values, calldatas, keccak256("Test"));
+
+        vm.prank(manager);
+        _governorV5().cancel(targets, values, calldatas, keccak256("Test"));
+
+        assertEq(uint256(_governorV5().state(proposalId)), uint256(IGovernorUpgradeable.ProposalState.Canceled));
+    }
+
+    function executeCallback() public payable virtual {
+        revert("Executor shouldn't have called this function");
+    }
+
+    function testSetModuleApproval() public virtual {
+        address module_ = makeAddr("module");
+
+        assertEq(_governorV5().approvedModules(address(module_)), false);
+
+        vm.startPrank(manager);
+        _governorV5().setModuleApproval(address(module_), true);
+        assertEq(_governorV5().approvedModules(address(module_)), true);
+
+        _governorV5().setModuleApproval(address(module_), false);
+        assertEq(_governorV5().approvedModules(address(module_)), false);
         vm.stopPrank();
     }
 
-    function testProposeWithModule() public {
-        uint256 snapshot = block.number + governor.votingDelay();
-        uint256 deadline = snapshot + governor.votingPeriod();
+    function testProposeWithModule() public virtual {
+        uint256 snapshot = block.number + _governorV5().votingDelay();
+        uint256 deadline = snapshot + _governorV5().votingPeriod();
         bytes memory proposalData = _formatProposalData();
         uint256 proposalId =
-            governor.hashProposalWithModule(address(module), proposalData, keccak256(bytes(description)));
+            _governorV5().hashProposalWithModule(address(module), proposalData, keccak256(bytes(description)));
 
-        vm.expectEmit(false, false, false, true);
+        vm.expectEmit();
         emit ProposalCreated(proposalId, manager, address(module), proposalData, snapshot, deadline, description);
         vm.prank(manager);
-        governor.proposeWithModule(VotingModule(module), proposalData, description);
+        _governorV5().proposeWithModule(VotingModule(module), proposalData, description);
 
-        assertEq(governor.proposalSnapshot(proposalId), snapshot);
-        assertEq(governor.proposalDeadline(proposalId), deadline);
-        assertEq(uint8(governor.state(proposalId)), uint8(ProposalState.Pending));
+        assertEq(_governorV5().proposalSnapshot(proposalId), snapshot);
+        assertEq(_governorV5().proposalDeadline(proposalId), deadline);
+        assertEq(uint8(_governorV5().state(proposalId)), uint8(ProposalState.Pending));
     }
 
-    function testCancelWithModule() public {
+    function testCancelWithModule() public virtual {
         bytes memory proposalData = _formatProposalData();
 
         vm.startPrank(manager);
-        uint256 proposalId = governor.proposeWithModule(VotingModule(module), proposalData, description);
+        uint256 proposalId = _governorV5().proposeWithModule(VotingModule(module), proposalData, description);
 
         vm.expectEmit(false, false, false, true);
         emit ProposalCanceled(proposalId);
-        governor.cancelWithModule(VotingModule(module), proposalData, keccak256(bytes(description)));
+        _governorV5().cancelWithModule(VotingModule(module), proposalData, keccak256(bytes(description)));
         vm.stopPrank();
 
-        assertEq(uint8(governor.state(proposalId)), uint8(ProposalState.Canceled));
+        assertEq(uint8(_governorV5().state(proposalId)), uint8(ProposalState.Canceled));
     }
 
-    function testCastVoteWithModule() public {
+    function testCastVoteWithModule() public virtual {
         bytes memory proposalData = _formatProposalData();
-        uint256 snapshot = block.number + governor.votingDelay();
+        uint256 snapshot = block.number + _governorV5().votingDelay();
         uint256 weight = op.getVotes(voter);
         string memory reason = "a nice reason";
 
         vm.prank(manager);
-        uint256 proposalId = governor.proposeWithModule(VotingModule(module), proposalData, description);
+        uint256 proposalId = _governorV5().proposeWithModule(VotingModule(module), proposalData, description);
 
         vm.roll(snapshot + 1);
 
@@ -180,36 +292,36 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
         vm.prank(voter);
         vm.expectEmit(true, false, false, true);
         emit VoteCastWithParams(voter, proposalId, uint8(VoteType.For), weight, reason, params);
-        governor.castVoteWithReasonAndParams(proposalId, uint8(VoteType.For), reason, params);
+        _governorV5().castVoteWithReasonAndParams(proposalId, uint8(VoteType.For), reason, params);
 
         weight = op.getVotes(altVoter);
         vm.prank(altVoter);
         vm.expectEmit(true, false, false, true);
         emit VoteCastWithParams(altVoter, proposalId, uint8(VoteType.Against), weight, reason, params);
-        governor.castVoteWithReasonAndParams(proposalId, uint8(VoteType.Against), reason, params);
+        _governorV5().castVoteWithReasonAndParams(proposalId, uint8(VoteType.Against), reason, params);
 
-        (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes) = governor.proposalVotes(proposalId);
+        (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes) = _governorV5().proposalVotes(proposalId);
 
         assertEq(againstVotes, 1e20);
         assertEq(forVotes, 1e18);
         assertEq(abstainVotes, 0);
-        assertFalse(governor.voteSucceeded(proposalId));
+        assertFalse(_governorV5().voteSucceeded(proposalId));
         assertEq(module._proposals(proposalId).optionVotes[0], 1e18);
         assertEq(module._proposals(proposalId).optionVotes[1], 0);
-        assertTrue(governor.hasVoted(proposalId, voter));
+        assertTrue(_governorV5().hasVoted(proposalId, voter));
         assertEq(module.getAccountTotalVotes(proposalId, voter), optionVotes.length);
-        assertTrue(governor.hasVoted(proposalId, altVoter));
+        assertTrue(_governorV5().hasVoted(proposalId, altVoter));
         assertEq(module.getAccountTotalVotes(proposalId, altVoter), 0);
     }
 
-    function testExecuteWithModule() public {
+    function testExecuteWithModule() public virtual {
         bytes memory proposalData = _formatProposalData();
-        uint256 snapshot = block.number + governor.votingDelay();
-        uint256 deadline = snapshot + governor.votingPeriod();
+        uint256 snapshot = block.number + _governorV5().votingDelay();
+        uint256 deadline = snapshot + _governorV5().votingPeriod();
         string memory reason = "a nice reason";
 
         vm.prank(manager);
-        uint256 proposalId = governor.proposeWithModule(VotingModule(module), proposalData, description);
+        uint256 proposalId = _governorV5().proposeWithModule(VotingModule(module), proposalData, description);
 
         vm.roll(snapshot + 1);
 
@@ -217,25 +329,25 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
         uint256[] memory optionVotes = new uint256[](1);
         bytes memory params = abi.encode(optionVotes);
 
-        vm.prank(voter);
-        governor.castVoteWithReasonAndParams(proposalId, uint8(VoteType.For), reason, params);
+        vm.prank(altVoter);
+        _governorV5().castVoteWithReasonAndParams(proposalId, uint8(VoteType.For), reason, params);
 
         vm.roll(deadline + 1);
 
         vm.prank(manager);
         vm.expectEmit(false, false, false, true);
         emit ProposalExecuted(proposalId);
-        governor.executeWithModule(VotingModule(module), proposalData, keccak256(bytes(description)));
-        assertEq(uint8(governor.state(proposalId)), uint8(ProposalState.Executed));
+        _governorV5().executeWithModule(VotingModule(module), proposalData, keccak256(bytes(description)));
+        assertEq(uint8(_governorV5().state(proposalId)), uint8(ProposalState.Executed));
     }
 
-    function testHasVoted() public {
+    function testHasVoted() public virtual {
         bytes memory proposalData = _formatProposalData();
-        uint256 snapshot = block.number + governor.votingDelay();
+        uint256 snapshot = block.number + _governorV5().votingDelay();
         string memory reason = "a nice reason";
 
         vm.prank(manager);
-        uint256 proposalId = governor.proposeWithModule(VotingModule(module), proposalData, description);
+        uint256 proposalId = _governorV5().proposeWithModule(VotingModule(module), proposalData, description);
 
         vm.roll(snapshot + 1);
 
@@ -244,109 +356,109 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
         bytes memory params = abi.encode(optionVotes);
 
         vm.prank(voter);
-        governor.castVoteWithReasonAndParams(proposalId, uint8(VoteType.For), reason, params);
+        _governorV5().castVoteWithReasonAndParams(proposalId, uint8(VoteType.For), reason, params);
 
-        assertTrue(governor.hasVoted(proposalId, voter));
-        assertFalse(governor.hasVoted(proposalId, address(1)));
+        assertTrue(_governorV5().hasVoted(proposalId, voter));
+        assertFalse(_governorV5().hasVoted(proposalId, address(1)));
     }
 
-    function testQuorumReachedAndVoteSucceeded() public {
+    function testQuorumReachedAndVoteSucceeded() public virtual {
         bytes memory proposalData = _formatProposalData();
-        uint256 snapshot = block.number + governor.votingDelay();
+        uint256 snapshot = block.number + _governorV5().votingDelay();
         string memory reason = "a nice reason";
 
         vm.prank(manager);
-        uint256 proposalId = governor.proposeWithModule(VotingModule(module), proposalData, description);
+        uint256 proposalId = _governorV5().proposeWithModule(VotingModule(module), proposalData, description);
 
         vm.roll(snapshot + 1);
 
         // Vote for option 0
         uint256[] memory optionVotes = new uint256[](1);
         bytes memory params = abi.encode(optionVotes);
-
-        vm.prank(voter);
-        governor.castVoteWithReasonAndParams(proposalId, uint8(VoteType.For), reason, params);
-
-        assertTrue(governor.quorum(snapshot) != 0);
-        assertTrue(governor.quorumReached(proposalId));
-        assertTrue(governor.voteSucceeded(proposalId));
-    }
-
-    function testVoteNotSucceeded() public {
-        bytes memory proposalData = _formatProposalData();
-        uint256 snapshot = block.number + governor.votingDelay();
-        string memory reason = "a nice reason";
-
-        vm.prank(manager);
-        uint256 proposalId = governor.proposeWithModule(VotingModule(module), proposalData, description);
-
-        vm.roll(snapshot + 1);
-
-        // Vote for option 0
-        uint256[] memory optionVotes = new uint256[](1);
-        bytes memory params = abi.encode(optionVotes);
-
-        vm.prank(voter);
-        governor.castVoteWithReasonAndParams(proposalId, uint8(VoteType.For), reason, params);
 
         vm.prank(altVoter);
-        governor.castVoteWithReasonAndParams(proposalId, uint8(VoteType.Against), reason, "");
+        _governorV5().castVoteWithReasonAndParams(proposalId, uint8(VoteType.For), reason, params);
 
-        assertTrue(governor.quorum(snapshot) != 0);
-        assertFalse(governor.voteSucceeded(proposalId));
+        assertTrue(_quorum(snapshot, proposalId) != 0);
+        assertTrue(_governorV5().quorumReached(proposalId));
+        assertTrue(_governorV5().voteSucceeded(proposalId));
+    }
+
+    function testVoteNotSucceeded() public virtual {
+        bytes memory proposalData = _formatProposalData();
+        uint256 snapshot = block.number + _governorV5().votingDelay();
+        string memory reason = "a nice reason";
+
+        vm.prank(manager);
+        uint256 proposalId = _governorV5().proposeWithModule(VotingModule(module), proposalData, description);
+
+        vm.roll(snapshot + 1);
+
+        // Vote for option 0
+        uint256[] memory optionVotes = new uint256[](1);
+        bytes memory params = abi.encode(optionVotes);
+
+        vm.prank(voter);
+        _governorV5().castVoteWithReasonAndParams(proposalId, uint8(VoteType.For), reason, params);
+
+        vm.prank(altVoter);
+        _governorV5().castVoteWithReasonAndParams(proposalId, uint8(VoteType.Against), reason, "");
+
+        assertTrue(_quorum(snapshot, proposalId) != 0);
+        assertFalse(_governorV5().voteSucceeded(proposalId));
     }
 
     /*//////////////////////////////////////////////////////////////
                                 REVERTS
     //////////////////////////////////////////////////////////////*/
 
-    function testRevert_proposeWithModule_onlyManager() public {
+    function testRevert_proposeWithModule_onlyManager() public virtual {
         bytes memory proposalData = _formatProposalData();
 
         vm.expectRevert("Only the manager can call this function");
-        governor.proposeWithModule(VotingModule(module), proposalData, "");
+        _governorV5().proposeWithModule(VotingModule(module), proposalData, "");
     }
 
-    function testRevert_proposeWithModule_proposalAlreadyCreated() public {
+    function testRevert_proposeWithModule_proposalAlreadyCreated() public virtual {
         bytes memory proposalData = _formatProposalData();
 
         vm.startPrank(manager);
-        governor.proposeWithModule(VotingModule(module), proposalData, description);
+        _governorV5().proposeWithModule(VotingModule(module), proposalData, description);
 
         vm.expectRevert("Governor: proposal already exists");
-        governor.proposeWithModule(VotingModule(module), proposalData, description);
+        _governorV5().proposeWithModule(VotingModule(module), proposalData, description);
         vm.stopPrank();
     }
 
-    function testRevert_proposeWithModule_moduleNotApproved() public {
+    function testRevert_proposeWithModule_moduleNotApproved() public virtual {
         bytes memory proposalData = _formatProposalData();
         address module_ = makeAddr("module");
 
         vm.prank(manager);
         vm.expectRevert("Governor: module not approved");
-        governor.proposeWithModule(VotingModule(module_), proposalData, description);
+        _governorV5().proposeWithModule(VotingModule(module_), proposalData, description);
     }
 
-    function testRevert_cancelWithModule_proposalNotActive() public {
+    function testRevert_cancelWithModule_proposalNotActive() public virtual {
         bytes memory proposalData = _formatProposalData();
 
         vm.startPrank(manager);
-        uint256 proposalId = governor.proposeWithModule(VotingModule(module), proposalData, description);
-        governor.cancelWithModule(VotingModule(module), proposalData, keccak256(bytes(description)));
+        uint256 proposalId = _governorV5().proposeWithModule(VotingModule(module), proposalData, description);
+        _governorV5().cancelWithModule(VotingModule(module), proposalData, keccak256(bytes(description)));
 
         vm.expectRevert("Governor: proposal not active");
-        governor.cancelWithModule(VotingModule(module), proposalData, keccak256(bytes(description)));
+        _governorV5().cancelWithModule(VotingModule(module), proposalData, keccak256(bytes(description)));
         vm.stopPrank();
 
-        assertEq(uint8(governor.state(proposalId)), uint8(ProposalState.Canceled));
+        assertEq(uint8(_governorV5().state(proposalId)), uint8(ProposalState.Canceled));
     }
 
-    function testRevert_castVoteWithModule_voteNotActive() public {
+    function testRevert_castVoteWithModule_voteNotActive() public virtual {
         bytes memory proposalData = _formatProposalData();
         string memory reason = "a nice reason";
 
         vm.prank(manager);
-        uint256 proposalId = governor.proposeWithModule(VotingModule(module), proposalData, description);
+        uint256 proposalId = _governorV5().proposeWithModule(VotingModule(module), proposalData, description);
 
         // Vote for option 0
         uint256[] memory optionVotes = new uint256[](1);
@@ -354,38 +466,38 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
 
         vm.prank(voter);
         vm.expectRevert("Governor: vote not currently active");
-        governor.castVoteWithReasonAndParams(proposalId, uint8(VoteType.For), reason, params);
+        _governorV5().castVoteWithReasonAndParams(proposalId, uint8(VoteType.For), reason, params);
     }
 
-    function testRevert_executeWithModule_proposalNotSuccessful() public {
+    function testRevert_executeWithModule_proposalNotSuccessful() public virtual {
         bytes memory proposalData = _formatProposalData();
-        uint256 snapshot = block.number + governor.votingDelay();
-        uint256 deadline = snapshot + governor.votingPeriod();
+        uint256 snapshot = block.number + _governorV5().votingDelay();
+        uint256 deadline = snapshot + _governorV5().votingPeriod();
 
         vm.prank(manager);
-        uint256 proposalId = governor.proposeWithModule(VotingModule(module), proposalData, description);
+        uint256 proposalId = _governorV5().proposeWithModule(VotingModule(module), proposalData, description);
 
         vm.roll(deadline + 1);
 
-        assertEq(uint8(governor.state(proposalId)), uint8(ProposalState.Defeated));
+        assertEq(uint8(_governorV5().state(proposalId)), uint8(ProposalState.Defeated));
 
         vm.prank(manager);
         vm.expectRevert("Governor: proposal not successful");
-        governor.executeWithModule(VotingModule(module), proposalData, keccak256(bytes(description)));
+        _governorV5().executeWithModule(VotingModule(module), proposalData, keccak256(bytes(description)));
     }
 
-    function testRevert_setModuleApproval_onlyManager() public {
+    function testRevert_setModuleApproval_onlyManager() public virtual {
         address module_ = makeAddr("module");
 
         vm.expectRevert("Only the manager can call this function");
-        governor.setModuleApproval(module_, true);
+        _governorV5().setModuleApproval(module_, true);
     }
 
     /*//////////////////////////////////////////////////////////////
                                 HELPERS
     //////////////////////////////////////////////////////////////*/
 
-    function _formatProposalData() public returns (bytes memory proposalData) {
+    function _formatProposalData() public virtual returns (bytes memory proposalData) {
         address receiver1 = makeAddr("receiver1");
         address receiver2 = makeAddr("receiver2");
 
@@ -419,5 +531,13 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts, OptimismGovernorV3Test 
         });
 
         return abi.encode(options, settings);
+    }
+
+    function _governorV5() private view returns (OptimismGovernorV5Mock) {
+        return OptimismGovernorV5Mock(payable(governor));
+    }
+
+    function _quorum(uint256 snapshot, uint256) internal view virtual returns (uint256) {
+        return _governorV5().quorum(snapshot);
     }
 }

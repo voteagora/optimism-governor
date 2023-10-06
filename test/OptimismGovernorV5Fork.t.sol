@@ -17,7 +17,7 @@ contract OptimismGovernorV5UpgradeTest is Test {
 
     function setUp() public {
         // Block number 88792077 is ~ Apr-11-2023 01:30:52 AM UTC
-        vm.createSelectFork("https://mainnet.optimism.io", 88792077);
+        vm.createSelectFork(vm.envString("OPTIMISM_RPC_URL"), 88792077);
 
         implementation = new OptimismGovernorV5();
     }
