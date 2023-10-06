@@ -29,6 +29,50 @@ contract AlligatorOPV4Test is AlligatorOPTest {
 
     function testCreate() public override {}
 
+    function testSubdelegate() public virtual override {
+        _subdelegate(address(this), baseRules, Utils.alice, subdelegationRules);
+
+        (
+            uint8 maxRedelegations,
+            uint16 blocksBeforeVoteCloses,
+            uint32 notValidBefore,
+            uint32 notValidAfter,
+            address customRule,
+            AllowanceType allowanceType,
+            uint256 allowance
+        ) = AlligatorOPV4(alligator).subdelegations(address(this), Utils.alice);
+
+        BaseRules memory baseRulesSet =
+            BaseRules(maxRedelegations, notValidBefore, notValidAfter, blocksBeforeVoteCloses, customRule);
+
+        subdelegateAssertions(baseRulesSet, allowanceType, allowance, subdelegationRules);
+    }
+
+    function testSubdelegateBatched() public virtual override {
+        address[] memory targets = new address[](2);
+        targets[0] = address(Utils.bob);
+        targets[1] = address(Utils.alice);
+
+        _subdelegateBatched(address(this), baseRules, targets, subdelegationRules);
+
+        for (uint256 i = 0; i < targets.length; i++) {
+            (
+                uint8 maxRedelegations,
+                uint16 blocksBeforeVoteCloses,
+                uint32 notValidBefore,
+                uint32 notValidAfter,
+                address customRule,
+                AllowanceType allowanceType,
+                uint256 allowance
+            ) = AlligatorOPV4(alligator).subdelegations(address(this), targets[i]);
+
+            BaseRules memory baseRulesSet =
+                BaseRules(maxRedelegations, notValidBefore, notValidAfter, blocksBeforeVoteCloses, customRule);
+
+            subdelegateAssertions(baseRulesSet, allowanceType, allowance, subdelegationRules);
+        }
+    }
+
     /*//////////////////////////////////////////////////////////////
                                 INTERNAL
     //////////////////////////////////////////////////////////////*/
@@ -51,20 +95,38 @@ contract AlligatorOPV4Test is AlligatorOPTest {
         return _proxyAddress(proxyOwner, baseRules_, baseRulesHash_);
     }
 
-    function _subdelegate(address, BaseRules memory, address to, SubdelegationRules memory subDelegateRules)
+    function _subdelegate(address, BaseRules memory, address to, SubdelegationRules memory subdelegateRules)
         internal
         override
     {
         SubdelegationRulesV3 memory rules = SubdelegationRulesV3(
-            subDelegateRules.baseRules.maxRedelegations,
-            subDelegateRules.baseRules.blocksBeforeVoteCloses,
-            subDelegateRules.baseRules.notValidBefore,
-            subDelegateRules.baseRules.notValidAfter,
-            subDelegateRules.baseRules.customRule,
-            subDelegateRules.allowanceType,
-            subDelegateRules.allowance
+            subdelegateRules.baseRules.maxRedelegations,
+            subdelegateRules.baseRules.blocksBeforeVoteCloses,
+            subdelegateRules.baseRules.notValidBefore,
+            subdelegateRules.baseRules.notValidAfter,
+            subdelegateRules.baseRules.customRule,
+            subdelegateRules.allowanceType,
+            subdelegateRules.allowance
         );
-        IAlligatorOPV4(alligator).subDelegate(to, rules);
+        IAlligatorOPV4(alligator).subdelegate(to, rules);
+    }
+
+    function _subdelegateBatched(
+        address,
+        BaseRules memory,
+        address[] memory targets,
+        SubdelegationRules memory subdelegateRules
+    ) internal virtual override {
+        SubdelegationRulesV3 memory rules = SubdelegationRulesV3(
+            subdelegateRules.baseRules.maxRedelegations,
+            subdelegateRules.baseRules.blocksBeforeVoteCloses,
+            subdelegateRules.baseRules.notValidBefore,
+            subdelegateRules.baseRules.notValidAfter,
+            subdelegateRules.baseRules.customRule,
+            subdelegateRules.allowanceType,
+            subdelegateRules.allowance
+        );
+        IAlligatorOPV4(alligator).subdelegateBatched(targets, rules);
     }
 
     function _castVote(BaseRules memory, bytes32, address[] memory authority, uint256 propId, uint8 support)
@@ -108,5 +170,33 @@ contract AlligatorOPV4Test is AlligatorOPTest {
         bytes memory params
     ) internal virtual override {
         IAlligatorOPV4(alligator).castVoteWithReasonAndParamsBatched(authorities, propId, support, reason, params);
+    }
+
+    function _castVoteBySig(
+        BaseRules memory,
+        bytes32,
+        address[] memory authority,
+        uint256 propId,
+        uint8 support,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal virtual override {
+        IAlligatorOPV4(alligator).castVoteBySig(authority, propId, support, v, r, s);
+    }
+
+    function _castVoteWithReasonAndParamsBySig(
+        BaseRules memory,
+        bytes32,
+        address[] memory authority,
+        uint256 propId,
+        uint8 support,
+        string memory reason,
+        bytes memory params,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal virtual override {
+        IAlligatorOPV4(alligator).castVoteWithReasonAndParamsBySig(authority, propId, support, reason, params, v, r, s);
     }
 }

@@ -7,14 +7,13 @@ import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {IERC721} from "@openzeppelin/contracts/interfaces/IERC721.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {AlligatorOPV5} from "src/alligator/AlligatorOP_V5.sol";
-import {IAlligatorOPV5} from "src/interfaces/IAlligatorOPV5.sol";
+import {AlligatorOPV5Mock} from "./mocks/AlligatorOPV5Mock.sol";
 
 contract AlligatorOPV5Test is AlligatorOPTest {
     function setUp() public virtual override {
         SetupAlligatorOP.setUp();
-        alligatorAlt = address(new AlligatorOPV5());
-        bytes memory initData = abi.encodeCall(AlligatorOPV5(alligator).initialize, address(this));
+        alligatorAlt = address(new AlligatorOPV5Mock());
+        bytes memory initData = abi.encodeCall(AlligatorOPV5Mock(alligator).initialize, address(this));
         alligator = address(new ERC1967Proxy(alligatorAlt, initData));
         alligatorAlt = alligator;
 
@@ -37,6 +36,170 @@ contract AlligatorOPV5Test is AlligatorOPTest {
 
         standardLimitedCastVoteWithReasonAndParamsBatched(
             1e12, authorities, proxyRules, proxyRulesHashes, "reason", "params"
+        );
+    }
+
+    function testLimitedCastVoteWithReasonAndParamsBatchedBySig() public virtual {
+        (address[][] memory authorities,,,) = _formatBatchDataSigner();
+
+        standardLimitedCastVoteWithReasonAndParamsBatchedBySig(1e12, authorities);
+    }
+
+    function testSubdelegate() public virtual override {
+        _subdelegate(address(this), baseRules, Utils.alice, subdelegationRules);
+
+        (
+            uint8 maxRedelegations,
+            uint16 blocksBeforeVoteCloses,
+            uint32 notValidBefore,
+            uint32 notValidAfter,
+            address customRule,
+            AllowanceType allowanceType,
+            uint256 allowance
+        ) = AlligatorOPV5Mock(alligator).subdelegations(address(this), Utils.alice);
+
+        BaseRules memory baseRulesSet =
+            BaseRules(maxRedelegations, notValidBefore, notValidAfter, blocksBeforeVoteCloses, customRule);
+
+        subdelegateAssertions(baseRulesSet, allowanceType, allowance, subdelegationRules);
+    }
+
+    function testSubdelegateBatched() public virtual override {
+        address[] memory targets = new address[](2);
+        targets[0] = address(Utils.bob);
+        targets[1] = address(Utils.alice);
+
+        _subdelegateBatched(address(this), baseRules, targets, subdelegationRules);
+
+        for (uint256 i = 0; i < targets.length; i++) {
+            (
+                uint8 maxRedelegations,
+                uint16 blocksBeforeVoteCloses,
+                uint32 notValidBefore,
+                uint32 notValidAfter,
+                address customRule,
+                AllowanceType allowanceType,
+                uint256 allowance
+            ) = AlligatorOPV5Mock(alligator).subdelegations(address(this), targets[i]);
+
+            BaseRules memory baseRulesSet =
+                BaseRules(maxRedelegations, notValidBefore, notValidAfter, blocksBeforeVoteCloses, customRule);
+
+            subdelegateAssertions(baseRulesSet, allowanceType, allowance, subdelegationRules);
+        }
+    }
+
+    function testSubdelegateBatchedAlt() public virtual {
+        address[] memory targets = new address[](2);
+        targets[0] = address(Utils.bob);
+        targets[1] = address(Utils.alice);
+
+        SubdelegationRulesV3[] memory subRules = new SubdelegationRulesV3[](targets.length);
+        for (uint256 i = 0; i < targets.length; i++) {
+            subRules[i] = SubdelegationRulesV3(
+                uint8(i + 1),
+                subdelegationRules.baseRules.blocksBeforeVoteCloses,
+                subdelegationRules.baseRules.notValidBefore,
+                subdelegationRules.baseRules.notValidAfter,
+                subdelegationRules.baseRules.customRule,
+                subdelegationRules.allowanceType,
+                subdelegationRules.allowance
+            );
+        }
+
+        _subdelegateBatched(address(this), baseRules, targets, subRules);
+
+        for (uint256 i = 0; i < targets.length; i++) {
+            (
+                uint8 maxRedelegations,
+                uint16 blocksBeforeVoteCloses,
+                uint32 notValidBefore,
+                uint32 notValidAfter,
+                address customRule,
+                AllowanceType allowanceType,
+                uint256 allowance
+            ) = AlligatorOPV5Mock(alligator).subdelegations(address(this), targets[i]);
+
+            BaseRules memory baseRulesSet =
+                BaseRules(maxRedelegations, notValidBefore, notValidAfter, blocksBeforeVoteCloses, customRule);
+
+            assertEq(baseRulesSet.maxRedelegations, subRules[i].maxRedelegations);
+            assertEq(baseRulesSet.notValidBefore, subRules[i].notValidBefore);
+            assertEq(baseRulesSet.notValidAfter, subRules[i].notValidAfter);
+            assertEq(baseRulesSet.blocksBeforeVoteCloses, subRules[i].blocksBeforeVoteCloses);
+            assertEq(baseRulesSet.customRule, subRules[i].customRule);
+            assertEq(uint8(allowanceType), uint8(subRules[i].allowanceType));
+            assertEq(allowance, subRules[i].allowance);
+        }
+    }
+
+    function testValidate() public {
+        SubdelegationRules memory subRules = subdelegationRules;
+        address[] memory authority = new address[](1);
+        authority[0] = address(this);
+
+        address proxy = _proxyAddress(authority[0], baseRules, baseRulesHash);
+        uint256 proxyTotalVotes = op.getPastVotes(proxy, governor.proposalSnapshot(proposalId));
+
+        (uint256 votesToCast, uint256 k) = AlligatorOPV5Mock(alligator)._validate(
+            proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes
+        );
+
+        assertEq(votesToCast, proxyTotalVotes);
+        assertEq(k, 0);
+
+        authority = new address[](2);
+        authority[0] = address(Utils.alice);
+        authority[1] = address(this);
+
+        subRules.allowance = 2e4;
+        vm.prank(Utils.alice);
+        _subdelegate(Utils.alice, baseRules, address(this), subRules);
+
+        (votesToCast, k) = AlligatorOPV5Mock(alligator)._validate(
+            proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes
+        );
+
+        assertEq(votesToCast, proxyTotalVotes * subRules.allowance / 1e5);
+        assertEq(k, 1);
+
+        subRules.allowance = 1e5;
+        vm.prank(Utils.alice);
+        _subdelegate(Utils.alice, baseRules, address(this), subRules);
+
+        (votesToCast, k) = AlligatorOPV5Mock(alligator)._validate(
+            proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes
+        );
+
+        assertEq(votesToCast, proxyTotalVotes * subRules.allowance / 1e5);
+        assertEq(k, 0);
+
+        subRules.allowanceType = AllowanceType.Absolute;
+        vm.prank(Utils.alice);
+        _subdelegate(Utils.alice, baseRules, address(this), subRules);
+
+        (votesToCast, k) = AlligatorOPV5Mock(alligator)._validate(
+            proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes
+        );
+
+        assertEq(votesToCast, subRules.allowance);
+        assertEq(k, 1);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                REVERTS
+    //////////////////////////////////////////////////////////////*/
+
+    function testRevert_castVoteBatched_ZeroVotesToCast() public virtual override {
+        super.testRevert_castVoteBatched_ZeroVotesToCast();
+
+        (address[][] memory authorities,, BaseRules[] memory proxyRules, bytes32[] memory proxyRulesHashes) =
+            _formatBatchData();
+
+        vm.expectRevert(ZeroVotesToCast.selector);
+        vm.prank(Utils.carol);
+        _limitedCastVoteWithReasonAndParamsBatched(
+            200, proxyRules, proxyRulesHashes, authorities, proposalId, 1, "reason", "params"
         );
     }
 
@@ -121,7 +284,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
     }
 
     function standardLimitedCastVoteWithReasonAndParamsBatched(
-        uint256 maxVotes,
+        uint256 maxVotingPower,
         address[][] memory authorities,
         BaseRules[] memory proxyRules,
         bytes32[] memory proxyRulesHashes,
@@ -141,11 +304,11 @@ contract AlligatorOPV5Test is AlligatorOPTest {
             (proxies[i], votesToCast[i], k[i], initWeightCast[i], initWeights[i]) = _getInitParams(authority);
             totalVotesToCast += votesToCast[i];
 
-            if (totalVotesToCast > maxVotes) {
+            if (totalVotesToCast > maxVotingPower) {
                 votesToCast_[proxies[i]] -= votesToCast[i];
-                votesToCast[i] = maxVotes - (totalVotesToCast - votesToCast[i]);
+                votesToCast[i] = maxVotingPower - (totalVotesToCast - votesToCast[i]);
                 votesToCast_[proxies[i]] += votesToCast[i];
-                totalVotesToCast = maxVotes;
+                totalVotesToCast = maxVotingPower;
                 break;
             }
         }
@@ -159,8 +322,76 @@ contract AlligatorOPV5Test is AlligatorOPTest {
 
         vm.prank(Utils.carol);
         _limitedCastVoteWithReasonAndParamsBatched(
-            maxVotes, proxyRules, proxyRulesHashes, authorities, proposalId, 1, reason, params
+            maxVotingPower, proxyRules, proxyRulesHashes, authorities, proposalId, 1, reason, params
         );
+
+        _castVoteBatchedAssertions(
+            authorities, proxies, votesToCast, totalVotesToCast, k, initWeightCast, initForVotes, initWeights
+        );
+    }
+
+    function standardCastVoteBySig(address[] memory authority) public virtual override {
+        bytes32 domainSeparator =
+            keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, alligator));
+        bytes32 structHash = keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, 1, authority));
+        (uint8 v, bytes32 r, bytes32 s) =
+            vm.sign(vm.envUint("SIGNER_KEY"), keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash)));
+
+        vm.expectEmit();
+        emit VoteCast(_proxyAddress(authority[0], baseRules, baseRulesHash), signer, authority, proposalId, 1);
+        _castVoteBySig(baseRules, baseRulesHash, authority, proposalId, 1, v, r, s);
+    }
+
+    function standardCastVoteWithReasonAndParamsBySig(address[] memory authority) public virtual override {
+        bytes32 domainSeparator =
+            keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, alligator));
+        bytes32 structHash = keccak256(
+            abi.encode(BALLOT_TYPEHASH, proposalId, 1, authority, keccak256(bytes("reason")), keccak256("params"))
+        );
+        (uint8 v, bytes32 r, bytes32 s) =
+            vm.sign(vm.envUint("SIGNER_KEY"), keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash)));
+
+        vm.expectEmit();
+        emit VoteCast(_proxyAddress(authority[0], baseRules, baseRulesHash), signer, authority, proposalId, 1);
+        _castVoteWithReasonAndParamsBySig(
+            baseRules, baseRulesHash, authority, proposalId, 1, "reason", "params", v, r, s
+        );
+    }
+
+    function standardLimitedCastVoteWithReasonAndParamsBatchedBySig(
+        uint256 maxVotingPower,
+        address[][] memory authorities
+    ) public virtual {
+        address[] memory proxies = new address[](authorities.length);
+        uint256[] memory votesToCast = new uint256[](authorities.length);
+        uint256[] memory k = new uint256[](authorities.length);
+        uint256[] memory initWeightCast = new uint256[](authorities.length);
+        uint256[][] memory initWeights = new uint256[][](authorities.length);
+        (, uint256 initForVotes,) = governor.proposalVotes(proposalId);
+        uint256 totalVotesToCast;
+
+        for (uint256 i = 0; i < authorities.length; i++) {
+            address[] memory authority = authorities[i];
+            (proxies[i], votesToCast[i], k[i], initWeightCast[i], initWeights[i]) = _getInitParams(authority);
+            totalVotesToCast += votesToCast[i];
+
+            if (totalVotesToCast > maxVotingPower) {
+                votesToCast_[proxies[i]] -= votesToCast[i];
+                votesToCast[i] = maxVotingPower - (totalVotesToCast - votesToCast[i]);
+                votesToCast_[proxies[i]] += votesToCast[i];
+                totalVotesToCast = maxVotingPower;
+                break;
+            }
+        }
+
+        vm.expectEmit();
+        emit VoteCastWithParams(
+            authorities[0][authorities[0].length - 1], proposalId, 1, totalVotesToCast, "reason", "params"
+        );
+        vm.expectEmit();
+        emit VotesCast(proxies, signer, authorities, proposalId, 1);
+
+        _limitedCastVoteWithReasonAndParamsBatchedBySig(maxVotingPower, authorities, proposalId, 1, "reason", "params");
 
         _castVoteBatchedAssertions(
             authorities, proxies, votesToCast, totalVotesToCast, k, initWeightCast, initForVotes, initWeights
@@ -173,14 +404,14 @@ contract AlligatorOPV5Test is AlligatorOPTest {
     {
         proxy = _proxyAddress(authority[0], baseRules, baseRulesHash);
         uint256 proxyTotalVotes = op.getPastVotes(proxy, governor.proposalSnapshot(proposalId));
-        (votesToCast, k) = IAlligatorOPV5(alligator).validate(
+        (votesToCast, k) = AlligatorOPV5Mock(alligator)._validate(
             proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes
         );
         votesToCast_[proxy] += votesToCast;
         initWeightCast = governor.weightCast(proposalId, proxy);
         initWeights = new uint256[](authority.length);
         for (uint256 i; i < authority.length; ++i) {
-            initWeights[i] = IAlligatorOPV5(alligator).votesCast(proxy, proposalId, authority[i]);
+            initWeights[i] = AlligatorOPV5Mock(alligator).votesCast(proxy, proposalId, authority[i]);
         }
     }
 
@@ -200,7 +431,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         assertEq(finalForVotes, initForVotes + votesToCast);
 
         for (uint256 i; i < authority.length; ++i) {
-            uint256 recordedVotes = IAlligatorOPV5(alligator).votesCast(proxy, proposalId, authority[i]);
+            uint256 recordedVotes = AlligatorOPV5Mock(alligator).votesCast(proxy, proposalId, authority[i]);
             assertEq(recordedVotes, (k == 0 || i < k) ? initWeights[i] : initWeights[i] + votesToCast);
         }
     }
@@ -228,7 +459,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
                 assertEq(governor.weightCast(proposalId, proxy), initWeightCast[i] + votesToCast_[proxy]);
 
                 for (uint256 l; l < authority.length; ++l) {
-                    uint256 recordedVotes = IAlligatorOPV5(alligator).votesCast(proxy, proposalId, authority[l]);
+                    uint256 recordedVotes = AlligatorOPV5Mock(alligator).votesCast(proxy, proposalId, authority[l]);
                     assertEq(
                         recordedVotes, (k[i] == 0 || l < k[i]) ? initWeights[i][l] : initWeights[i][l] + votesToCast[i]
                     );
@@ -247,7 +478,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         override
         returns (address computedAddress)
     {
-        return IAlligatorOPV5(alligator).proxyAddress(proxyOwner);
+        return AlligatorOPV5Mock(alligator).proxyAddress(proxyOwner);
     }
 
     function _create(address proxyOwner, BaseRules memory baseRules_, bytes32 baseRulesHash_)
@@ -259,20 +490,47 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         return _proxyAddress(proxyOwner, baseRules_, baseRulesHash_);
     }
 
-    function _subdelegate(address, BaseRules memory, address to, SubdelegationRules memory subDelegateRules)
+    function _subdelegate(address, BaseRules memory, address to, SubdelegationRules memory subdelegateRules)
         internal
         override
     {
         SubdelegationRulesV3 memory rules = SubdelegationRulesV3(
-            subDelegateRules.baseRules.maxRedelegations,
-            subDelegateRules.baseRules.blocksBeforeVoteCloses,
-            subDelegateRules.baseRules.notValidBefore,
-            subDelegateRules.baseRules.notValidAfter,
-            subDelegateRules.baseRules.customRule,
-            subDelegateRules.allowanceType,
-            subDelegateRules.allowance
+            subdelegateRules.baseRules.maxRedelegations,
+            subdelegateRules.baseRules.blocksBeforeVoteCloses,
+            subdelegateRules.baseRules.notValidBefore,
+            subdelegateRules.baseRules.notValidAfter,
+            subdelegateRules.baseRules.customRule,
+            subdelegateRules.allowanceType,
+            subdelegateRules.allowance
         );
-        IAlligatorOPV5(alligator).subDelegate(to, rules);
+        AlligatorOPV5Mock(alligator).subdelegate(to, rules);
+    }
+
+    function _subdelegateBatched(
+        address,
+        BaseRules memory,
+        address[] memory targets,
+        SubdelegationRules memory subdelegateRules
+    ) internal virtual override {
+        SubdelegationRulesV3 memory rules = SubdelegationRulesV3(
+            subdelegateRules.baseRules.maxRedelegations,
+            subdelegateRules.baseRules.blocksBeforeVoteCloses,
+            subdelegateRules.baseRules.notValidBefore,
+            subdelegateRules.baseRules.notValidAfter,
+            subdelegateRules.baseRules.customRule,
+            subdelegateRules.allowanceType,
+            subdelegateRules.allowance
+        );
+        AlligatorOPV5Mock(alligator).subdelegateBatched(targets, rules);
+    }
+
+    function _subdelegateBatched(
+        address,
+        BaseRules memory,
+        address[] memory targets,
+        SubdelegationRulesV3[] memory subdelegateRules
+    ) internal virtual {
+        AlligatorOPV5Mock(alligator).subdelegateBatched(targets, subdelegateRules);
     }
 
     function _castVote(BaseRules memory, bytes32, address[] memory authority, uint256 propId, uint8 support)
@@ -280,7 +538,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         virtual
         override
     {
-        IAlligatorOPV5(alligator).castVote(authority, propId, support);
+        AlligatorOPV5Mock(alligator).castVote(authority, propId, support);
     }
 
     function _castVoteWithReason(
@@ -291,7 +549,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         uint8 support,
         string memory reason
     ) internal virtual override {
-        IAlligatorOPV5(alligator).castVoteWithReason(authority, propId, support, reason);
+        AlligatorOPV5Mock(alligator).castVoteWithReason(authority, propId, support, reason);
     }
 
     function _castVoteWithReasonAndParams(
@@ -303,7 +561,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         string memory reason,
         bytes memory params
     ) internal virtual override {
-        IAlligatorOPV5(alligator).castVoteWithReasonAndParams(authority, propId, support, reason, params);
+        AlligatorOPV5Mock(alligator).castVoteWithReasonAndParams(authority, propId, support, reason, params);
     }
 
     function _castVoteWithReasonAndParamsBatched(
@@ -315,11 +573,11 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         string memory reason,
         bytes memory params
     ) internal virtual override {
-        IAlligatorOPV5(alligator).castVoteWithReasonAndParamsBatched(authorities, propId, support, reason, params);
+        AlligatorOPV5Mock(alligator).castVoteWithReasonAndParamsBatched(authorities, propId, support, reason, params);
     }
 
     function _limitedCastVoteWithReasonAndParamsBatched(
-        uint256 maxVotes,
+        uint256 maxVotingPower,
         BaseRules[] memory,
         bytes32[] memory,
         address[][] memory authorities,
@@ -328,8 +586,72 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         string memory reason,
         bytes memory params
     ) internal virtual {
-        IAlligatorOPV5(alligator).limitedCastVoteWithReasonAndParamsBatched(
-            maxVotes, authorities, propId, support, reason, params
+        AlligatorOPV5Mock(alligator).limitedCastVoteWithReasonAndParamsBatched(
+            maxVotingPower, authorities, propId, support, reason, params
+        );
+    }
+
+    function _castVoteBySig(
+        BaseRules memory,
+        bytes32,
+        address[] memory authority,
+        uint256 propId,
+        uint8 support,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal virtual override {
+        AlligatorOPV5Mock(alligator).castVoteBySig(authority, propId, support, v, r, s);
+    }
+
+    function _castVoteWithReasonAndParamsBySig(
+        BaseRules memory,
+        bytes32,
+        address[] memory authority,
+        uint256 propId,
+        uint8 support,
+        string memory reason,
+        bytes memory params,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal virtual override {
+        AlligatorOPV5Mock(alligator).castVoteWithReasonAndParamsBySig(
+            authority, propId, support, reason, params, v, r, s
+        );
+    }
+
+    function _limitedCastVoteWithReasonAndParamsBatchedBySig(
+        uint256 maxVotingPower,
+        address[][] memory authorities,
+        uint256 propId,
+        uint8 support,
+        string memory reason,
+        bytes memory params
+    ) internal virtual {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+            vm.envUint("SIGNER_KEY"),
+            keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, alligator)),
+                    keccak256(
+                        abi.encode(
+                            BALLOT_TYPEHASH,
+                            proposalId,
+                            1,
+                            maxVotingPower,
+                            authorities,
+                            keccak256(bytes("reason")),
+                            keccak256("params")
+                        )
+                    )
+                )
+            )
+        );
+
+        AlligatorOPV5Mock(alligator).limitedCastVoteWithReasonAndParamsBatchedBySig(
+            maxVotingPower, authorities, propId, support, reason, params, v, r, s
         );
     }
 }

@@ -69,11 +69,10 @@ abstract contract SetupAlligatorOP is Test {
     OptimismGovernorV6Mock internal governor =
         OptimismGovernorV6Mock(payable(0xcDF27F107725988f2261Ce2256bDfCdE8B382B10));
 
-    VotableSupplyOracle internal votableSupplyOracle = new VotableSupplyOracle(address(this), 0);
-    ProposalTypesConfigurator internal proposalTypesConfigurator =
-        new ProposalTypesConfigurator(IOptimismGovernor(address(governor)));
+    VotableSupplyOracle internal votableSupplyOracle;
+    ProposalTypesConfigurator internal proposalTypesConfigurator;
 
-    address internal alligator = 0xa0Cb889707d426A7A386870A03bc70d1b0697598;
+    address internal alligator = 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9;
     address internal alligatorAlt;
     address internal proxy1;
     address internal proxy2;
@@ -93,6 +92,7 @@ abstract contract SetupAlligatorOP is Test {
             // allowance: 1e5 // 100%
     });
 
+    address deployer = makeAddr("deployer");
     address admin = makeAddr("admin");
     address manager = makeAddr("manager");
     string description = "a nice description";
@@ -100,6 +100,7 @@ abstract contract SetupAlligatorOP is Test {
     address altVoter = makeAddr("altVoter");
     address altVoter2 = makeAddr("altVoter2");
     uint256 proposalId;
+    address signer = vm.rememberKey(vm.envUint("SIGNER_KEY"));
 
     // =============================================================
     //                             SETUP
@@ -108,6 +109,11 @@ abstract contract SetupAlligatorOP is Test {
     function setUp() public virtual {
         vm.etch(address(op), address(new OptimismToken()).code);
         vm.etch(address(governor), address(new OptimismGovernorV6Mock()).code);
+
+        vm.startPrank(address(deployer));
+        votableSupplyOracle = new VotableSupplyOracle(address(this), 0);
+        proposalTypesConfigurator = new ProposalTypesConfigurator(IOptimismGovernor(address(governor)));
+        vm.stopPrank();
 
         governor.initialize(IVotesUpgradeable(address(op)), manager);
     }

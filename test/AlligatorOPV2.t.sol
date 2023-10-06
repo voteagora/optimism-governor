@@ -83,4 +83,34 @@ contract AlligatorOPV2Test is AlligatorOPTest {
             rulesHashes, authorities, propId, support, reason, params
         );
     }
+
+    function _castVoteBySig(
+        BaseRules memory,
+        bytes32 rulesHash,
+        address[] memory authority,
+        uint256 propId,
+        uint8 support,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal virtual override {
+        IAlligatorOPV2(alligator).castVoteBySig(rulesHash, authority, propId, support, v, r, s);
+    }
+
+    function _castVoteWithReasonAndParamsBySig(
+        BaseRules memory,
+        bytes32 rulesHash,
+        address[] memory authority,
+        uint256 propId,
+        uint8 support,
+        string memory reason,
+        bytes memory params,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal virtual override {
+        IAlligatorOPV2(alligator).castVoteWithReasonAndParamsBySig(
+            rulesHash, authority, propId, support, reason, params, v, r, s
+        );
+    }
 }
