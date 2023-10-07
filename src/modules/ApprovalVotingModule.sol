@@ -161,16 +161,18 @@ contract ApprovalVotingModule is VotingModule {
         override
         returns (address[] memory targets, uint256[] memory values, bytes[] memory calldatas)
     {
-        address governor = proposals[proposalId].governor;
-        _onlyGovernor(governor);
-
         (ProposalOption[] memory options, ProposalSettings memory settings) =
             abi.decode(proposalData, (ProposalOption[], ProposalSettings));
 
-        // If budgetToken is not ETH
-        if (settings.budgetToken != address(0)) {
-            // Save initBalance to be used as comparison in `_afterExecute`
-            proposals[proposalId].initBalance = IERC20(settings.budgetToken).balanceOf(governor);
+        {
+            address governor = proposals[proposalId].governor;
+            _onlyGovernor(governor);
+
+            // If budgetToken is not ETH
+            if (settings.budgetToken != address(0)) {
+                // Save initBalance to be used as comparison in `_afterExecute`
+                proposals[proposalId].initBalance = IERC20(settings.budgetToken).balanceOf(governor);
+            }
         }
 
         (uint128[] memory sortedOptionVotes, ProposalOption[] memory sortedOptions) =
@@ -225,10 +227,15 @@ contract ApprovalVotingModule is VotingModule {
             }
         }
 
-        // Init param lengths based on the `n` passed elements
-        targets = new address[](executeParamsLength);
-        values = new uint256[](executeParamsLength);
-        calldatas = new bytes[](executeParamsLength);
+        unchecked {
+            // Increase by one to account for additional `_afterExecute` call
+            uint256 effectiveParamsLength = executeParamsLength + 1;
+
+            // Init params lengths
+            targets = new address[](effectiveParamsLength);
+            values = new uint256[](effectiveParamsLength);
+            calldatas = new bytes[](effectiveParamsLength);
+        }
 
         // Set n `targets`, `values` and `calldatas`
         for (uint256 i; i < executeParamsLength;) {
@@ -240,6 +247,11 @@ contract ApprovalVotingModule is VotingModule {
                 ++i;
             }
         }
+
+        // Set `_afterExecute` as last call
+        targets[executeParamsLength] = address(this);
+        values[executeParamsLength] = 0;
+        calldatas[executeParamsLength] = abi.encodeWithSelector(0x041e1e96, proposalId, proposalData);
     }
 
     /**
@@ -249,7 +261,7 @@ contract ApprovalVotingModule is VotingModule {
      * @param proposalId The id of the proposal.
      * @param proposalData The proposal data encoded as `(ProposalOption[], ProposalSettings)`.
      */
-    function _afterExecute(uint256 proposalId, bytes memory proposalData) public view override {
+    function _afterExecute(uint256 proposalId, bytes memory proposalData) public view {
         (, ProposalSettings memory settings) = abi.decode(proposalData, (ProposalOption[], ProposalSettings));
 
         if (settings.budgetToken != address(0)) {
