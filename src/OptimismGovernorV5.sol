@@ -136,7 +136,6 @@ contract OptimismGovernorV5 is
         _beforeExecute(proposalId, targets, values, calldatas, descriptionHash);
         _execute(proposalId, targets, values, calldatas, descriptionHash);
         _afterExecute(proposalId, targets, values, calldatas, descriptionHash);
-        module._afterExecute(proposalId, proposalData);
 
         return proposalId;
     }

@@ -25,8 +25,6 @@ abstract contract VotingModule {
 
     function propose(uint256 proposalId, bytes memory proposalData, bytes32 descriptionHash) external virtual;
 
-    function _afterExecute(uint256 proposalId, bytes memory proposalData) external virtual {}
-
     function _countVote(uint256 proposalId, address account, uint8 support, uint256 weight, bytes memory params)
         external
         virtual;
