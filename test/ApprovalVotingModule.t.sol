@@ -284,18 +284,21 @@ contract ApprovalVotingModuleTest is Test {
             module._formatExecuteParams(proposalId, proposalData);
         vm.stopPrank();
 
-        assertEq(targets.length, options[1].targets.length + options[2].targets.length);
+        assertEq(targets.length, options[1].targets.length + options[2].targets.length + 1);
         assertEq(targets.length, values.length);
         assertEq(targets.length, calldatas.length);
         assertEq(targets[0], options[1].targets[0]);
-        assertEq(targets[1], options[1].targets[1]);
-        assertEq(targets[2], options[2].targets[0]);
         assertEq(values[0], options[1].values[0]);
-        assertEq(values[1], options[1].values[1]);
-        assertEq(values[2], options[2].values[0]);
         assertEq(calldatas[0], options[1].calldatas[0]);
+        assertEq(targets[1], options[1].targets[1]);
+        assertEq(values[1], options[1].values[1]);
         assertEq(calldatas[1], options[1].calldatas[1]);
+        assertEq(targets[2], options[2].targets[0]);
+        assertEq(values[2], options[2].values[0]);
         assertEq(calldatas[2], options[2].calldatas[0]);
+        assertEq(targets[3], address(module));
+        assertEq(values[3], 0);
+        assertEq(calldatas[3], abi.encodeCall(ApprovalVotingModule._afterExecute, (proposalId, proposalData)));
     }
 
     function testFormatExecuteParams_ethBudgetExceeded() public {
@@ -317,12 +320,15 @@ contract ApprovalVotingModuleTest is Test {
             module._formatExecuteParams(proposalId, proposalData);
         vm.stopPrank();
 
-        assertEq(targets.length, options[0].targets.length);
+        assertEq(targets.length, options[0].targets.length + 1);
         assertEq(targets.length, values.length);
         assertEq(targets.length, calldatas.length);
         assertEq(targets[0], options[0].targets[0]);
         assertEq(values[0], options[0].values[0]);
         assertEq(calldatas[0], options[0].calldatas[0]);
+        assertEq(targets[1], address(module));
+        assertEq(values[1], 0);
+        assertEq(calldatas[1], abi.encodeCall(ApprovalVotingModule._afterExecute, (proposalId, proposalData)));
     }
 
     function testFormatExecuteParams_opBudgetExceeded() public {
@@ -348,7 +354,7 @@ contract ApprovalVotingModuleTest is Test {
             module._formatExecuteParams(proposalId, proposalData);
         vm.stopPrank();
 
-        assertEq(targets.length, options[1].targets.length);
+        assertEq(targets.length, options[1].targets.length + 1);
         assertEq(targets.length, values.length);
         assertEq(targets.length, calldatas.length);
         assertEq(targets[0], options[1].targets[0]);
@@ -357,6 +363,9 @@ contract ApprovalVotingModuleTest is Test {
         assertEq(targets[1], options[1].targets[1]);
         assertEq(values[1], options[1].values[1]);
         assertEq(calldatas[1], options[1].calldatas[1]);
+        assertEq(targets[2], address(module));
+        assertEq(values[2], 0);
+        assertEq(calldatas[2], abi.encodeCall(ApprovalVotingModule._afterExecute, (proposalId, proposalData)));
     }
 
     function testGetAccountVotes() public {
@@ -603,10 +612,9 @@ contract ApprovalVotingModuleTest is Test {
 
         (targets, values, calldatas) = module._formatExecuteParams(proposalId, proposalData);
 
+        vm.expectRevert(ApprovalVotingModule.BudgetExceeded.selector);
         governor_.execute(proposalId, targets, values, calldatas, "");
 
-        vm.expectRevert(ApprovalVotingModule.BudgetExceeded.selector);
-        module._afterExecute(proposalId, proposalData);
         vm.stopPrank();
     }
 
