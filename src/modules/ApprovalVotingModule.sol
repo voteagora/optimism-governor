@@ -136,7 +136,7 @@ contract ApprovalVotingModule is VotingModule {
 
         if (support == uint8(VoteType.For)) {
             if (weight != 0) {
-                uint256[] memory options = abi.decode(params, (uint256[]));
+                uint256[] memory options = _decodeVoteParams(params);
                 uint256 totalOptions = options.length;
                 if (totalOptions == 0) revert InvalidParams();
 
@@ -467,5 +467,10 @@ contract ApprovalVotingModule is VotingModule {
             }
             succeededOptionsLength = i;
         }
+    }
+
+    // Virtual method used to decode _countVote params.
+    function _decodeVoteParams(bytes memory params) internal virtual returns (uint256[] memory options) {
+        options = abi.decode(params, (uint256[]));
     }
 }
