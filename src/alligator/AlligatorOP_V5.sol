@@ -33,7 +33,6 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     error LengthMismatch();
     error InvalidSignature(ECDSAUpgradeable.RecoverError recoverError);
     error ZeroVotesToCast();
-    error ProxyNotExistent();
     error NotDelegated(address from, address to);
     error TooManyRedelegations(address from, address to);
     error NotValidYet(address from, address to, uint256 willBeValidFrom);
@@ -45,7 +44,6 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     //                             EVENTS
     // =============================================================
 
-    event ProxyDeployed(address indexed owner, address proxy);
     event SubDelegation(address indexed from, address indexed to, SubdelegationRules subdelegationRules);
     event SubDelegations(address indexed from, address[] to, SubdelegationRules subdelegationRules);
     event SubDelegations(address indexed from, address[] to, SubdelegationRules[] subdelegationRules);
