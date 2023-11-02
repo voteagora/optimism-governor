@@ -66,7 +66,13 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     bytes32 internal constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
 
-    bytes32 internal constant BALLOT_TYPEHASH = keccak256("Ballot(uint256 proposalId,uint8 support)");
+    bytes32 internal constant BALLOT_TYPEHASH =
+        keccak256("Ballot(uint256 proposalId,uint8 support,address[] authority)");
+    bytes32 internal constant BALLOT_WITHPARAMS_TYPEHASH =
+        keccak256("Ballot(uint256 proposalId,uint8 support,address[] authority,string reason,bytes params)");
+    bytes32 internal constant BALLOT_WITHPARAMS_BATCHED_TYPEHASH = keccak256(
+        "Ballot(uint256 proposalId,uint8 support,uint256 maxVotingPower,address[][] authorities,string reason,bytes params)"
+    );
 
     // =============================================================
     //                        MUTABLE STORAGE
@@ -233,7 +239,14 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     ) public override whenNotPaused {
         address signatory = _getSignatory(
             keccak256(
-                abi.encode(BALLOT_TYPEHASH, proposalId, support, authority, keccak256(bytes(reason)), keccak256(params))
+                abi.encode(
+                    BALLOT_WITHPARAMS_TYPEHASH,
+                    proposalId,
+                    support,
+                    authority,
+                    keccak256(bytes(reason)),
+                    keccak256(params)
+                )
             ),
             v,
             r,
@@ -267,7 +280,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         address signatory = _getSignatory(
             keccak256(
                 abi.encode(
-                    BALLOT_TYPEHASH,
+                    BALLOT_WITHPARAMS_BATCHED_TYPEHASH,
                     proposalId,
                     support,
                     maxVotingPower,
