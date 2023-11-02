@@ -10,7 +10,16 @@ contract VotableSupplyOracleTest is Test {
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event VotableSupplyUpdated(uint256 blockNumber, uint256 oldVotableSupply, uint256 newVotableSupply);
+    /**
+     * Emitted when the votable supply is updated with `_updateVotableSupply`.
+     */
+    event VotableSupplyUpdated(uint256 prevVotableSupply, uint256 newVotableSupply);
+    /**
+     * Emitted when the votable supply is updated with `_updateVotableSupplyAt`.
+     */
+    event VotableSupplyCheckpointUpdated(
+        uint256 checkpointBlockNumber, uint256 prevVotableSupply, uint256 newVotableSupply
+    );
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -42,7 +51,7 @@ contract VotableSupplyOracleTest is Test {
         vm.roll(block.number + 10);
 
         vm.expectEmit();
-        emit VotableSupplyUpdated(block.number, 100, 200);
+        emit VotableSupplyUpdated(100, 200);
         votableSupplyOracle._updateVotableSupply(200);
 
         assertEq(votableSupplyOracle.votableSupply(), 200);

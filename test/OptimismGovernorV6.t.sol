@@ -32,8 +32,8 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
     //////////////////////////////////////////////////////////////*/
 
     event ProposalCreated(
-        uint256 proposalId,
-        address proposer,
+        uint256 indexed proposalId,
+        address indexed proposer,
         address[] targets,
         uint256[] values,
         string[] signatures,
@@ -44,16 +44,16 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
         uint8 proposalType
     );
     event ProposalCreated(
-        uint256 proposalId,
-        address proposer,
-        address votingModule,
+        uint256 indexed proposalId,
+        address indexed proposer,
+        address indexed votingModule,
         bytes proposalData,
         uint256 startBlock,
         uint256 endBlock,
         string description,
         uint8 proposalType
     );
-    event ProposalTypeUpdated(uint256 proposalId, uint8 proposalType);
+    event ProposalTypeUpdated(uint256 indexed proposalId, uint8 proposalType);
 
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
