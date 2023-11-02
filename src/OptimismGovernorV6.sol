@@ -67,6 +67,9 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
 
     uint256 private constant GOVERNOR_VERSION = 1;
 
+    // Max value of `quorum` and `approvalThreshold` in `ProposalType`
+    uint16 public constant PERCENT_DIVISOR = 10_000;
+
     // Max value of `VoteType` enum
     uint8 internal constant MAX_VOTE_TYPE = 2;
 
@@ -360,7 +363,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
 
         uint256 proposalTypeId = _proposals[proposalId].proposalType;
 
-        return (supply * PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposalTypeId).quorum) / 10_000;
+        return (supply * PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposalTypeId).quorum) / PERCENT_DIVISOR;
     }
 
     /**
@@ -389,7 +392,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         uint256 totalVotes = forVotes + proposalVote.againstVotes;
 
         if (totalVotes != 0) {
-            voteSucceeded = (forVotes * 10_000) / totalVotes
+            voteSucceeded = (forVotes * PERCENT_DIVISOR) / totalVotes
                 >= PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposal.proposalType).approvalThreshold;
         }
     }

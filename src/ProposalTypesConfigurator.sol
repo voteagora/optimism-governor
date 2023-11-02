@@ -13,6 +13,7 @@ contract ProposalTypesConfigurator is IProposalTypesConfigurator {
     //////////////////////////////////////////////////////////////*/
 
     IOptimismGovernor public immutable governor;
+    uint16 public constant PERCENT_DIVISOR = 10_000;
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -49,8 +50,8 @@ contract ProposalTypesConfigurator is IProposalTypesConfigurator {
      * @dev Set the parameters for a proposal type. Only callable by the manager.
      *
      * @param proposalTypeId Id of the proposal type
-     * @param quorum Quorum percentage, scaled by 10000
-     * @param approvalThreshold Approval threshold percentage, scaled by 10000
+     * @param quorum Quorum percentage, scaled by `PERCENT_DIVISOR`
+     * @param approvalThreshold Approval threshold percentage, scaled by `PERCENT_DIVISOR`
      * @param name Name of the proposal type
      */
     function setProposalType(uint256 proposalTypeId, uint16 quorum, uint16 approvalThreshold, string memory name)
@@ -58,8 +59,8 @@ contract ProposalTypesConfigurator is IProposalTypesConfigurator {
         override
         onlyManager
     {
-        if (quorum > 10000) revert InvalidQuorum();
-        if (approvalThreshold > 10000) revert InvalidApprovalThreshold();
+        if (quorum > PERCENT_DIVISOR) revert InvalidQuorum();
+        if (approvalThreshold > PERCENT_DIVISOR) revert InvalidApprovalThreshold();
 
         _proposalTypes[proposalTypeId] = ProposalType(quorum, approvalThreshold, name);
 
