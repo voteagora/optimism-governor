@@ -173,19 +173,21 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         bytes[] memory calldatas,
         string memory description,
         uint8 proposalType
-    ) public virtual onlyManager returns (uint256) {
+    ) public virtual onlyManager returns (uint256 proposalId) {
         require(
             getVotes(_msgSender(), block.number - 1) >= proposalThreshold(),
             "Governor: proposer votes below proposal threshold"
         );
 
-        uint256 proposalId = hashProposal(targets, values, calldatas, keccak256(bytes(description)));
+        proposalId = hashProposal(targets, values, calldatas, keccak256(bytes(description)));
 
         require(targets.length == values.length, "Governor: invalid proposal length");
         require(targets.length == calldatas.length, "Governor: invalid proposal length");
         require(targets.length > 0, "Governor: empty proposal");
         // Revert if `proposalType` is unset
-        if (proposalTypesConfigurator.proposalTypes(proposalType).quorum == 0) revert InvalidProposalType(proposalType);
+        if (bytes(proposalTypesConfigurator.proposalTypes(proposalType).name).length == 0) {
+            revert InvalidProposalType(proposalType);
+        }
 
         ProposalCore storage proposal = _proposals[proposalId];
         require(proposal.voteStart.isUnset(), "Governor: proposal already exists");
@@ -209,8 +211,6 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
             description,
             proposalType
         );
-
-        return proposalId;
     }
 
     /**
@@ -221,7 +221,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         bytes memory proposalData,
         string memory description,
         uint8 proposalType
-    ) public virtual onlyManager returns (uint256) {
+    ) public virtual onlyManager returns (uint256 proposalId) {
         require(
             getVotes(_msgSender(), block.number - 1) >= proposalThreshold(),
             "Governor: proposer votes below proposal threshold"
@@ -229,11 +229,13 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         require(approvedModules[address(module)], "Governor: module not approved");
 
         // Revert if `proposalType` is unset
-        if (proposalTypesConfigurator.proposalTypes(proposalType).quorum == 0) revert InvalidProposalType(proposalType);
+        if (bytes(proposalTypesConfigurator.proposalTypes(proposalType).name).length == 0) {
+            revert InvalidProposalType(proposalType);
+        }
 
         bytes32 descriptionHash = keccak256(bytes(description));
 
-        uint256 proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
+        proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
 
         ProposalCore storage proposal = _proposals[proposalId];
         require(proposal.voteStart.isUnset(), "Governor: proposal already exists");
@@ -251,8 +253,6 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         emit ProposalCreated(
             proposalId, _msgSender(), address(module), proposalData, snapshot, deadline, description, proposalType
         );
-
-        return proposalId;
     }
 
     /**
@@ -284,11 +284,11 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         internal
         virtual
         override
-        returns (uint256)
+        returns (uint256 weight)
     {
         require(state(proposalId) == ProposalState.Active, "Governor: vote not currently active");
 
-        uint256 weight = _getVotes(account, _proposals[proposalId].voteStart.getDeadline(), "");
+        weight = _getVotes(account, _proposals[proposalId].voteStart.getDeadline(), "");
 
         _countVote(proposalId, account, support, weight, params);
 
@@ -303,8 +303,6 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         } else {
             emit VoteCastWithParams(account, proposalId, support, weight, reason, params);
         }
-
-        return weight;
     }
 
     /*//////////////////////////////////////////////////////////////
