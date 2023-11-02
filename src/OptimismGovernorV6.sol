@@ -377,7 +377,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     /**
      * @dev Added logic based on approval voting threshold to determine if vote has succeeded.
      */
-    function _voteSucceeded(uint256 proposalId) internal view virtual override returns (bool) {
+    function _voteSucceeded(uint256 proposalId) internal view virtual override returns (bool voteSucceeded) {
         ProposalCore storage proposal = _proposals[proposalId];
 
         address votingModule = proposal.votingModule;
@@ -390,8 +390,10 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         uint256 forVotes = proposalVote.forVotes;
         uint256 totalVotes = forVotes + proposalVote.againstVotes;
 
-        return (forVotes * 10_000) / totalVotes
-            >= proposalTypesConfigurator.proposalTypes(proposal.proposalType).approvalThreshold;
+        if (totalVotes != 0) {
+            voteSucceeded = (forVotes * 10_000) / totalVotes
+                >= proposalTypesConfigurator.proposalTypes(proposal.proposalType).approvalThreshold;
+        }
     }
 
     /**
