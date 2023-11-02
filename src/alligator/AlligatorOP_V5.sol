@@ -98,6 +98,8 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
 
     function initialize(address _initOwner) external initializer {
         PausableUpgradeable.__Pausable_init();
+        OwnableUpgradeable.__Ownable_init();
+        UUPSUpgradeable.__UUPSUpgradeable_init();
         _transferOwnership(_initOwner);
     }
 
