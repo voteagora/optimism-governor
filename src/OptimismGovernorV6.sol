@@ -178,16 +178,16 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
             getVotes(_msgSender(), block.number - 1) >= proposalThreshold(),
             "Governor: proposer votes below proposal threshold"
         );
-
-        proposalId = hashProposal(targets, values, calldatas, keccak256(bytes(description)));
-
         require(targets.length == values.length, "Governor: invalid proposal length");
         require(targets.length == calldatas.length, "Governor: invalid proposal length");
         require(targets.length > 0, "Governor: empty proposal");
+
         // Revert if `proposalType` is unset
         if (bytes(PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposalType).name).length == 0) {
             revert InvalidProposalType(proposalType);
         }
+
+        proposalId = hashProposal(targets, values, calldatas, keccak256(bytes(description)));
 
         ProposalCore storage proposal = _proposals[proposalId];
         require(proposal.voteStart.isUnset(), "Governor: proposal already exists");
