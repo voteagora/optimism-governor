@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 import {OptimismGovernorV5} from "./OptimismGovernorV5.sol";
 import {IVotableSupplyOracle} from "./interfaces/IVotableSupplyOracle.sol";
