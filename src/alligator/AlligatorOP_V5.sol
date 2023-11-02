@@ -9,6 +9,7 @@ import {IOptimismGovernor} from "../interfaces/IOptimismGovernor.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {ECDSAUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /**
@@ -30,7 +31,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     // =============================================================
 
     error LengthMismatch();
-    error BadSignature();
+    error InvalidSignature(ECDSAUpgradeable.RecoverError recoverError);
     error ZeroVotesToCast();
     error ProxyNotExistent();
     error NotDelegated(address from, address to);
@@ -54,6 +55,10 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     event VotesCast(
         address[] proxies, address indexed voter, address[][] authorities, uint256 proposalId, uint8 support
     );
+
+    // =============================================================
+    //                           LIBRARIES
+    // =============================================================
 
     // =============================================================
     //                       IMMUTABLE STORAGE
@@ -425,7 +430,8 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         view
         returns (address signatory)
     {
-        signatory = ecrecover(
+        ECDSAUpgradeable.RecoverError recoverError;
+        (signatory, recoverError) = ECDSAUpgradeable.tryRecover(
             keccak256(
                 abi.encodePacked(
                     "\x19\x01",
@@ -439,7 +445,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         );
 
         if (signatory == address(0)) {
-            revert BadSignature();
+            revert InvalidSignature(recoverError);
         }
     }
 
