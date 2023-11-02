@@ -12,7 +12,7 @@ contract ProposalTypesConfigurator is IProposalTypesConfigurator {
                            IMMUTABLE STORAGE
     //////////////////////////////////////////////////////////////*/
 
-    IOptimismGovernor immutable governor;
+    IOptimismGovernor public immutable governor;
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
