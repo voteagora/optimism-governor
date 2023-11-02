@@ -71,14 +71,14 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     uint8 internal constant MAX_VOTE_TYPE = 2;
 
     // TODO: Set correct alligator address
-    address public constant alligator = 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9;
+    address public constant ALLIGATOR = 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9;
 
     // TODO: Set correct votableSupplyOracle address
-    IVotableSupplyOracle public constant votableSupplyOracle =
+    IVotableSupplyOracle public constant VOTABLE_SUPPLY_ORACLE =
         IVotableSupplyOracle(0x8Ad159a275AEE56fb2334DBb69036E9c7baCEe9b);
 
     // TODO: Set correct proposalTypesConfigurator address
-    IProposalTypesConfigurator public constant proposalTypesConfigurator =
+    IProposalTypesConfigurator public constant PROPOSAL_TYPES_CONFIGURATOR =
         IProposalTypesConfigurator(0x1240FA2A84dd9157a0e76B5Cfe98B1d52268B264);
 
     /*//////////////////////////////////////////////////////////////
@@ -96,7 +96,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     //////////////////////////////////////////////////////////////*/
 
     modifier onlyAlligator() {
-        if (msg.sender != alligator) revert("Unauthorized");
+        if (msg.sender != ALLIGATOR) revert("Unauthorized");
         _;
     }
 
@@ -185,7 +185,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         require(targets.length == calldatas.length, "Governor: invalid proposal length");
         require(targets.length > 0, "Governor: empty proposal");
         // Revert if `proposalType` is unset
-        if (bytes(proposalTypesConfigurator.proposalTypes(proposalType).name).length == 0) {
+        if (bytes(PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposalType).name).length == 0) {
             revert InvalidProposalType(proposalType);
         }
 
@@ -229,7 +229,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         require(approvedModules[address(module)], "Governor: module not approved");
 
         // Revert if `proposalType` is unset
-        if (bytes(proposalTypesConfigurator.proposalTypes(proposalType).name).length == 0) {
+        if (bytes(PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposalType).name).length == 0) {
             revert InvalidProposalType(proposalType);
         }
 
@@ -326,14 +326,14 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
      * @dev Returns the votable supply for the current block number.
      */
     function votableSupply() public view virtual returns (uint256) {
-        return votableSupplyOracle.votableSupply();
+        return VOTABLE_SUPPLY_ORACLE.votableSupply();
     }
 
     /**
      * @dev Returns the votable supply for `blockNumber`.
      */
     function votableSupply(uint256 blockNumber) public view virtual returns (uint256) {
-        return votableSupplyOracle.votableSupply(blockNumber);
+        return VOTABLE_SUPPLY_ORACLE.votableSupply(blockNumber);
     }
 
     /**
@@ -341,7 +341,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
      *
      * @dev Based on `votableSupply` by default, but falls back to `totalSupply` if not available.
      * @dev Supply is calculated at the proposal snapshot block
-     * @dev Quorum value is derived from `proposalTypesConfigurator`
+     * @dev Quorum value is derived from `PROPOSAL_TYPES_CONFIGURATOR`
      */
     function quorum(uint256 proposalId)
         public
@@ -360,7 +360,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
 
         uint256 proposalTypeId = _proposals[proposalId].proposalType;
 
-        return (supply * proposalTypesConfigurator.proposalTypes(proposalTypeId).quorum) / 10_000;
+        return (supply * PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposalTypeId).quorum) / 10_000;
     }
 
     /**
@@ -390,7 +390,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
 
         if (totalVotes != 0) {
             voteSucceeded = (forVotes * 10_000) / totalVotes
-                >= proposalTypesConfigurator.proposalTypes(proposal.proposalType).approvalThreshold;
+                >= PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposal.proposalType).approvalThreshold;
         }
     }
 
@@ -399,7 +399,9 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
      */
     function editProposalType(uint256 proposalId, uint8 proposalType) external onlyManager {
         if (proposalSnapshot(proposalId) == 0) revert InvalidProposalId();
-        if (proposalTypesConfigurator.proposalTypes(proposalType).quorum == 0) revert InvalidProposalType(proposalType);
+        if (PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposalType).quorum == 0) {
+            revert InvalidProposalType(proposalType);
+        }
 
         _proposals[proposalId].proposalType = proposalType;
 

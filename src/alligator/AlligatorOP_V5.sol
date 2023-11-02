@@ -62,9 +62,9 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     //                       IMMUTABLE STORAGE
     // =============================================================
 
-    address public constant governor = 0xcDF27F107725988f2261Ce2256bDfCdE8B382B10;
+    address public constant GOVERNOR = 0xcDF27F107725988f2261Ce2256bDfCdE8B382B10;
 
-    address public constant op = 0x4200000000000000000000000000000000000042;
+    address public constant OP_TOKEN = 0x4200000000000000000000000000000000000042;
 
     bytes32 internal constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
@@ -323,7 +323,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         bytes memory params
     ) internal {
         address proxy = proxyAddress(authority[0]);
-        uint256 proxyTotalVotes = IVotes(op).getPastVotes(proxy, _proposalSnapshot(proposalId));
+        uint256 proxyTotalVotes = IVotes(OP_TOKEN).getPastVotes(proxy, _proposalSnapshot(proposalId));
 
         (uint256 votesToCast, uint256 k) = validate(proxy, voter, authority, proposalId, support, proxyTotalVotes);
 
@@ -366,7 +366,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         uint256 k;
         for (uint256 i; i < authorities.length;) {
             proxies[i] = proxyAddress(authorities[i][0]);
-            proxyTotalVotes = IVotes(op).getPastVotes(proxies[i], snapshotBlock);
+            proxyTotalVotes = IVotes(OP_TOKEN).getPastVotes(proxies[i], snapshotBlock);
 
             (votesToCast, k) = validate(proxies[i], voter, authorities[i], proposalId, support, proxyTotalVotes);
 
@@ -405,7 +405,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         uint256 proxyTotalVotes
     ) internal {
         // Record weight cast for a proxy, on the governor
-        IOptimismGovernor(governor).increaseWeightCast(proposalId, proxy, votesToCast, proxyTotalVotes);
+        IOptimismGovernor(GOVERNOR).increaseWeightCast(proposalId, proxy, votesToCast, proxyTotalVotes);
 
         if (k != 0) {
             // Record `votesToCast` across the authority chain, only for voters whose allowance does not exceed proxy
@@ -624,7 +624,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
                             bytes1(0xff),
                             address(this),
                             bytes32(uint256(uint160(proxyOwner))), // salt
-                            keccak256(abi.encodePacked(type(AlligatorProxy).creationCode, abi.encode(governor)))
+                            keccak256(abi.encodePacked(type(AlligatorProxy).creationCode, abi.encode(GOVERNOR)))
                         )
                     )
                 )
@@ -653,7 +653,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         uint256 votes,
         bytes memory params
     ) internal {
-        IOptimismGovernor(governor).castVoteFromAlligator(proposalId, voter, support, reason, votes, params);
+        IOptimismGovernor(GOVERNOR).castVoteFromAlligator(proposalId, voter, support, reason, votes, params);
     }
 
     /**
@@ -663,7 +663,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
      * @return endBlock Proposal's end block number
      */
     function _proposalEndBlock(uint256 proposalId) internal view returns (uint256) {
-        return IOptimismGovernor(governor).proposalDeadline(proposalId);
+        return IOptimismGovernor(GOVERNOR).proposalDeadline(proposalId);
     }
 
     /**
@@ -673,7 +673,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
      * @return snapshotBlock Proposal's snapshot block number
      */
     function _proposalSnapshot(uint256 proposalId) internal view returns (uint256) {
-        return IOptimismGovernor(governor).proposalSnapshot(proposalId);
+        return IOptimismGovernor(GOVERNOR).proposalSnapshot(proposalId);
     }
 
     /**
@@ -684,7 +684,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
      * @return weightCast Weight cast by the proxy
      */
     function _weightCast(uint256 proposalId, address proxy) internal view returns (uint256) {
-        return IOptimismGovernor(governor).weightCast(proposalId, proxy);
+        return IOptimismGovernor(GOVERNOR).weightCast(proposalId, proxy);
     }
 
     // =============================================================
@@ -735,7 +735,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
             }
             if (rules.customRule != address(0)) {
                 if (
-                    IRule(rules.customRule).validate(governor, sender, proposalId, uint8(support))
+                    IRule(rules.customRule).validate(GOVERNOR, sender, proposalId, uint8(support))
                         != IRule.validate.selector
                 ) {
                     revert InvalidCustomRule(from, to, rules.customRule);
