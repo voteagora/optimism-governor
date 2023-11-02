@@ -70,9 +70,6 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     // Max value of `quorum` and `approvalThreshold` in `ProposalType`
     uint16 public constant PERCENT_DIVISOR = 10_000;
 
-    // Max value of `VoteType` enum
-    uint8 internal constant MAX_VOTE_TYPE = 2;
-
     // TODO: Set correct alligator address
     address public constant ALLIGATOR = 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9;
 
