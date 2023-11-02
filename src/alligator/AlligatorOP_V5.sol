@@ -662,7 +662,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
      * @param proposalId The id of the proposal to vote on
      * @return endBlock Proposal's end block number
      */
-    function _proposalEndBlock(uint256 proposalId) internal view returns (uint256 endBlock) {
+    function _proposalEndBlock(uint256 proposalId) internal view returns (uint256) {
         return IOptimismGovernor(governor).proposalDeadline(proposalId);
     }
 
@@ -672,7 +672,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
      * @param proposalId The id of the proposal to vote on
      * @return snapshotBlock Proposal's snapshot block number
      */
-    function _proposalSnapshot(uint256 proposalId) internal view returns (uint256 snapshotBlock) {
+    function _proposalSnapshot(uint256 proposalId) internal view returns (uint256) {
         return IOptimismGovernor(governor).proposalSnapshot(proposalId);
     }
 
@@ -683,7 +683,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
      * @param proxy The address of the proxy
      * @return weightCast Weight cast by the proxy
      */
-    function _weightCast(uint256 proposalId, address proxy) internal view returns (uint256 weightCast) {
+    function _weightCast(uint256 proposalId, address proxy) internal view returns (uint256) {
         return IOptimismGovernor(governor).weightCast(proposalId, proxy);
     }
 
