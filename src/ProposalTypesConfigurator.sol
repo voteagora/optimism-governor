@@ -9,6 +9,12 @@ import {IOptimismGovernor} from "./interfaces/IOptimismGovernor.sol";
  */
 contract ProposalTypesConfigurator is IProposalTypesConfigurator {
     /*//////////////////////////////////////////////////////////////
+                                 ERRORS
+    //////////////////////////////////////////////////////////////*/
+
+    error NotManager();
+
+    /*//////////////////////////////////////////////////////////////
                            IMMUTABLE STORAGE
     //////////////////////////////////////////////////////////////*/
 
@@ -26,7 +32,7 @@ contract ProposalTypesConfigurator is IProposalTypesConfigurator {
     //////////////////////////////////////////////////////////////*/
 
     modifier onlyManager() {
-        require(msg.sender == governor.manager(), "Only the manager can call this function");
+        if (msg.sender != governor.manager()) revert NotManager();
         _;
     }
 
