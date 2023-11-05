@@ -399,7 +399,9 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
      */
     function editProposalType(uint256 proposalId, uint8 proposalType) external onlyManager {
         if (proposalSnapshot(proposalId) == 0) revert InvalidProposalId();
-        if (PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposalType).quorum == 0) {
+
+        // Revert if `proposalType` is unset
+        if (bytes(PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposalType).name).length == 0) {
             revert InvalidProposalType(proposalType);
         }
 
