@@ -63,17 +63,13 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     // =============================================================
 
     address public constant GOVERNOR = 0xcDF27F107725988f2261Ce2256bDfCdE8B382B10;
-
     address public constant OP_TOKEN = 0x4200000000000000000000000000000000000042;
-
-    bytes32 internal constant DOMAIN_TYPEHASH =
+    bytes32 public constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
-
-    bytes32 internal constant BALLOT_TYPEHASH =
-        keccak256("Ballot(uint256 proposalId,uint8 support,address[] authority)");
-    bytes32 internal constant BALLOT_WITHPARAMS_TYPEHASH =
+    bytes32 public constant BALLOT_TYPEHASH = keccak256("Ballot(uint256 proposalId,uint8 support,address[] authority)");
+    bytes32 public constant BALLOT_WITHPARAMS_TYPEHASH =
         keccak256("Ballot(uint256 proposalId,uint8 support,address[] authority,string reason,bytes params)");
-    bytes32 internal constant BALLOT_WITHPARAMS_BATCHED_TYPEHASH = keccak256(
+    bytes32 public constant BALLOT_WITHPARAMS_BATCHED_TYPEHASH = keccak256(
         "Ballot(uint256 proposalId,uint8 support,uint256 maxVotingPower,address[][] authorities,string reason,bytes params)"
     );
 

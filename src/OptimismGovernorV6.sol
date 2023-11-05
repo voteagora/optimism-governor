@@ -165,7 +165,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @dev Updated version in which `proposalType` is set and checked.
+     * @dev Updated version of `propose` in which `proposalType` is set and checked.
      */
     function propose(
         address[] memory targets,
