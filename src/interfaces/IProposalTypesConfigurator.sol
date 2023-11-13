@@ -8,6 +8,7 @@ interface IProposalTypesConfigurator {
 
     error InvalidQuorum();
     error InvalidApprovalThreshold();
+    error NotManager();
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS

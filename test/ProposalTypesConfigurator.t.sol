@@ -69,7 +69,7 @@ contract ProposalTypesConfiguratorTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function testRevert_onlyManager() public {
-        vm.expectRevert("Only the manager can call this function");
+        vm.expectRevert(IProposalTypesConfigurator.NotManager.selector);
         proposalTypesConfigurator.setProposalType(0, 0, 0, "");
     }
 
