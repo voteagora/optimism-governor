@@ -383,14 +383,16 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
             if (!VotingModule(votingModule)._voteSucceeded(proposalId)) return false;
         }
 
-        ProposalVote storage proposalVote = _proposalVotes[proposalId];
+        uint256 approvalThreshold = PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposal.proposalType).approvalThreshold;
 
+        if (approvalThreshold == 0) return true;
+
+        ProposalVote storage proposalVote = _proposalVotes[proposalId];
         uint256 forVotes = proposalVote.forVotes;
         uint256 totalVotes = forVotes + proposalVote.againstVotes;
 
         if (totalVotes != 0) {
-            voteSucceeded = (forVotes * PERCENT_DIVISOR) / totalVotes
-                >= PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposal.proposalType).approvalThreshold;
+            voteSucceeded = (forVotes * PERCENT_DIVISOR) / totalVotes >= approvalThreshold;
         }
     }
 
