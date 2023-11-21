@@ -65,7 +65,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
                            IMMUTABLE STORAGE
     //////////////////////////////////////////////////////////////*/
 
-    uint256 private constant GOVERNOR_VERSION = 1;
+    uint256 private constant GOVERNOR_VERSION = 2;
 
     // Max value of `quorum` and `approvalThreshold` in `ProposalType`
     uint16 public constant PERCENT_DIVISOR = 10_000;
