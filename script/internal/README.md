@@ -6,7 +6,7 @@ Add `MANAGER_KEY` and `VOTER_KEY` as private keys to `.env` file
 
 ### Execute scripts
 
-`forge script script/internal/AlligatorSubdelegateToManyScript.s.sol -f op --broadcast --with-gas-price 20000000`
+`forge script script/internal/{scriptName}.s.sol -f op --broadcast --priority-gas-price 20000000`
 
 ### Order of execution
 
