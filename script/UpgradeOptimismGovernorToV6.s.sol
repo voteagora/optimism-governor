@@ -20,7 +20,8 @@ contract UpgradeOptimismGovernorToV6Script is Script {
         ProposalTypesConfigurator(payable(0x54c943f19c2E983926E2d8c060eF3a956a653aA7));
     ApprovalVotingModule module = ApprovalVotingModule(0xdd0229D72a414DC821DEc66f3Cc4eF6dB2C7b7df);
     VotableSupplyOracle votableSupplyOracle = VotableSupplyOracle(0x1b7CA7437748375302bAA8954A2447fC3FBE44CC);
-    AlligatorOPV5 alligatorV5 = AlligatorOPV5(0xD89eb37D3e643aab97258C62BcF704CD00761af6);
+    AlligatorOPV5 alligatorV5Impl = AlligatorOPV5(0xD89eb37D3e643aab97258C62BcF704CD00761af6);
+    AlligatorOPV5 alligatorV5 = AlligatorOPV5(0x7f08F3095530B67CdF8466B7a923607944136Df0);
 
     function run() public 
     // returns (
