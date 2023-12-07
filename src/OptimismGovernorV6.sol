@@ -412,6 +412,10 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         emit ProposalTypeUpdated(proposalId, proposalType);
     }
 
+    function getProposalType(uint256 proposalId) external view returns (uint8) {
+        return _proposals[proposalId].proposalType;
+    }
+
     /**
      * Params encoding:
      * - modules = custom external params depending on module used
