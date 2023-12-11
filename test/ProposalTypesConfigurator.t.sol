@@ -62,6 +62,13 @@ contract ProposalTypesConfiguratorTest is Test {
         assertEq(propType.quorum, 4_000);
         assertEq(propType.approvalThreshold, 6_000);
         assertEq(propType.name, "New Default");
+
+        vm.prank(manager);
+        proposalTypesConfigurator.setProposalType(1, 0, 0, "Optimistic");
+        propType = proposalTypesConfigurator.proposalTypes(1);
+        assertEq(propType.quorum, 0);
+        assertEq(propType.approvalThreshold, 0);
+        assertEq(propType.name, "Optimistic");
     }
 
     /*//////////////////////////////////////////////////////////////

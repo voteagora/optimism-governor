@@ -67,6 +67,7 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts {
     string description = "a nice description";
     address voter = makeAddr("voter");
     address altVoter = makeAddr("altVoter");
+    address altVoter2 = makeAddr("altVoter2");
 
     OptimismToken internal op = OptimismToken(0x4200000000000000000000000000000000000042);
     address internal governor;
@@ -97,12 +98,15 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts {
         vm.startPrank(op.owner());
         op.mint(voter, 1e18);
         op.mint(altVoter, 1e20);
+        op.mint(altVoter2, 1e18);
         vm.stopPrank();
 
         vm.prank(voter);
         op.delegate(voter);
         vm.prank(altVoter);
         op.delegate(altVoter);
+        vm.prank(altVoter2);
+        op.delegate(altVoter2);
 
         governor = proxy;
 
