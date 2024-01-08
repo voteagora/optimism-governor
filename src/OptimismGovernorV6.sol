@@ -70,14 +70,12 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     // Max value of `quorum` and `approvalThreshold` in `ProposalType`
     uint16 public constant PERCENT_DIVISOR = 10_000;
 
-    // TODO: Set correct alligator address
+    // TODO: Before deploying, set correct addresses
     address public constant ALLIGATOR = 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9;
 
-    // TODO: Set correct votableSupplyOracle address
     IVotableSupplyOracle public constant VOTABLE_SUPPLY_ORACLE =
         IVotableSupplyOracle(0x8Ad159a275AEE56fb2334DBb69036E9c7baCEe9b);
 
-    // TODO: Set correct proposalTypesConfigurator address
     IProposalTypesConfigurator public constant PROPOSAL_TYPES_CONFIGURATOR =
         IProposalTypesConfigurator(0x1240FA2A84dd9157a0e76B5Cfe98B1d52268B264);
 
