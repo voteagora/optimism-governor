@@ -36,10 +36,6 @@ contract OptimisticModule_SocialSignalling is VotingModule {
 
     uint16 public constant PERCENT_DIVISOR = 10_000;
 
-    // TODO: Set correct proposalTypesConfigurator address
-    IProposalTypesConfigurator public constant PROPOSAL_TYPES_CONFIGURATOR =
-        IProposalTypesConfigurator(0x1240FA2A84dd9157a0e76B5Cfe98B1d52268B264);
-
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
@@ -66,8 +62,9 @@ contract OptimisticModule_SocialSignalling is VotingModule {
         (ProposalSettings memory proposalSettings) = abi.decode(proposalData, (ProposalSettings));
 
         uint256 proposalTypeId = IOptimismGovernor(msg.sender).getProposalType(proposalId);
-        IProposalTypesConfigurator.ProposalType memory proposalType =
-            PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposalTypeId);
+        IProposalTypesConfigurator proposalConfigurator =
+            IProposalTypesConfigurator(IOptimismGovernor(msg.sender).PROPOSAL_TYPES_CONFIGURATOR());
+        IProposalTypesConfigurator.ProposalType memory proposalType = proposalConfigurator.proposalTypes(proposalTypeId);
 
         if (proposalType.quorum != 0 || proposalType.approvalThreshold != 0) revert NotOptimisticProposalType();
         if (

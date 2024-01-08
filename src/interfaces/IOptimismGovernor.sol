@@ -6,6 +6,8 @@ import {IGovernor} from "@openzeppelin/contracts/governance/IGovernor.sol";
 abstract contract IOptimismGovernor is IGovernor {
     function manager() external view virtual returns (address);
 
+    function PROPOSAL_TYPES_CONFIGURATOR() external view virtual returns (address);
+
     function increaseWeightCast(uint256 proposalId, address account, uint256 votes, uint256 proxyVotes)
         external
         virtual;
