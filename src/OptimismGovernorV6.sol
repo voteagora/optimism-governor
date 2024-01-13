@@ -353,7 +353,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
 
         // Fallback to total supply if votable supply was unset at `snapshotBlock`
         if (supply == 0) {
-            supply = token.getPastTotalSupply(snapshotBlock);
+            return token.getPastTotalSupply(snapshotBlock) * quorumNumerator(snapshotBlock) / quorumDenominator();
         }
 
         uint256 proposalTypeId = _proposals[proposalId].proposalType;
