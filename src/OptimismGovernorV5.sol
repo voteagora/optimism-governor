@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
-import {GovernorUpgradeableV2} from "./lib/v2/GovernorUpgradeableV2.sol";
-import {GovernorCountingSimpleUpgradeableV2} from "./lib/v2/GovernorCountingSimpleUpgradeableV2.sol";
-import {GovernorVotesQuorumFractionUpgradeableV2} from "./lib/v2/GovernorVotesQuorumFractionUpgradeableV2.sol";
-import {GovernorVotesUpgradeableV2} from "./lib/v2/GovernorVotesUpgradeableV2.sol";
-import {GovernorSettingsUpgradeableV2} from "./lib/v2/GovernorSettingsUpgradeableV2.sol";
+import {GovernorUpgradeableV2} from "./lib/openzeppelin/v2/GovernorUpgradeableV2.sol";
+import {GovernorCountingSimpleUpgradeableV2} from "./lib/openzeppelin/v2/GovernorCountingSimpleUpgradeableV2.sol";
+import {GovernorVotesQuorumFractionUpgradeableV2} from
+    "./lib/openzeppelin/v2/GovernorVotesQuorumFractionUpgradeableV2.sol";
+import {GovernorVotesUpgradeableV2} from "./lib/openzeppelin/v2/GovernorVotesUpgradeableV2.sol";
+import {GovernorSettingsUpgradeableV2} from "./lib/openzeppelin/v2/GovernorSettingsUpgradeableV2.sol";
 import {IGovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/IGovernorUpgradeable.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 import {TimersUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/TimersUpgradeable.sol";
@@ -54,7 +55,7 @@ contract OptimismGovernorV5 is
     //////////////////////////////////////////////////////////////*/
 
     address public manager;
-    mapping(address => bool approved) public approvedModules;
+    mapping(address module => bool approved) public approvedModules;
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -77,6 +78,7 @@ contract OptimismGovernorV5 is
      */
     function proposeWithModule(VotingModule module, bytes memory proposalData, string memory description)
         public
+        virtual
         onlyManager
         returns (uint256)
     {
@@ -117,6 +119,7 @@ contract OptimismGovernorV5 is
     function executeWithModule(VotingModule module, bytes memory proposalData, bytes32 descriptionHash)
         public
         payable
+        virtual
         returns (uint256)
     {
         uint256 proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
@@ -133,7 +136,6 @@ contract OptimismGovernorV5 is
         _beforeExecute(proposalId, targets, values, calldatas, descriptionHash);
         _execute(proposalId, targets, values, calldatas, descriptionHash);
         _afterExecute(proposalId, targets, values, calldatas, descriptionHash);
-        module._afterExecute(proposalId, proposalData);
 
         return proposalId;
     }
@@ -147,6 +149,7 @@ contract OptimismGovernorV5 is
      */
     function cancelWithModule(VotingModule module, bytes memory proposalData, bytes32 descriptionHash)
         public
+        virtual
         onlyManager
         returns (uint256)
     {
@@ -177,13 +180,14 @@ contract OptimismGovernorV5 is
      */
     function _castVote(uint256 proposalId, address account, uint8 support, string memory reason, bytes memory params)
         internal
+        virtual
         override
         returns (uint256)
     {
         ProposalCore memory proposal = _proposals[proposalId];
         require(state(proposalId) == ProposalState.Active, "Governor: vote not currently active");
 
-        uint256 weight = _getVotes(account, proposal.voteStart.getDeadline(), params);
+        uint256 weight = _getVotes(account, proposal.voteStart.getDeadline(), "");
 
         _countVote(proposalId, account, support, weight, params);
 
@@ -281,7 +285,7 @@ contract OptimismGovernorV5 is
         uint256[] memory values,
         bytes[] memory calldatas,
         string memory description
-    ) public override onlyManager returns (uint256) {
+    ) public virtual override onlyManager returns (uint256) {
         return super.propose(targets, values, calldatas, description);
     }
 

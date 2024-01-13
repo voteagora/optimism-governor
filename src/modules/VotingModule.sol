@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 abstract contract VotingModule {
     /*//////////////////////////////////////////////////////////////
@@ -25,8 +25,6 @@ abstract contract VotingModule {
 
     function propose(uint256 proposalId, bytes memory proposalData, bytes32 descriptionHash) external virtual;
 
-    function _afterExecute(uint256 proposalId, bytes memory proposalData) external virtual {}
-
     function _countVote(uint256 proposalId, address account, uint8 support, uint256 weight, bytes memory params)
         external
         virtual;
@@ -40,7 +38,9 @@ abstract contract VotingModule {
         virtual
         returns (address[] memory targets, uint256[] memory values, bytes[] memory calldatas);
 
-    function _voteSucceeded(uint256 proposalId) external view virtual returns (bool);
+    function _voteSucceeded(uint256 /* proposalId */ ) external view virtual returns (bool) {
+        return true;
+    }
 
     function COUNTING_MODE() external pure virtual returns (string memory);
 

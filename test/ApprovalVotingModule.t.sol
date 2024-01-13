@@ -9,7 +9,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {OptimismGovernorV2} from "../src/OptimismGovernorV2.sol";
 import {ApprovalVotingModule} from "../src/modules/ApprovalVotingModule.sol";
 import {VotingModule} from "../src/modules/VotingModule.sol";
-import {ProposalOption, ProposalSettings, PassingCriteria} from "../src/modules/ApprovalVotingModule.sol";
+import {ProposalOption, ProposalSettings, PassingCriteria, Proposal} from "../src/modules/ApprovalVotingModule.sol";
 import {GovernanceToken as OptimismToken} from "../src/lib/OptimismToken.sol";
 import {ApprovalVotingModuleMock} from "./mocks/ApprovalVotingModuleMock.sol";
 import {OptimismGovernorV5Mock} from "./mocks/OptimismGovernorV5Mock.sol";
@@ -70,26 +70,28 @@ contract ApprovalVotingModuleTest is Test {
         uint256 proposalId = hashProposalWithModule(governor, address(module), proposalData, descriptionHash);
         module.propose(proposalId, proposalData, descriptionHash);
 
-        assertEq(module._proposals(proposalId).governor, governor);
-        assertEq(module._proposals(proposalId).optionVotes[0], 0);
-        assertEq(module._proposals(proposalId).optionVotes[1], 0);
-        assertEq(module._proposals(proposalId).optionVotes[2], 0);
-        assertEq(module._proposals(proposalId).settings.maxApprovals, settings.maxApprovals);
-        assertEq(module._proposals(proposalId).settings.criteria, settings.criteria);
-        assertEq(module._proposals(proposalId).settings.budgetToken, settings.budgetToken);
-        assertEq(module._proposals(proposalId).settings.criteriaValue, settings.criteriaValue);
-        assertEq(module._proposals(proposalId).settings.budgetAmount, settings.budgetAmount);
-        assertEq(module._proposals(proposalId).options[0].targets[0], options[0].targets[0]);
-        assertEq(module._proposals(proposalId).options[0].values[0], options[0].values[0]);
-        assertEq(module._proposals(proposalId).options[0].calldatas[0], options[0].calldatas[0]);
-        assertEq(module._proposals(proposalId).options[0].description, options[0].description);
-        assertEq(module._proposals(proposalId).options[1].targets[0], options[1].targets[0]);
-        assertEq(module._proposals(proposalId).options[1].values[0], options[1].values[0]);
-        assertEq(module._proposals(proposalId).options[1].calldatas[0], options[1].calldatas[0]);
-        assertEq(module._proposals(proposalId).options[1].targets[1], options[1].targets[1]);
-        assertEq(module._proposals(proposalId).options[1].values[1], options[1].values[1]);
-        assertEq(module._proposals(proposalId).options[1].calldatas[1], options[1].calldatas[1]);
-        assertEq(module._proposals(proposalId).options[1].description, options[1].description);
+        Proposal memory proposal = module._proposals(proposalId);
+
+        assertEq(proposal.governor, governor);
+        assertEq(proposal.optionVotes[0], 0);
+        assertEq(proposal.optionVotes[1], 0);
+        assertEq(proposal.optionVotes[2], 0);
+        assertEq(proposal.settings.maxApprovals, settings.maxApprovals);
+        assertEq(proposal.settings.criteria, settings.criteria);
+        assertEq(proposal.settings.budgetToken, settings.budgetToken);
+        assertEq(proposal.settings.criteriaValue, settings.criteriaValue);
+        assertEq(proposal.settings.budgetAmount, settings.budgetAmount);
+        assertEq(proposal.options[0].targets[0], options[0].targets[0]);
+        assertEq(proposal.options[0].values[0], options[0].values[0]);
+        assertEq(proposal.options[0].calldatas[0], options[0].calldatas[0]);
+        assertEq(proposal.options[0].description, options[0].description);
+        assertEq(proposal.options[1].targets[0], options[1].targets[0]);
+        assertEq(proposal.options[1].values[0], options[1].values[0]);
+        assertEq(proposal.options[1].calldatas[0], options[1].calldatas[0]);
+        assertEq(proposal.options[1].targets[1], options[1].targets[1]);
+        assertEq(proposal.options[1].values[1], options[1].values[1]);
+        assertEq(proposal.options[1].calldatas[1], options[1].calldatas[1]);
+        assertEq(proposal.options[1].description, options[1].description);
     }
 
     function testCountVote_voteForSingle() public {
@@ -103,14 +105,16 @@ contract ApprovalVotingModuleTest is Test {
         votes[0] = 0;
         bytes memory params = abi.encode(votes);
 
-        assertEq(module.accountVotes(proposalId, voter), 0);
+        assertEq(module.getAccountTotalVotes(proposalId, voter), 0);
 
         module._countVote(proposalId, voter, uint8(VoteType.For), weight, params);
 
-        assertEq(module.accountVotes(proposalId, voter), votes.length);
-        assertEq(module._proposals(proposalId).optionVotes[0], weight);
-        assertEq(module._proposals(proposalId).optionVotes[1], 0);
-        assertEq(module._proposals(proposalId).optionVotes[2], 0);
+        Proposal memory proposal = module._proposals(proposalId);
+
+        assertEq(module.getAccountTotalVotes(proposalId, voter), votes.length);
+        assertEq(proposal.optionVotes[0], weight);
+        assertEq(proposal.optionVotes[1], 0);
+        assertEq(proposal.optionVotes[2], 0);
     }
 
     function testCountVote_voteForMultiple() public {
@@ -125,14 +129,16 @@ contract ApprovalVotingModuleTest is Test {
         votes[1] = 1;
         bytes memory params = abi.encode(votes);
 
-        assertEq(module.accountVotes(proposalId, voter), 0);
+        assertEq(module.getAccountTotalVotes(proposalId, voter), 0);
 
         module._countVote(proposalId, voter, uint8(VoteType.For), weight, params);
 
-        assertEq(module.accountVotes(proposalId, voter), votes.length);
-        assertEq(module._proposals(proposalId).optionVotes[0], weight);
-        assertEq(module._proposals(proposalId).optionVotes[1], weight);
-        assertEq(module._proposals(proposalId).optionVotes[2], 0);
+        Proposal memory proposal = module._proposals(proposalId);
+
+        assertEq(module.getAccountTotalVotes(proposalId, voter), votes.length);
+        assertEq(proposal.optionVotes[0], weight);
+        assertEq(proposal.optionVotes[1], weight);
+        assertEq(proposal.optionVotes[2], 0);
     }
 
     function testCountVote_voteAgainst() public {
@@ -147,14 +153,16 @@ contract ApprovalVotingModuleTest is Test {
         votes[1] = 1;
         bytes memory params = abi.encode(votes);
 
-        assertEq(module.accountVotes(proposalId, voter), 0);
+        assertEq(module.getAccountTotalVotes(proposalId, voter), 0);
 
         module._countVote(proposalId, voter, uint8(VoteType.Against), weight, params);
 
-        assertEq(module.accountVotes(proposalId, voter), 0);
-        assertEq(module._proposals(proposalId).optionVotes[0], 0);
-        assertEq(module._proposals(proposalId).optionVotes[1], 0);
-        assertEq(module._proposals(proposalId).optionVotes[2], 0);
+        Proposal memory proposal = module._proposals(proposalId);
+
+        assertEq(module.getAccountTotalVotes(proposalId, voter), 0);
+        assertEq(proposal.optionVotes[0], 0);
+        assertEq(proposal.optionVotes[1], 0);
+        assertEq(proposal.optionVotes[2], 0);
     }
 
     function testCountVote_voteAbstain() public {
@@ -169,14 +177,16 @@ contract ApprovalVotingModuleTest is Test {
         votes[1] = 1;
         bytes memory params = abi.encode(votes);
 
-        assertEq(module.accountVotes(proposalId, voter), 0);
+        assertEq(module.getAccountTotalVotes(proposalId, voter), 0);
 
         module._countVote(proposalId, voter, uint8(VoteType.Abstain), weight, params);
 
-        assertEq(module.accountVotes(proposalId, voter), 0);
-        assertEq(module._proposals(proposalId).optionVotes[0], 0);
-        assertEq(module._proposals(proposalId).optionVotes[1], 0);
-        assertEq(module._proposals(proposalId).optionVotes[2], 0);
+        Proposal memory proposal = module._proposals(proposalId);
+
+        assertEq(module.getAccountTotalVotes(proposalId, voter), 0);
+        assertEq(proposal.optionVotes[0], 0);
+        assertEq(proposal.optionVotes[1], 0);
+        assertEq(proposal.optionVotes[2], 0);
     }
 
     function testVoteSucceeded() public {
@@ -274,18 +284,21 @@ contract ApprovalVotingModuleTest is Test {
             module._formatExecuteParams(proposalId, proposalData);
         vm.stopPrank();
 
-        assertEq(targets.length, options[1].targets.length + options[2].targets.length);
+        assertEq(targets.length, options[1].targets.length + options[2].targets.length + 1);
         assertEq(targets.length, values.length);
         assertEq(targets.length, calldatas.length);
         assertEq(targets[0], options[1].targets[0]);
-        assertEq(targets[1], options[1].targets[1]);
-        assertEq(targets[2], options[2].targets[0]);
         assertEq(values[0], options[1].values[0]);
-        assertEq(values[1], options[1].values[1]);
-        assertEq(values[2], options[2].values[0]);
         assertEq(calldatas[0], options[1].calldatas[0]);
+        assertEq(targets[1], options[1].targets[1]);
+        assertEq(values[1], options[1].values[1]);
         assertEq(calldatas[1], options[1].calldatas[1]);
+        assertEq(targets[2], options[2].targets[0]);
+        assertEq(values[2], options[2].values[0]);
         assertEq(calldatas[2], options[2].calldatas[0]);
+        assertEq(targets[3], address(module));
+        assertEq(values[3], 0);
+        assertEq(calldatas[3], abi.encodeCall(ApprovalVotingModule._afterExecute, (proposalId, proposalData)));
     }
 
     function testFormatExecuteParams_ethBudgetExceeded() public {
@@ -307,12 +320,15 @@ contract ApprovalVotingModuleTest is Test {
             module._formatExecuteParams(proposalId, proposalData);
         vm.stopPrank();
 
-        assertEq(targets.length, options[0].targets.length);
+        assertEq(targets.length, options[0].targets.length + 1);
         assertEq(targets.length, values.length);
         assertEq(targets.length, calldatas.length);
         assertEq(targets[0], options[0].targets[0]);
         assertEq(values[0], options[0].values[0]);
         assertEq(calldatas[0], options[0].calldatas[0]);
+        assertEq(targets[1], address(module));
+        assertEq(values[1], 0);
+        assertEq(calldatas[1], abi.encodeCall(ApprovalVotingModule._afterExecute, (proposalId, proposalData)));
     }
 
     function testFormatExecuteParams_opBudgetExceeded() public {
@@ -338,7 +354,7 @@ contract ApprovalVotingModuleTest is Test {
             module._formatExecuteParams(proposalId, proposalData);
         vm.stopPrank();
 
-        assertEq(targets.length, options[1].targets.length);
+        assertEq(targets.length, options[1].targets.length + 1);
         assertEq(targets.length, values.length);
         assertEq(targets.length, calldatas.length);
         assertEq(targets[0], options[1].targets[0]);
@@ -347,6 +363,27 @@ contract ApprovalVotingModuleTest is Test {
         assertEq(targets[1], options[1].targets[1]);
         assertEq(values[1], options[1].values[1]);
         assertEq(calldatas[1], options[1].calldatas[1]);
+        assertEq(targets[2], address(module));
+        assertEq(values[2], 0);
+        assertEq(calldatas[2], abi.encodeCall(ApprovalVotingModule._afterExecute, (proposalId, proposalData)));
+    }
+
+    function testGetAccountVotes() public {
+        (bytes memory proposalData,,) = _formatProposalData();
+        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
+        uint256 weight = 100;
+
+        module.propose(proposalId, proposalData, descriptionHash);
+
+        uint256[] memory votes = new uint256[](2);
+        votes[0] = 0;
+        votes[1] = 1;
+        bytes memory params = abi.encode(votes);
+
+        module._countVote(proposalId, voter, uint8(VoteType.For), weight, params);
+
+        assertEq(module.getAccountVotes(proposalId, voter)[0], 0);
+        assertEq(module.getAccountVotes(proposalId, voter)[1], 1);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -457,24 +494,6 @@ contract ApprovalVotingModuleTest is Test {
 
         vm.expectRevert(VotingModule.NotGovernor.selector);
         module._countVote(proposalId, voter, uint8(VoteType.Abstain), weight, "");
-    }
-
-    function testRevert_countVote_alreadyVoted() public {
-        (bytes memory proposalData,,) = _formatProposalData();
-        uint256 proposalId = hashProposalWithModule(address(this), address(module), proposalData, descriptionHash);
-        uint256 weight = 100;
-
-        module.propose(proposalId, proposalData, descriptionHash);
-
-        uint256[] memory votes = new uint256[](2);
-        votes[0] = 0;
-        votes[1] = 1;
-        bytes memory params = abi.encode(votes);
-
-        module._countVote(proposalId, voter, uint8(VoteType.For), weight, params);
-
-        vm.expectRevert(VotingModule.AlreadyVoted.selector);
-        module._countVote(proposalId, voter, uint8(VoteType.For), weight, params);
     }
 
     function testRevert_countVote_invalidParams() public {
@@ -593,10 +612,9 @@ contract ApprovalVotingModuleTest is Test {
 
         (targets, values, calldatas) = module._formatExecuteParams(proposalId, proposalData);
 
+        vm.expectRevert(ApprovalVotingModule.BudgetExceeded.selector);
         governor_.execute(proposalId, targets, values, calldatas, "");
 
-        vm.expectRevert(ApprovalVotingModule.BudgetExceeded.selector);
-        module._afterExecute(proposalId, proposalData);
         vm.stopPrank();
     }
 

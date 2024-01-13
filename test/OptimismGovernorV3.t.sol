@@ -18,7 +18,7 @@ contract OptimismGovernorV3Test is Test {
 
     function setUp() public virtual {
         // Block number 60351051 is ~ 2023-01-04 20:33:00 PT
-        vm.createSelectFork("https://mainnet.optimism.io", 60351051);
+        vm.createSelectFork(vm.envString("OPTIMISM_RPC_URL"), 60351051);
 
         OptimismGovernorV3 implementation = new OptimismGovernorV3();
         TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
@@ -75,7 +75,7 @@ contract OptimismGovernorV3Test is Test {
 
     function testExecute() public {
         vm.prank(op.owner());
-        op.mint(address(this), 1000);
+        op.mint(address(this), 1e30);
         op.delegate(address(this));
         // vm.roll(block.number + 1);
 

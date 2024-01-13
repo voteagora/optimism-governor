@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {GovernorUpgradeableV1} from "./lib/v1/GovernorUpgradeableV1.sol";
-import {GovernorCountingSimpleUpgradeableV1} from "./lib/v1/GovernorCountingSimpleUpgradeableV1.sol";
-import {GovernorVotesQuorumFractionUpgradeableV1} from "./lib/v1/GovernorVotesQuorumFractionUpgradeableV1.sol";
-import {GovernorVotesUpgradeableV1} from "./lib/v1/GovernorVotesUpgradeableV1.sol";
-import {GovernorSettingsUpgradeableV1} from "./lib/v1/GovernorSettingsUpgradeableV1.sol";
+import {GovernorUpgradeableV1} from "./lib/openzeppelin/v1/GovernorUpgradeableV1.sol";
+import {GovernorCountingSimpleUpgradeableV1} from "./lib/openzeppelin/v1/GovernorCountingSimpleUpgradeableV1.sol";
+import {GovernorVotesQuorumFractionUpgradeableV1} from
+    "./lib/openzeppelin/v1/GovernorVotesQuorumFractionUpgradeableV1.sol";
+import {GovernorVotesUpgradeableV1} from "./lib/openzeppelin/v1/GovernorVotesUpgradeableV1.sol";
+import {GovernorSettingsUpgradeableV1} from "./lib/openzeppelin/v1/GovernorSettingsUpgradeableV1.sol";
 import {IGovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/IGovernorUpgradeable.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 import {TimersUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/TimersUpgradeable.sol";
