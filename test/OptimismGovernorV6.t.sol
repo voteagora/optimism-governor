@@ -79,7 +79,7 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
         OptimismGovernorV5Test._preSetUp(impl);
 
         vm.startPrank(deployer);
-        votableSupplyOracle = new VotableSupplyOracle(address(this), op.totalSupply());
+        votableSupplyOracle = new VotableSupplyOracle(address(this), op.totalSupply() * 30 / 100);
         proposalTypesConfigurator = new ProposalTypesConfigurator(IOptimismGovernor(address(governor)));
         vm.stopPrank();
 
@@ -202,7 +202,7 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
 
     function testVotableSupply() public virtual {
         uint256 supply = _governorV6().votableSupply();
-        assertEq(supply, op.totalSupply());
+        assertEq(supply, op.totalSupply() * 30 / 100);
     }
 
     function testQuorum() public virtual {
@@ -229,7 +229,7 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
 
         // Assert it fallbacks to generic supply
         quorum = _governorV6().quorum(proposalId);
-        assertEq(quorum, supply * 3 / 10);
+        assertEq(quorum, op.totalSupply() * _governorV6().quorumNumerator() / _governorV6().quorumDenominator());
     }
 
     function testQuorumReached() public virtual {
@@ -435,7 +435,8 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
     function testOptimisticModuleVote_relative_withVotes_succeeds() public virtual {
         uint256 snapshot = block.number + _governorV6().votingDelay();
         uint256 deadline = snapshot + _governorV6().votingPeriod();
-        bytes memory proposalData = abi.encode(OptimisticProposalSettings(100, /* 1% of supply - 102e18 */ true));
+        bytes memory proposalData =
+            abi.encode(OptimisticProposalSettings(327, /* 3.27% of votable supply ~ 1e18 */ true));
         uint256 proposalId =
             _governorV6().hashProposalWithModule(optimisticModule, proposalData, keccak256(bytes(description)));
 
