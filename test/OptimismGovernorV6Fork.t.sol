@@ -20,6 +20,7 @@ import {
     PassingCriteria
 } from "../src/modules/ApprovalVotingModule.sol";
 import {AllowanceType, SubdelegationRules as SubdelegationRulesV3} from "src/structs/RulesV3.sol";
+import {IGovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/IGovernorUpgradeable.sol";
 
 contract OptimismGovernorV6UpgradeTest is Test {
     address internal constant admin = 0x2501c477D0A35545a387Aa4A3EEe4292A9a8B3F0;
@@ -58,6 +59,32 @@ contract OptimismGovernorV6UpgradeTest is Test {
         vm.startBroadcast(deployer);
         alligatorProxy.upgradeTo(newAlligatorImpl);
         vm.stopBroadcast();
+    }
+
+    uint256[] successfulPropIds = [
+        20327152654308054166942093105443920402082671769027198649343468266910325783863,
+        85591583404433237270543189567126336043697987369929953414380041066767718361144,
+        46755965320953291432113738397437466520155684451527981335363452666080752126186,
+        47864371633107534187617995773541299064963460661119440983190542488743950169122,
+        29831001453379581627736734765818959389842109811221412662144194715522205098015,
+        27878184270712708211495755831534918916136653803154031118511283847257927730426
+    ];
+
+    function testPreviousProps() public {
+        for (uint256 i = 0; i < successfulPropIds.length; i++) {
+            assertTrue(governor.quorum(successfulPropIds[i]) != 0);
+            assertEq(
+                uint256(IGovernorUpgradeable(governor).state(successfulPropIds[i])),
+                uint256(IGovernorUpgradeable.ProposalState.Succeeded)
+            );
+        }
+
+        uint256 defeatedPropId = 25353629475948605098820168047140307200589226219380649297323431722674892706917;
+        assertTrue(governor.quorum(defeatedPropId) != 0);
+        assertEq(
+            uint256(IGovernorUpgradeable(governor).state(defeatedPropId)),
+            uint256(IGovernorUpgradeable.ProposalState.Defeated)
+        );
     }
 
     function testAlligator() public {
