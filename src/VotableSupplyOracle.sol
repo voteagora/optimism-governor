@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 import {IVotableSupplyOracle} from "./interfaces/IVotableSupplyOracle.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -35,7 +35,7 @@ contract VotableSupplyOracle is IVotableSupplyOracle, Ownable {
         _votableSupplyHistory._checkpoints.push(
             Checkpoints.Checkpoint({_blockNumber: block.number.toUint32(), _value: initVotableSupply.toUint224()})
         );
-        emit VotableSupplyUpdated(block.number, 0, initVotableSupply);
+        emit VotableSupplyUpdated(0, initVotableSupply);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -51,7 +51,7 @@ contract VotableSupplyOracle is IVotableSupplyOracle, Ownable {
         // Set new votableSupply for future proposals
         _votableSupplyHistory.push(newVotableSupply);
 
-        emit VotableSupplyUpdated(block.number, oldVotableSupply, newVotableSupply);
+        emit VotableSupplyUpdated(oldVotableSupply, newVotableSupply);
     }
 
     /**
@@ -63,7 +63,7 @@ contract VotableSupplyOracle is IVotableSupplyOracle, Ownable {
         _votableSupplyHistory._checkpoints[index] =
             Checkpoints.Checkpoint({_blockNumber: checkpoint._blockNumber, _value: newVotableSupply.toUint224()});
 
-        emit VotableSupplyUpdated(checkpoint._blockNumber, checkpoint._value, newVotableSupply);
+        emit VotableSupplyCheckpointUpdated(checkpoint._blockNumber, checkpoint._value, newVotableSupply);
     }
 
     /*//////////////////////////////////////////////////////////////

@@ -11,11 +11,10 @@ import {OptimismGovernorV2} from "../src/OptimismGovernorV2.sol";
 import {IOptimismGovernor} from "../src/interfaces/IOptimismGovernor.sol";
 import {VotingModule} from "../src/modules/VotingModule.sol";
 import {
-    ApprovalVotingModule,
-    ProposalOption,
-    ProposalSettings,
-    PassingCriteria
-} from "../src/modules/ApprovalVotingModule.sol";
+    OptimisticModule_SocialSignalling as OptimisticModule,
+    ProposalSettings as OptimisticProposalSettings,
+    VoteType
+} from "../src/modules/OptimisticModule.sol";
 import {GovernanceToken as OptimismToken} from "../src/lib/OptimismToken.sol";
 import {OptimismGovernorV6Mock} from "./mocks/OptimismGovernorV6Mock.sol";
 import {OptimismGovernorV4UpgradeMock} from "./mocks/OptimismGovernorV4UpgradeMock.sol";
@@ -32,8 +31,8 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
     //////////////////////////////////////////////////////////////*/
 
     event ProposalCreated(
-        uint256 proposalId,
-        address proposer,
+        uint256 indexed proposalId,
+        address indexed proposer,
         address[] targets,
         uint256[] values,
         string[] signatures,
@@ -44,16 +43,16 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
         uint8 proposalType
     );
     event ProposalCreated(
-        uint256 proposalId,
-        address proposer,
-        address votingModule,
+        uint256 indexed proposalId,
+        address indexed proposer,
+        address indexed votingModule,
         bytes proposalData,
         uint256 startBlock,
         uint256 endBlock,
         string description,
         uint8 proposalType
     );
-    event ProposalTypeUpdated(uint256 proposalId, uint8 proposalType);
+    event ProposalTypeUpdated(uint256 indexed proposalId, uint8 proposalType);
 
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -70,6 +69,7 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
     address deployer = makeAddr("deployer");
     VotableSupplyOracle private votableSupplyOracle;
     ProposalTypesConfigurator private proposalTypesConfigurator;
+    address optimisticModule = address(new OptimisticModule());
 
     /*//////////////////////////////////////////////////////////////
                                  SETUP
@@ -79,7 +79,7 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
         OptimismGovernorV5Test._preSetUp(impl);
 
         vm.startPrank(deployer);
-        votableSupplyOracle = new VotableSupplyOracle(address(this), op.totalSupply());
+        votableSupplyOracle = new VotableSupplyOracle(address(this), op.totalSupply() * 30 / 100);
         proposalTypesConfigurator = new ProposalTypesConfigurator(IOptimismGovernor(address(governor)));
         vm.stopPrank();
 
@@ -92,6 +92,11 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
     function setUp() public virtual override {
         address implementation = address(new OptimismGovernorV6Mock());
         _preSetUp(implementation);
+
+        vm.startPrank(manager);
+        proposalTypesConfigurator.setProposalType(1, 0, 0, "Optimistic");
+        _governorV6().setModuleApproval(optimisticModule, true);
+        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -197,7 +202,7 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
 
     function testVotableSupply() public virtual {
         uint256 supply = _governorV6().votableSupply();
-        assertEq(supply, op.totalSupply());
+        assertEq(supply, op.totalSupply() * 30 / 100);
     }
 
     function testQuorum() public virtual {
@@ -224,7 +229,7 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
 
         // Assert it fallbacks to generic supply
         quorum = _governorV6().quorum(proposalId);
-        assertEq(quorum, supply * 3 / 10);
+        assertEq(quorum, op.totalSupply() * _governorV6().quorumNumerator() / _governorV6().quorumDenominator());
     }
 
     function testQuorumReached() public virtual {
@@ -311,6 +316,163 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
     }
 
     /*//////////////////////////////////////////////////////////////
+                               OPTIMISTIC
+    //////////////////////////////////////////////////////////////*/
+
+    function _optimisticAssertions(uint256 proposalId, uint256 snapshot, uint256 deadline) public virtual {
+        assertEq(_governorV6().proposals(proposalId).proposalType, 1);
+        assertEq(_governorV6().proposalSnapshot(proposalId), snapshot);
+        assertEq(_governorV6().proposalDeadline(proposalId), deadline);
+        assertEq(uint8(_governorV6().state(proposalId)), uint8(IGovernorUpgradeable.ProposalState.Pending));
+    }
+
+    function testOptimisticModuleVote_absolute_noVotes() public virtual {
+        uint256 snapshot = block.number + _governorV6().votingDelay();
+        uint256 deadline = snapshot + _governorV6().votingPeriod();
+        bytes memory proposalData = abi.encode(OptimisticProposalSettings(1e18, false));
+        uint256 proposalId =
+            _governorV6().hashProposalWithModule(optimisticModule, proposalData, keccak256(bytes(description)));
+
+        vm.expectEmit();
+        emit ProposalCreated(proposalId, manager, optimisticModule, proposalData, snapshot, deadline, description, 1);
+        vm.prank(manager);
+        _governorV6().proposeWithModule(VotingModule(optimisticModule), proposalData, description, 1);
+
+        _optimisticAssertions(proposalId, snapshot, deadline);
+
+        vm.roll(deadline + 1);
+        assertTrue(_governorV6().voteSucceeded(proposalId));
+    }
+
+    function testOptimisticModuleVote_relative_noVotes() public virtual {
+        uint256 snapshot = block.number + _governorV6().votingDelay();
+        uint256 deadline = snapshot + _governorV6().votingPeriod();
+        bytes memory proposalData = abi.encode(OptimisticProposalSettings(1_000, true));
+        uint256 proposalId =
+            _governorV6().hashProposalWithModule(optimisticModule, proposalData, keccak256(bytes(description)));
+
+        vm.prank(manager);
+        _governorV6().proposeWithModule(VotingModule(optimisticModule), proposalData, description, 1);
+
+        _optimisticAssertions(proposalId, snapshot, deadline);
+
+        vm.roll(deadline + 1);
+        assertTrue(_governorV6().voteSucceeded(proposalId));
+    }
+
+    function testOptimisticModuleVote_absolute_withVotes_fails() public virtual {
+        uint256 snapshot = block.number + _governorV6().votingDelay();
+        uint256 deadline = snapshot + _governorV6().votingPeriod();
+        bytes memory proposalData = abi.encode(OptimisticProposalSettings(1e18, false));
+        uint256 proposalId =
+            _governorV6().hashProposalWithModule(optimisticModule, proposalData, keccak256(bytes(description)));
+
+        vm.prank(manager);
+        _governorV6().proposeWithModule(VotingModule(optimisticModule), proposalData, description, 1);
+
+        _optimisticAssertions(proposalId, snapshot, deadline);
+
+        vm.roll(snapshot + 1);
+
+        vm.prank(voter); // 1e18 votes AGAINST
+        _governorV6().castVote(proposalId, uint8(VoteType.Against));
+
+        vm.prank(altVoter); // 1e20 votes FOR
+        _governorV6().castVote(proposalId, uint8(VoteType.For));
+
+        vm.roll(deadline + 1);
+        assertFalse(_governorV6().voteSucceeded(proposalId));
+    }
+
+    function testOptimisticModuleVote_absolute_withVotes_succeeds() public virtual {
+        uint256 snapshot = block.number + _governorV6().votingDelay();
+        uint256 deadline = snapshot + _governorV6().votingPeriod();
+        bytes memory proposalData = abi.encode(OptimisticProposalSettings(1e18 + 1, false));
+        uint256 proposalId =
+            _governorV6().hashProposalWithModule(optimisticModule, proposalData, keccak256(bytes(description)));
+
+        vm.prank(manager);
+        _governorV6().proposeWithModule(VotingModule(optimisticModule), proposalData, description, 1);
+
+        _optimisticAssertions(proposalId, snapshot, deadline);
+
+        vm.roll(snapshot + 1);
+
+        vm.prank(voter); // 1e18 votes AGAINST
+        _governorV6().castVote(proposalId, uint8(VoteType.Against));
+
+        vm.roll(deadline + 1);
+        assertTrue(_governorV6().voteSucceeded(proposalId));
+    }
+
+    function testOptimisticModuleVote_relative_withVotes_fails() public virtual {
+        uint256 snapshot = block.number + _governorV6().votingDelay();
+        uint256 deadline = snapshot + _governorV6().votingPeriod();
+        bytes memory proposalData = abi.encode(OptimisticProposalSettings(100, /* 1% of supply - 102e18 */ true));
+        uint256 proposalId =
+            _governorV6().hashProposalWithModule(optimisticModule, proposalData, keccak256(bytes(description)));
+
+        vm.prank(manager);
+        _governorV6().proposeWithModule(VotingModule(optimisticModule), proposalData, description, 1);
+
+        _optimisticAssertions(proposalId, snapshot, deadline);
+
+        vm.roll(snapshot + 1);
+
+        vm.prank(voter); // 1e18 votes AGAINST
+        _governorV6().castVote(proposalId, uint8(VoteType.Against));
+
+        vm.prank(altVoter2); // 1e18 votes AGAINST
+        _governorV6().castVote(proposalId, uint8(VoteType.Against));
+
+        vm.prank(altVoter); // 1e20 votes FOR
+        _governorV6().castVote(proposalId, uint8(VoteType.For));
+
+        vm.roll(deadline + 1);
+        assertFalse(_governorV6().voteSucceeded(proposalId));
+    }
+
+    function testOptimisticModuleVote_relative_withVotes_succeeds() public virtual {
+        uint256 snapshot = block.number + _governorV6().votingDelay();
+        uint256 deadline = snapshot + _governorV6().votingPeriod();
+        bytes memory proposalData =
+            abi.encode(OptimisticProposalSettings(327, /* 3.27% of votable supply ~ 1e18 */ true));
+        uint256 proposalId =
+            _governorV6().hashProposalWithModule(optimisticModule, proposalData, keccak256(bytes(description)));
+
+        vm.prank(manager);
+        _governorV6().proposeWithModule(VotingModule(optimisticModule), proposalData, description, 1);
+
+        _optimisticAssertions(proposalId, snapshot, deadline);
+
+        vm.roll(snapshot + 1);
+
+        vm.prank(voter); // 1e18 votes AGAINST
+        _governorV6().castVote(proposalId, uint8(VoteType.Against));
+
+        vm.roll(deadline + 1);
+        assertTrue(_governorV6().voteSucceeded(proposalId));
+    }
+
+    function testExecuteWithOptimisticModule() public virtual {
+        uint256 snapshot = block.number + _governorV6().votingDelay();
+        uint256 deadline = snapshot + _governorV6().votingPeriod();
+        bytes memory proposalData = abi.encode(OptimisticProposalSettings(1e18, false));
+        uint256 proposalId =
+            _governorV6().hashProposalWithModule(optimisticModule, proposalData, keccak256(bytes(description)));
+
+        vm.prank(manager);
+        _governorV6().proposeWithModule(VotingModule(optimisticModule), proposalData, description, 1);
+
+        vm.roll(deadline + 1);
+
+        vm.prank(manager);
+        _governorV6().executeWithModule(VotingModule(optimisticModule), proposalData, keccak256(bytes(description)));
+
+        assertEq(uint8(_governorV6().state(proposalId)), uint8(IGovernorUpgradeable.ProposalState.Executed));
+    }
+
+    /*//////////////////////////////////////////////////////////////
                                 REVERTS
     //////////////////////////////////////////////////////////////*/
 
@@ -392,6 +554,30 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
         _governorV6().editProposalType(proposalId, 2);
 
         vm.stopPrank();
+    }
+
+    function testRevert_ProposeWithOptimisticModule_notOptimisticProposalType() public virtual {
+        bytes memory proposalData = abi.encode(OptimisticProposalSettings(0, false));
+
+        vm.prank(manager);
+        vm.expectRevert(OptimisticModule.NotOptimisticProposalType.selector);
+        _governorV6().proposeWithModule(VotingModule(optimisticModule), proposalData, description, 0);
+    }
+
+    function testRevert_ProposeWithOptimisticModule_zeroThreshold() public virtual {
+        bytes memory proposalData = abi.encode(OptimisticProposalSettings(0, false));
+
+        vm.prank(manager);
+        vm.expectRevert(VotingModule.InvalidParams.selector);
+        _governorV6().proposeWithModule(VotingModule(optimisticModule), proposalData, description, 1);
+    }
+
+    function testRevert_ProposeWithOptimisticModule_thresholdTooHigh() public virtual {
+        bytes memory proposalData = abi.encode(OptimisticProposalSettings(10_001, true));
+
+        vm.prank(manager);
+        vm.expectRevert(VotingModule.InvalidParams.selector);
+        _governorV6().proposeWithModule(VotingModule(optimisticModule), proposalData, description, 1);
     }
 
     /*//////////////////////////////////////////////////////////////

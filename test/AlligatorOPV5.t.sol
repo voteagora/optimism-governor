@@ -10,6 +10,14 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 import {AlligatorOPV5Mock} from "./mocks/AlligatorOPV5Mock.sol";
 
 contract AlligatorOPV5Test is AlligatorOPTest {
+    bytes32 internal constant BALLOT_TYPEHASH_V5 =
+        keccak256("Ballot(uint256 proposalId,uint8 support,address[] authority)");
+    bytes32 internal constant BALLOT_WITHPARAMS_TYPEHASH =
+        keccak256("Ballot(uint256 proposalId,uint8 support,address[] authority,string reason,bytes params)");
+    bytes32 internal constant BALLOT_WITHPARAMS_BATCHED_TYPEHASH = keccak256(
+        "Ballot(uint256 proposalId,uint8 support,uint256 maxVotingPower,address[][] authorities,string reason,bytes params)"
+    );
+
     function setUp() public virtual override {
         SetupAlligatorOP.setUp();
         alligatorAlt = address(new AlligatorOPV5Mock());
@@ -333,7 +341,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
     function standardCastVoteBySig(address[] memory authority) public virtual override {
         bytes32 domainSeparator =
             keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, alligator));
-        bytes32 structHash = keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, 1, authority));
+        bytes32 structHash = keccak256(abi.encode(BALLOT_TYPEHASH_V5, proposalId, 1, authority));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(vm.envUint("SIGNER_KEY"), keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash)));
 
@@ -346,7 +354,9 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         bytes32 domainSeparator =
             keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, alligator));
         bytes32 structHash = keccak256(
-            abi.encode(BALLOT_TYPEHASH, proposalId, 1, authority, keccak256(bytes("reason")), keccak256("params"))
+            abi.encode(
+                BALLOT_WITHPARAMS_TYPEHASH, proposalId, 1, authority, keccak256(bytes("reason")), keccak256("params")
+            )
         );
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(vm.envUint("SIGNER_KEY"), keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash)));
@@ -637,7 +647,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
                     keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, alligator)),
                     keccak256(
                         abi.encode(
-                            BALLOT_TYPEHASH,
+                            BALLOT_WITHPARAMS_BATCHED_TYPEHASH,
                             proposalId,
                             1,
                             maxVotingPower,

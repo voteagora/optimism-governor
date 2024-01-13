@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 import {AlligatorProxy} from "./AlligatorProxy.sol";
 import {SubdelegationRules, AllowanceType} from "../structs/RulesV3.sol";
@@ -9,6 +9,7 @@ import {IOptimismGovernor} from "../interfaces/IOptimismGovernor.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {ECDSAUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /**
@@ -30,9 +31,8 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     // =============================================================
 
     error LengthMismatch();
-    error BadSignature();
+    error InvalidSignature(ECDSAUpgradeable.RecoverError recoverError);
     error ZeroVotesToCast();
-    error ProxyNotExistent();
     error NotDelegated(address from, address to);
     error TooManyRedelegations(address from, address to);
     error NotValidYet(address from, address to, uint256 willBeValidFrom);
@@ -44,7 +44,6 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     //                             EVENTS
     // =============================================================
 
-    event ProxyDeployed(address indexed owner, address proxy);
     event SubDelegation(address indexed from, address indexed to, SubdelegationRules subdelegationRules);
     event SubDelegations(address indexed from, address[] to, SubdelegationRules subdelegationRules);
     event SubDelegations(address indexed from, address[] to, SubdelegationRules[] subdelegationRules);
@@ -56,17 +55,23 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     );
 
     // =============================================================
+    //                           LIBRARIES
+    // =============================================================
+
+    // =============================================================
     //                       IMMUTABLE STORAGE
     // =============================================================
 
-    address public constant governor = 0xcDF27F107725988f2261Ce2256bDfCdE8B382B10;
-
-    address public constant op = 0x4200000000000000000000000000000000000042;
-
-    bytes32 internal constant DOMAIN_TYPEHASH =
+    address public constant GOVERNOR = 0xcDF27F107725988f2261Ce2256bDfCdE8B382B10;
+    address public constant OP_TOKEN = 0x4200000000000000000000000000000000000042;
+    bytes32 public constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
-
-    bytes32 internal constant BALLOT_TYPEHASH = keccak256("Ballot(uint256 proposalId,uint8 support)");
+    bytes32 public constant BALLOT_TYPEHASH = keccak256("Ballot(uint256 proposalId,uint8 support,address[] authority)");
+    bytes32 public constant BALLOT_WITHPARAMS_TYPEHASH =
+        keccak256("Ballot(uint256 proposalId,uint8 support,address[] authority,string reason,bytes params)");
+    bytes32 public constant BALLOT_WITHPARAMS_BATCHED_TYPEHASH = keccak256(
+        "Ballot(uint256 proposalId,uint8 support,uint256 maxVotingPower,address[][] authorities,string reason,bytes params)"
+    );
 
     // =============================================================
     //                        MUTABLE STORAGE
@@ -89,6 +94,8 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
 
     function initialize(address _initOwner) external initializer {
         PausableUpgradeable.__Pausable_init();
+        OwnableUpgradeable.__Ownable_init();
+        UUPSUpgradeable.__UUPSUpgradeable_init();
         _transferOwnership(_initOwner);
     }
 
@@ -233,7 +240,14 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     ) public override whenNotPaused {
         address signatory = _getSignatory(
             keccak256(
-                abi.encode(BALLOT_TYPEHASH, proposalId, support, authority, keccak256(bytes(reason)), keccak256(params))
+                abi.encode(
+                    BALLOT_WITHPARAMS_TYPEHASH,
+                    proposalId,
+                    support,
+                    authority,
+                    keccak256(bytes(reason)),
+                    keccak256(params)
+                )
             ),
             v,
             r,
@@ -267,7 +281,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         address signatory = _getSignatory(
             keccak256(
                 abi.encode(
-                    BALLOT_TYPEHASH,
+                    BALLOT_WITHPARAMS_BATCHED_TYPEHASH,
                     proposalId,
                     support,
                     maxVotingPower,
@@ -307,7 +321,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         bytes memory params
     ) internal {
         address proxy = proxyAddress(authority[0]);
-        uint256 proxyTotalVotes = IVotes(op).getPastVotes(proxy, _proposalSnapshot(proposalId));
+        uint256 proxyTotalVotes = IVotes(OP_TOKEN).getPastVotes(proxy, _proposalSnapshot(proposalId));
 
         (uint256 votesToCast, uint256 k) = validate(proxy, voter, authority, proposalId, support, proxyTotalVotes);
 
@@ -350,7 +364,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         uint256 k;
         for (uint256 i; i < authorities.length;) {
             proxies[i] = proxyAddress(authorities[i][0]);
-            proxyTotalVotes = IVotes(op).getPastVotes(proxies[i], snapshotBlock);
+            proxyTotalVotes = IVotes(OP_TOKEN).getPastVotes(proxies[i], snapshotBlock);
 
             (votesToCast, k) = validate(proxies[i], voter, authorities[i], proposalId, support, proxyTotalVotes);
 
@@ -389,7 +403,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         uint256 proxyTotalVotes
     ) internal {
         // Record weight cast for a proxy, on the governor
-        IOptimismGovernor(governor).increaseWeightCast(proposalId, proxy, votesToCast, proxyTotalVotes);
+        IOptimismGovernor(GOVERNOR).increaseWeightCast(proposalId, proxy, votesToCast, proxyTotalVotes);
 
         if (k != 0) {
             // Record `votesToCast` across the authority chain, only for voters whose allowance does not exceed proxy
@@ -412,7 +426,8 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         view
         returns (address signatory)
     {
-        signatory = ecrecover(
+        ECDSAUpgradeable.RecoverError recoverError;
+        (signatory, recoverError) = ECDSAUpgradeable.tryRecover(
             keccak256(
                 abi.encodePacked(
                     "\x19\x01",
@@ -426,7 +441,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         );
 
         if (signatory == address(0)) {
-            revert BadSignature();
+            revert InvalidSignature(recoverError);
         }
     }
 
@@ -607,7 +622,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
                             bytes1(0xff),
                             address(this),
                             bytes32(uint256(uint160(proxyOwner))), // salt
-                            keccak256(abi.encodePacked(type(AlligatorProxy).creationCode, abi.encode(governor)))
+                            keccak256(abi.encodePacked(type(AlligatorProxy).creationCode, abi.encode(GOVERNOR)))
                         )
                     )
                 )
@@ -636,7 +651,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         uint256 votes,
         bytes memory params
     ) internal {
-        IOptimismGovernor(governor).castVoteFromAlligator(proposalId, voter, support, reason, votes, params);
+        IOptimismGovernor(GOVERNOR).castVoteFromAlligator(proposalId, voter, support, reason, votes, params);
     }
 
     /**
@@ -645,8 +660,8 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
      * @param proposalId The id of the proposal to vote on
      * @return endBlock Proposal's end block number
      */
-    function _proposalEndBlock(uint256 proposalId) internal view returns (uint256 endBlock) {
-        return IOptimismGovernor(governor).proposalDeadline(proposalId);
+    function _proposalEndBlock(uint256 proposalId) internal view returns (uint256) {
+        return IOptimismGovernor(GOVERNOR).proposalDeadline(proposalId);
     }
 
     /**
@@ -655,8 +670,8 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
      * @param proposalId The id of the proposal to vote on
      * @return snapshotBlock Proposal's snapshot block number
      */
-    function _proposalSnapshot(uint256 proposalId) internal view returns (uint256 snapshotBlock) {
-        return IOptimismGovernor(governor).proposalSnapshot(proposalId);
+    function _proposalSnapshot(uint256 proposalId) internal view returns (uint256) {
+        return IOptimismGovernor(GOVERNOR).proposalSnapshot(proposalId);
     }
 
     /**
@@ -666,8 +681,8 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
      * @param proxy The address of the proxy
      * @return weightCast Weight cast by the proxy
      */
-    function _weightCast(uint256 proposalId, address proxy) internal view returns (uint256 weightCast) {
-        return IOptimismGovernor(governor).weightCast(proposalId, proxy);
+    function _weightCast(uint256 proposalId, address proxy) internal view returns (uint256) {
+        return IOptimismGovernor(GOVERNOR).weightCast(proposalId, proxy);
     }
 
     // =============================================================
@@ -718,7 +733,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
             }
             if (rules.customRule != address(0)) {
                 if (
-                    IRule(rules.customRule).validate(governor, sender, proposalId, uint8(support))
+                    IRule(rules.customRule).validate(GOVERNOR, sender, proposalId, uint8(support))
                         != IRule.validate.selector
                 ) {
                     revert InvalidCustomRule(from, to, rules.customRule);

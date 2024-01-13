@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 import {AlligatorProxy} from "./AlligatorProxy.sol";
 import {SubdelegationRules, AllowanceType} from "../structs/RulesV3.sol";

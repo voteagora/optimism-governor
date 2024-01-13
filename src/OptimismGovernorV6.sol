@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 import {OptimismGovernorV5} from "./OptimismGovernorV5.sol";
 import {IVotableSupplyOracle} from "./interfaces/IVotableSupplyOracle.sol";
@@ -9,6 +9,7 @@ import {GovernorVotesQuorumFractionUpgradeableV2} from
     "./lib/openzeppelin/v2/GovernorVotesQuorumFractionUpgradeableV2.sol";
 import {GovernorCountingSimpleUpgradeableV2} from "./lib/openzeppelin/v2/GovernorCountingSimpleUpgradeableV2.sol";
 import {IGovernorUpgradeable} from "./lib/openzeppelin/v2/GovernorUpgradeableV2.sol";
+import {IApprovalVotingModuleOld} from "./lib/internal/IApprovalVotingModuleOld.sol";
 import {TimersUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/TimersUpgradeable.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
@@ -24,8 +25,8 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     //////////////////////////////////////////////////////////////*/
 
     event ProposalCreated(
-        uint256 proposalId,
-        address proposer,
+        uint256 indexed proposalId,
+        address indexed proposer,
         address[] targets,
         uint256[] values,
         string[] signatures,
@@ -36,16 +37,16 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         uint8 proposalType
     );
     event ProposalCreated(
-        uint256 proposalId,
-        address proposer,
-        address votingModule,
+        uint256 indexed proposalId,
+        address indexed proposer,
+        address indexed votingModule,
         bytes proposalData,
         uint256 startBlock,
         uint256 endBlock,
         string description,
         uint8 proposalType
     );
-    event ProposalTypeUpdated(uint256 proposalId, uint8 proposalType);
+    event ProposalTypeUpdated(uint256 indexed proposalId, uint8 proposalType);
 
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -65,20 +66,18 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
                            IMMUTABLE STORAGE
     //////////////////////////////////////////////////////////////*/
 
-    uint256 private constant GOVERNOR_VERSION = 1;
+    uint256 private constant GOVERNOR_VERSION = 2;
 
-    // Max value of `VoteType` enum
-    uint8 internal constant MAX_VOTE_TYPE = 2;
+    // Max value of `quorum` and `approvalThreshold` in `ProposalType`
+    uint16 public constant PERCENT_DIVISOR = 10_000;
 
-    // TODO: Set correct alligator address
-    address public constant alligator = 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9;
+    // TODO: Before deploying, set correct addresses
+    address public constant ALLIGATOR = 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9;
 
-    // TODO: Set correct votableSupplyOracle address
-    IVotableSupplyOracle public constant votableSupplyOracle =
+    IVotableSupplyOracle public constant VOTABLE_SUPPLY_ORACLE =
         IVotableSupplyOracle(0x8Ad159a275AEE56fb2334DBb69036E9c7baCEe9b);
 
-    // TODO: Set correct proposalTypesConfigurator address
-    IProposalTypesConfigurator public constant proposalTypesConfigurator =
+    IProposalTypesConfigurator public constant PROPOSAL_TYPES_CONFIGURATOR =
         IProposalTypesConfigurator(0x1240FA2A84dd9157a0e76B5Cfe98B1d52268B264);
 
     /*//////////////////////////////////////////////////////////////
@@ -96,7 +95,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     //////////////////////////////////////////////////////////////*/
 
     modifier onlyAlligator() {
-        if (msg.sender != alligator) revert("Unauthorized");
+        if (msg.sender != ALLIGATOR) revert("Unauthorized");
         _;
     }
 
@@ -165,7 +164,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @dev Updated version in which `proposalType` is set and checked.
+     * @dev Updated version of `propose` in which `proposalType` is set and checked.
      */
     function propose(
         address[] memory targets,
@@ -173,19 +172,21 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         bytes[] memory calldatas,
         string memory description,
         uint8 proposalType
-    ) public virtual onlyManager returns (uint256) {
+    ) public virtual onlyManager returns (uint256 proposalId) {
         require(
             getVotes(_msgSender(), block.number - 1) >= proposalThreshold(),
             "Governor: proposer votes below proposal threshold"
         );
-
-        uint256 proposalId = hashProposal(targets, values, calldatas, keccak256(bytes(description)));
-
         require(targets.length == values.length, "Governor: invalid proposal length");
         require(targets.length == calldatas.length, "Governor: invalid proposal length");
         require(targets.length > 0, "Governor: empty proposal");
+
         // Revert if `proposalType` is unset
-        if (proposalTypesConfigurator.proposalTypes(proposalType).quorum == 0) revert InvalidProposalType(proposalType);
+        if (bytes(PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposalType).name).length == 0) {
+            revert InvalidProposalType(proposalType);
+        }
+
+        proposalId = hashProposal(targets, values, calldatas, keccak256(bytes(description)));
 
         ProposalCore storage proposal = _proposals[proposalId];
         require(proposal.voteStart.isUnset(), "Governor: proposal already exists");
@@ -209,8 +210,6 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
             description,
             proposalType
         );
-
-        return proposalId;
     }
 
     /**
@@ -221,7 +220,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         bytes memory proposalData,
         string memory description,
         uint8 proposalType
-    ) public virtual onlyManager returns (uint256) {
+    ) public virtual onlyManager returns (uint256 proposalId) {
         require(
             getVotes(_msgSender(), block.number - 1) >= proposalThreshold(),
             "Governor: proposer votes below proposal threshold"
@@ -229,11 +228,13 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         require(approvedModules[address(module)], "Governor: module not approved");
 
         // Revert if `proposalType` is unset
-        if (proposalTypesConfigurator.proposalTypes(proposalType).quorum == 0) revert InvalidProposalType(proposalType);
+        if (bytes(PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposalType).name).length == 0) {
+            revert InvalidProposalType(proposalType);
+        }
 
         bytes32 descriptionHash = keccak256(bytes(description));
 
-        uint256 proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
+        proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
 
         ProposalCore storage proposal = _proposals[proposalId];
         require(proposal.voteStart.isUnset(), "Governor: proposal already exists");
@@ -251,8 +252,6 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         emit ProposalCreated(
             proposalId, _msgSender(), address(module), proposalData, snapshot, deadline, description, proposalType
         );
-
-        return proposalId;
     }
 
     /**
@@ -284,11 +283,11 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         internal
         virtual
         override
-        returns (uint256)
+        returns (uint256 weight)
     {
         require(state(proposalId) == ProposalState.Active, "Governor: vote not currently active");
 
-        uint256 weight = _getVotes(account, _proposals[proposalId].voteStart.getDeadline(), "");
+        weight = _getVotes(account, _proposals[proposalId].voteStart.getDeadline(), "");
 
         _countVote(proposalId, account, support, weight, params);
 
@@ -303,8 +302,6 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         } else {
             emit VoteCastWithParams(account, proposalId, support, weight, reason, params);
         }
-
-        return weight;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -328,14 +325,14 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
      * @dev Returns the votable supply for the current block number.
      */
     function votableSupply() public view virtual returns (uint256) {
-        return votableSupplyOracle.votableSupply();
+        return VOTABLE_SUPPLY_ORACLE.votableSupply();
     }
 
     /**
      * @dev Returns the votable supply for `blockNumber`.
      */
     function votableSupply(uint256 blockNumber) public view virtual returns (uint256) {
-        return votableSupplyOracle.votableSupply(blockNumber);
+        return VOTABLE_SUPPLY_ORACLE.votableSupply(blockNumber);
     }
 
     /**
@@ -343,7 +340,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
      *
      * @dev Based on `votableSupply` by default, but falls back to `totalSupply` if not available.
      * @dev Supply is calculated at the proposal snapshot block
-     * @dev Quorum value is derived from `proposalTypesConfigurator`
+     * @dev Quorum value is derived from `PROPOSAL_TYPES_CONFIGURATOR`
      */
     function quorum(uint256 proposalId)
         public
@@ -357,12 +354,12 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
 
         // Fallback to total supply if votable supply was unset at `snapshotBlock`
         if (supply == 0) {
-            supply = token.getPastTotalSupply(snapshotBlock);
+            return token.getPastTotalSupply(snapshotBlock) * quorumNumerator(snapshotBlock) / quorumDenominator();
         }
 
         uint256 proposalTypeId = _proposals[proposalId].proposalType;
 
-        return (supply * proposalTypesConfigurator.proposalTypes(proposalTypeId).quorum) / 10_000;
+        return (supply * PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposalTypeId).quorum) / PERCENT_DIVISOR;
     }
 
     /**
@@ -377,7 +374,7 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
     /**
      * @dev Added logic based on approval voting threshold to determine if vote has succeeded.
      */
-    function _voteSucceeded(uint256 proposalId) internal view virtual override returns (bool) {
+    function _voteSucceeded(uint256 proposalId) internal view virtual override returns (bool voteSucceeded) {
         ProposalCore storage proposal = _proposals[proposalId];
 
         address votingModule = proposal.votingModule;
@@ -385,13 +382,17 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
             if (!VotingModule(votingModule)._voteSucceeded(proposalId)) return false;
         }
 
-        ProposalVote storage proposalVote = _proposalVotes[proposalId];
+        uint256 approvalThreshold = PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposal.proposalType).approvalThreshold;
 
+        if (approvalThreshold == 0) return true;
+
+        ProposalVote storage proposalVote = _proposalVotes[proposalId];
         uint256 forVotes = proposalVote.forVotes;
         uint256 totalVotes = forVotes + proposalVote.againstVotes;
 
-        return (forVotes * 10_000) / totalVotes
-            >= proposalTypesConfigurator.proposalTypes(proposal.proposalType).approvalThreshold;
+        if (totalVotes != 0) {
+            voteSucceeded = (forVotes * PERCENT_DIVISOR) / totalVotes >= approvalThreshold;
+        }
     }
 
     /**
@@ -399,11 +400,19 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
      */
     function editProposalType(uint256 proposalId, uint8 proposalType) external onlyManager {
         if (proposalSnapshot(proposalId) == 0) revert InvalidProposalId();
-        if (proposalTypesConfigurator.proposalTypes(proposalType).quorum == 0) revert InvalidProposalType(proposalType);
+
+        // Revert if `proposalType` is unset
+        if (bytes(PROPOSAL_TYPES_CONFIGURATOR.proposalTypes(proposalType).name).length == 0) {
+            revert InvalidProposalType(proposalType);
+        }
 
         _proposals[proposalId].proposalType = proposalType;
 
         emit ProposalTypeUpdated(proposalId, proposalType);
+    }
+
+    function getProposalType(uint256 proposalId) external view returns (uint8) {
+        return _proposals[proposalId].proposalType;
     }
 
     /**
@@ -419,5 +428,38 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
      */
     function VERSION() public pure virtual returns (uint256) {
         return GOVERNOR_VERSION;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                           COMPATIBILITY FIX
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * Old modules store votes in their own storage, while new ones directly use governor state.
+     *
+     * In order to keep compatibility for state of old approval voting props, related votes are cloned in the governor.
+     */
+    function _correctStateForPreviousApprovalProposals() external reinitializer(3) {
+        uint256[] memory proposalIds = new uint256[](10);
+        proposalIds[0] = 102821998933460159156263544808281872605936639206851804749751748763651967264110;
+        proposalIds[1] = 13644637236772462780287582686131348226526824657027343360896627559283471469688;
+        proposalIds[2] = 87355419461675705865096288750937924893466943101654806912041265394266455745819;
+        proposalIds[3] = 96868135958111078064987938855232246504506994378309573614627090826820561655088;
+        proposalIds[4] = 16633367863894036056841722161407059007904922838583677995599242776177398115322;
+        proposalIds[5] = 76298930109016961673734608568752969826843280855214969572559472848313136347131;
+        proposalIds[6] = 89065519272487155253137299698235721564519179632704918690534400514930936156393;
+        proposalIds[7] = 103713749716503028671815481721039004389156473487450783632177114353117435138377;
+        proposalIds[8] = 33427192599934651870985988641044334656392659371327786207584390219532311772967;
+        proposalIds[9] = 2803748188551238423262549847018364268422519232004056376953100549201854740200;
+
+        IApprovalVotingModuleOld approvalModule = IApprovalVotingModuleOld(0x54A8fCBBf05ac14bEf782a2060A8C752C7CC13a5);
+
+        for (uint256 i = 0; i < proposalIds.length; i++) {
+            uint256 proposalId = proposalIds[i];
+            IApprovalVotingModuleOld.ProposalVotes memory existingVotes = approvalModule._proposals(proposalId).votes;
+            ProposalVote storage proposalVote = _proposalVotes[proposalId];
+            proposalVote.forVotes = existingVotes.forVotes;
+            proposalVote.abstainVotes = existingVotes.abstainVotes;
+        }
     }
 }
