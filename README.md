@@ -1,22 +1,20 @@
-# Optimism On-Chain Governance
-
-This repo contains the code for the Optimism On-Chain Governance system.
+# Optimism Onchain Governance
 
 ## Motivation
 
-Optimism is moving towards on-chain governance process. The initial version on the governance system is used for signling purposes only and is designed to be upgraded in the future.
+Optimism is moving towards onchain governance. The initial version of the governance system is used for signalling purposes only and is designed to be upgraded in the future.
 
 ## Overview
 
-The governance contract is deployed behind an upgradeable proxy. The proxy is owned by the admin address, which is currently [the Optimism multisig](https://optimistic.etherscan.io/address/0x2501c477D0A35545a387Aa4A3EEe4292A9a8B3F0). The admin address can upgrade the implementation to a new version, and transfer ownership to a new address.
+The governance contract is upgradeable. The proxy is owned by the admin address, which is currently [the Optimism multisig](https://optimistic.etherscan.io/address/0x2501c477D0A35545a387Aa4A3EEe4292A9a8B3F0). The admin address can upgrade the implementation to a new version, and transfer ownership to a new address.
 
-The core governor implementation is based on OpenZeppelin's [Governor](https://docs.openzeppelin.com/contracts/4.x/api/governance) contract.
+The core governor implementation is based on [OpenZeppelin's Governor](https://docs.openzeppelin.com/contracts/4.x/api/governance).
 
 The contract has been modified to support the following features:
 
-- Quorum is calculation includes `for`, `against`, and `abstain` votes
-- When executed, proposals don't perform any on-chain actions
-- A special manager address has certain superpowers (see below)
+- Quorum calculation includes `for`, `against`, and `abstain` votes
+- When executed, proposals don't perform any onchain actions
+- A special `manager` address has certain permissions (see below)
 
 ## Roles
 
@@ -28,10 +26,10 @@ The contracts in this repo are designed to be used by the following roles:
   - Transfer admin role to a new address (inlcuding renouncing ownership)
   - Can't have any other roles (i.e. can't be a manager and can't interact with the governance system in any other way)
 
-- **manager** address used in day-to-day operations of the governance system. The manager address has the following superpowers:
+- **manager** address used in day-to-day operations of the governance system. The manager address has the following permissions:
 
   - Create proposals
-  - Mark passed proposals as executed (without performing on-chain actions)
+  - Mark passed proposals as executed (without performing onchain actions)
   - Update any proposal's `endBlock` (to extend the voting period)
   - Update voting delay (number of blocks before a proposal can be voted on)
   - Update voting period (number of blocks a proposal can be voted on)
@@ -45,7 +43,7 @@ The contracts in this repo are designed to be used by the following roles:
 
 ## Versions
 
-5 versions of the OP governor implementation have been deployed.
+6 versions of the OP governor implementation have been deployed.
 
 ### V1
 
@@ -81,8 +79,9 @@ Main implementation
 - Voting modules with partial voting support
   - [`VotingModule`](/src/modules/VotingModule.sol)
   - [`ApprovalVotingModule`](/src/modules/ApprovalVotingModule.sol)
-- Liquid delegation protocol [`Alligator V5`](/src/alligator/AlligatorOP_V5.sol)
-  - Added support for partial voting and several gas improvements.
+  - [`OptimisticModule`](/src/modules/OptimisticModule.sol)
+- Liquid delegation protocol [`Alligator`](/src/alligator/AlligatorOP_V5.sol)
+  - Added support for partial voting and advanced delegations
 - [`ProposalTypesConfigurator`](/src/ProposalTypesConfigurator.sol)
   - Allows Governor manager to add, remove and update proposal types
 - [`VotableSupplyOracle`](/src/VotableSupplyOracle.sol)
@@ -90,7 +89,7 @@ Main implementation
 
 ## Deployment
 
-- [`0xcDF27F107725988f2261Ce2256bDfCdE8B382B10`](https://optimistic.etherscan.io/address/0xcdf27f107725988f2261ce2256bdfcde8b382b10) - Optimism Governance Proxy
+- [`0xcDF27F107725988f2261Ce2256bDfCdE8B382B10`](https://optimistic.etherscan.io/address/0xcdf27f107725988f2261ce2256bdfcde8b382b10) - Optimism Governor Proxy
 
 ## See Also
 
