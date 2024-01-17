@@ -38,14 +38,16 @@ contract OptimismGovernorV6UpgradeTest is Test {
     OptimismGovernorV6 internal governor = OptimismGovernorV6(payable(proxy));
 
     function setUp() public {
-        // Block number 114779178 is 13-01-2023
-        vm.createSelectFork(vm.envString("OPTIMISM_RPC_URL"), 114779178);
+        // Block number 114930995 is 17-01-2023
+        vm.createSelectFork(vm.envString("OPTIMISM_RPC_URL"), 114930995);
 
-        vm.prank(admin);
-        proxy.upgradeToAndCall(
-            address(implementation),
-            abi.encodeWithSignature("_correctStateForPreviousApprovalProposals()" /* hex"10451e87" */ )
-        );
+        // vm.prank(admin);
+        // proxy.upgradeToAndCall(
+        //     address(implementation),
+        //     abi.encodeWithSignature("_correctStateForPreviousApprovalProposals()" /* hex"10451e87" */ )
+        // );
+        // proxy.upgradeTo(address(implementation));
+        // governor._correctStateForPreviousApprovalProposals();
 
         vm.startPrank(manager);
         OptimismGovernorV5(governor).setModuleApproval(address(approvalModule), true);
@@ -58,6 +60,12 @@ contract OptimismGovernorV6UpgradeTest is Test {
 
         // Upgrade alligator
         address deployer = vm.rememberKey(vm.envUint("DEPLOYER_KEY"));
+
+        SubdelegationRulesV3 memory rules = SubdelegationRulesV3(255, 0, 0, 0, address(0), AllowanceType.Absolute, 1e20);
+        vm.startPrank(admin);
+        ERC20Votes(op).delegate(alligatorProxy.proxyAddress(admin));
+        alligatorProxy.subdelegate(manager, rules);
+        vm.stopPrank();
 
         vm.startBroadcast(deployer);
         alligatorProxy.upgradeTo(newAlligatorImpl);
@@ -124,7 +132,6 @@ contract OptimismGovernorV6UpgradeTest is Test {
     }
 
     function testAlligator() public {
-        SubdelegationRulesV3 memory rules = SubdelegationRulesV3(255, 0, 0, 0, address(0), AllowanceType.Absolute, 1e20);
         address[] memory targets = new address[](1);
         targets[0] = address(this);
         uint256[] memory values = new uint256[](1);
@@ -134,11 +141,6 @@ contract OptimismGovernorV6UpgradeTest is Test {
         address[] memory authority = new address[](2);
         authority[0] = admin;
         authority[1] = manager;
-
-        vm.startPrank(admin);
-        ERC20Votes(op).delegate(alligatorProxy.proxyAddress(admin));
-        alligatorProxy.subdelegate(manager, rules);
-        vm.stopPrank();
 
         vm.startPrank(manager);
         uint256 proposalId = governor.propose(targets, values, calldatas, "Test");
