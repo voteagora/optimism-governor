@@ -38,8 +38,8 @@ contract OptimismGovernorV6UpgradeTest is Test {
     OptimismGovernorV6 internal governor = OptimismGovernorV6(payable(proxy));
 
     function setUp() public {
-        // Block number 114948363 is 17-01-2023
-        vm.createSelectFork(vm.envString("OPTIMISM_RPC_URL"), 114948363);
+        // Block number 114965363 is 17-01-2023
+        vm.createSelectFork(vm.envString("OPTIMISM_RPC_URL"), 114965363);
 
         // vm.prank(admin);
         // proxy.upgradeToAndCall(
@@ -59,7 +59,7 @@ contract OptimismGovernorV6UpgradeTest is Test {
         // vm.stopPrank();
 
         // Upgrade alligator
-        address deployer = vm.rememberKey(vm.envUint("DEPLOYER_KEY"));
+        // address deployer = vm.rememberKey(vm.envUint("DEPLOYER_KEY"));
 
         SubdelegationRulesV3 memory rules = SubdelegationRulesV3(255, 0, 0, 0, address(0), AllowanceType.Absolute, 1e20);
         vm.startPrank(admin);
@@ -67,9 +67,9 @@ contract OptimismGovernorV6UpgradeTest is Test {
         alligatorProxy.subdelegate(manager, rules);
         vm.stopPrank();
 
-        vm.startBroadcast(deployer);
-        alligatorProxy.upgradeTo(newAlligatorImpl);
-        vm.stopBroadcast();
+        // vm.startBroadcast(deployer);
+        // alligatorProxy.upgradeTo(newAlligatorImpl);
+        // vm.stopBroadcast();
     }
 
     function testReinitializer() public {
