@@ -34,7 +34,7 @@ contract UpgradeOptimismGovernorToV6Script is Script {
     // OptimisticModule_SocialSignalling optimisticSocialModule =
     //     OptimisticModule_SocialSignalling(0x27964c5f4F389B8399036e1076d84c6984576C33);
     // VotableSupplyOracle votableSupplyOracle = VotableSupplyOracle(0x1b7CA7437748375302bAA8954A2447fC3FBE44CC);
-    // AlligatorOPV5 alligatorV5Impl = AlligatorOPV5(0xA2Cf0f99bA37cCCB9A9FAE45D95D2064190075a3);
+    // AlligatorOPV5 alligatorV5Impl = AlligatorOPV5(0x47f22fFb5Af39abbBfF74D869ec63573dAcbF481);
     // AlligatorOPV5 alligatorV5 = AlligatorOPV5(0x7f08F3095530B67CdF8466B7a923607944136Df0);
 
     function run() public 

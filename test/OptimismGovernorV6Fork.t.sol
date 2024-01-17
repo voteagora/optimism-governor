@@ -30,7 +30,7 @@ contract OptimismGovernorV6UpgradeTest is Test {
         ProposalTypesConfigurator(0x67ecA7B65Baf0342CE7fBf0AA15921524414C09f);
     VotingModule optimisticModule = VotingModule(0x27964c5f4F389B8399036e1076d84c6984576C33);
     VotingModule approvalModule = VotingModule(0xdd0229D72a414DC821DEc66f3Cc4eF6dB2C7b7df);
-    address newAlligatorImpl = 0xA2Cf0f99bA37cCCB9A9FAE45D95D2064190075a3;
+    address newAlligatorImpl = 0x47f22fFb5Af39abbBfF74D869ec63573dAcbF481;
     AlligatorOPV5 alligatorProxy = AlligatorOPV5(payable(0x7f08F3095530B67CdF8466B7a923607944136Df0));
     TransparentUpgradeableProxy internal constant proxy =
         TransparentUpgradeableProxy(payable(0xcDF27F107725988f2261Ce2256bDfCdE8B382B10));
