@@ -30,7 +30,7 @@ contract OptimismGovernorV6UpgradeTest is Test {
         ProposalTypesConfigurator(0x67ecA7B65Baf0342CE7fBf0AA15921524414C09f);
     VotingModule optimisticModule = VotingModule(0x27964c5f4F389B8399036e1076d84c6984576C33);
     VotingModule approvalModule = VotingModule(0xdd0229D72a414DC821DEc66f3Cc4eF6dB2C7b7df);
-    address newAlligatorImpl = 0x47f22fFb5Af39abbBfF74D869ec63573dAcbF481;
+    address newAlligatorImpl = 0xA2Cf0f99bA37cCCB9A9FAE45D95D2064190075a3;
     AlligatorOPV5 alligatorProxy = AlligatorOPV5(payable(0x7f08F3095530B67CdF8466B7a923607944136Df0));
     TransparentUpgradeableProxy internal constant proxy =
         TransparentUpgradeableProxy(payable(0xcDF27F107725988f2261Ce2256bDfCdE8B382B10));
@@ -38,8 +38,8 @@ contract OptimismGovernorV6UpgradeTest is Test {
     OptimismGovernorV6 internal governor = OptimismGovernorV6(payable(proxy));
 
     function setUp() public {
-        // Block number 114930995 is 17-01-2023
-        vm.createSelectFork(vm.envString("OPTIMISM_RPC_URL"), 114930995);
+        // Block number 114948363 is 17-01-2023
+        vm.createSelectFork(vm.envString("OPTIMISM_RPC_URL"), 114948363);
 
         // vm.prank(admin);
         // proxy.upgradeToAndCall(
@@ -49,14 +49,14 @@ contract OptimismGovernorV6UpgradeTest is Test {
         // proxy.upgradeTo(address(implementation));
         // governor._correctStateForPreviousApprovalProposals();
 
-        vm.startPrank(manager);
-        OptimismGovernorV5(governor).setModuleApproval(address(approvalModule), true);
-        OptimismGovernorV5(governor).setModuleApproval(address(optimisticModule), true);
-        configurator.setProposalType(0, 3000, 5000, "Default");
-        configurator.setProposalType(1, 0, 0, "Optimistic");
-        configurator.setProposalType(2, 3000, 7500, "Super majority");
+        // vm.startPrank(manager);
+        // OptimismGovernorV5(governor).setModuleApproval(address(approvalModule), true);
+        // OptimismGovernorV5(governor).setModuleApproval(address(optimisticModule), true);
+        // configurator.setProposalType(0, 3000, 5000, "Default");
+        // configurator.setProposalType(1, 3000, 7500, "Super majority");
+        // configurator.setProposalType(2, 0, 0, "Optimistic");
 
-        vm.stopPrank();
+        // vm.stopPrank();
 
         // Upgrade alligator
         address deployer = vm.rememberKey(vm.envUint("DEPLOYER_KEY"));
@@ -132,6 +132,10 @@ contract OptimismGovernorV6UpgradeTest is Test {
     }
 
     function testAlligator() public {
+        vm.startPrank(admin);
+        ERC20Votes(op).delegate(alligatorProxy.proxyAddress(admin));
+        vm.stopPrank();
+
         address[] memory targets = new address[](1);
         targets[0] = address(this);
         uint256[] memory values = new uint256[](1);
@@ -172,10 +176,10 @@ contract OptimismGovernorV6UpgradeTest is Test {
 
         vm.startPrank(manager);
 
-        governor.proposeWithModule(optimisticModule, proposalData, "Optimistic", 1);
+        governor.proposeWithModule(optimisticModule, proposalData, "Optimistic", 2);
 
         vm.expectRevert();
-        governor.proposeWithModule(optimisticModule, proposalData, "Optimistic 2", 2);
+        governor.proposeWithModule(optimisticModule, proposalData, "Optimistic 2", 1);
 
         vm.stopPrank();
     }

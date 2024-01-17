@@ -6,7 +6,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 import {AlligatorOPV5} from "src/alligator/AlligatorOP_V5.sol";
 
 contract UpgradeAlligatorProxyScript is Script {
-    address newAlligatorImpl = 0x47f22fFb5Af39abbBfF74D869ec63573dAcbF481;
+    address newAlligatorImpl = 0xA2Cf0f99bA37cCCB9A9FAE45D95D2064190075a3;
     AlligatorOPV5 proxy = AlligatorOPV5(payable(0x7f08F3095530B67CdF8466B7a923607944136Df0));
 
     function run() public {
