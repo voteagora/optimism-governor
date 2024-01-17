@@ -30,7 +30,7 @@ contract OptimismGovernorV6UpgradeTest is Test {
         ProposalTypesConfigurator(0x67ecA7B65Baf0342CE7fBf0AA15921524414C09f);
     VotingModule optimisticModule = VotingModule(0x27964c5f4F389B8399036e1076d84c6984576C33);
     VotingModule approvalModule = VotingModule(0xdd0229D72a414DC821DEc66f3Cc4eF6dB2C7b7df);
-    address newAlligatorImpl = 0xA2Cf0f99bA37cCCB9A9FAE45D95D2064190075a3;
+    address newAlligatorImpl = 0x47f22fFb5Af39abbBfF74D869ec63573dAcbF481;
     AlligatorOPV5 alligatorProxy = AlligatorOPV5(payable(0x7f08F3095530B67CdF8466B7a923607944136Df0));
     TransparentUpgradeableProxy internal constant proxy =
         TransparentUpgradeableProxy(payable(0xcDF27F107725988f2261Ce2256bDfCdE8B382B10));
@@ -38,14 +38,16 @@ contract OptimismGovernorV6UpgradeTest is Test {
     OptimismGovernorV6 internal governor = OptimismGovernorV6(payable(proxy));
 
     function setUp() public {
-        // Block number 114779178 is 13-01-2023
-        vm.createSelectFork(vm.envString("OPTIMISM_RPC_URL"), 114779178);
+        // Block number 114930995 is 17-01-2023
+        vm.createSelectFork(vm.envString("OPTIMISM_RPC_URL"), 114930995);
 
-        vm.prank(admin);
-        proxy.upgradeToAndCall(
-            address(implementation),
-            abi.encodeWithSignature("_correctStateForPreviousApprovalProposals()" /* hex"10451e87" */ )
-        );
+        // vm.prank(admin);
+        // proxy.upgradeToAndCall(
+        //     address(implementation),
+        //     abi.encodeWithSignature("_correctStateForPreviousApprovalProposals()" /* hex"10451e87" */ )
+        // );
+        // proxy.upgradeTo(address(implementation));
+        // governor._correctStateForPreviousApprovalProposals();
 
         vm.startPrank(manager);
         OptimismGovernorV5(governor).setModuleApproval(address(approvalModule), true);
@@ -58,6 +60,12 @@ contract OptimismGovernorV6UpgradeTest is Test {
 
         // Upgrade alligator
         address deployer = vm.rememberKey(vm.envUint("DEPLOYER_KEY"));
+
+        SubdelegationRulesV3 memory rules = SubdelegationRulesV3(255, 0, 0, 0, address(0), AllowanceType.Absolute, 1e20);
+        vm.startPrank(admin);
+        ERC20Votes(op).delegate(alligatorProxy.proxyAddress(admin));
+        alligatorProxy.subdelegate(manager, rules);
+        vm.stopPrank();
 
         vm.startBroadcast(deployer);
         alligatorProxy.upgradeTo(newAlligatorImpl);
@@ -124,7 +132,6 @@ contract OptimismGovernorV6UpgradeTest is Test {
     }
 
     function testAlligator() public {
-        SubdelegationRulesV3 memory rules = SubdelegationRulesV3(255, 0, 0, 0, address(0), AllowanceType.Absolute, 1e20);
         address[] memory targets = new address[](1);
         targets[0] = address(this);
         uint256[] memory values = new uint256[](1);
@@ -134,11 +141,6 @@ contract OptimismGovernorV6UpgradeTest is Test {
         address[] memory authority = new address[](2);
         authority[0] = admin;
         authority[1] = manager;
-
-        vm.startPrank(admin);
-        ERC20Votes(op).delegate(alligatorProxy.proxyAddress(admin));
-        alligatorProxy.subdelegate(manager, rules);
-        vm.stopPrank();
 
         vm.startPrank(manager);
         uint256 proposalId = governor.propose(targets, values, calldatas, "Test");

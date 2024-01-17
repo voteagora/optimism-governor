@@ -622,7 +622,12 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
                             bytes1(0xff),
                             address(this),
                             bytes32(uint256(uint160(proxyOwner))), // salt
-                            keccak256(abi.encodePacked(type(AlligatorProxy).creationCode, abi.encode(GOVERNOR)))
+                            keccak256(
+                                abi.encodePacked(
+                                    type(AlligatorProxy).creationCode,
+                                    abi.encode(0x6E17cdef2F7c1598AD9DfA9A8acCF84B1303f43f)
+                                )
+                            )
                         )
                     )
                 )
