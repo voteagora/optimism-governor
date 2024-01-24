@@ -95,3 +95,8 @@ Main implementation
 
 - [OPerating Manual of the Optimism Collective](https://github.com/ethereum-optimism/OPerating-manual)
 - [Agora](https://twitter.com/nounsagora)
+
+## Audits
+
+- [Optimism Governor V5 by Zach Obront](./audits/23-05-12_zachobront.md)
+- [Optimism Governor V6 by Openzeppelin](./audits/23-11-22_openzeppelin.pdf)
