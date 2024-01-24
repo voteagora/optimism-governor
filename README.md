@@ -95,3 +95,42 @@ Main implementation
 
 - [OPerating Manual of the Optimism Collective](https://github.com/ethereum-optimism/OPerating-manual)
 - [Agora](https://twitter.com/nounsagora)
+
+## Audits
+
+- [Optimism Governor V5 by Zach Obront](./audits/23-05-12_zachobront.md)
+- [Optimism Governor V6 by Openzeppelin](./audits/23-11-22_openzeppelin.pdf)
+
+## Data and event interpretation guidelines
+
+The latest versions of the governor introduced some changes that might affect the data is fetched from onchain functions and events. Below are some notes and suggestions on how to handle them.
+
+### Partial delegations
+
+`Alligator` introduces partial delegations, or `subdelegations` as an alternative to delegate fractional amounts of voting power to multiple delegates.
+
+Each subdelegation is defined by a `delegator`, `delegate` and [`rules`](./src/structs/RulesV3.sol).
+
+Specifically with respect to partial delegations, `allowances` are defined in the `rules` and represent the maximum amount of voting power that a `delegate` can use over the `delegator`'s proxy. They can be defined either in absolute or relative amounts (where a value of 1e5 or higher represents 100%).
+
+A partial delegation emits a [`Subdelegation` or `Subdelegations`](https://github.com/voteagora/optimism-gov/blob/main/src/alligator/AlligatorOP_V5.sol#L47) event, depending on the function used. Clients should use these events to reconstruct the allowances of each address.
+
+> Caveat: A delegator can technically subdelegate more than 100% of their voting power. Deriving voting power for each delegate is non-trivial and we suggest waiting for the Agora API, or ask clarification to Agora.
+
+### Votes (governor)
+
+Each vote cast emits a `VoteCast` or `VoteCastWithParams` event, as with previous implementations.
+
+The introduction of partial votes allows a voter to cast vote with their normal delegations, but also via `Alligator` contract through their proxy address. As a result it becomes possible for multiple `VoteCast` events to be emitted for the same voter and proposal.
+
+### Votes (modules)
+
+Votes for proposals with modules could hold additional data in the `params`.
+
+Modules should expose a read function `VOTE_PARAMS_ENCODING` that returns the expected types, which can be used by clients to decode the `params`.
+
+> For example [this is the encoding used by the Approval Voting module](https://github.com/voteagora/optimism-gov/blob/main/src/modules/ApprovalVotingModule.sol#L346)
+
+### Quorum, onchain read function
+
+- Quorum now accepts `proposalId` as params, instead of `blockNumber`.
