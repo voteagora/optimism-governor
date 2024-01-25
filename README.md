@@ -90,6 +90,9 @@ Main implementation
 ## Deployment
 
 - [`0xcDF27F107725988f2261Ce2256bDfCdE8B382B10`](https://optimistic.etherscan.io/address/0xcdf27f107725988f2261ce2256bdfcde8b382b10) - Optimism Governor Proxy
+- [`0x7f08F3095530B67CdF8466B7a923607944136Df0`](https://optimistic.etherscan.io/address/0x7f08F3095530B67CdF8466B7a923607944136Df0) - Alligator
+- [`0x67ecA7B65Baf0342CE7fBf0AA15921524414C09f`](https://optimistic.etherscan.io/address/0x67ecA7B65Baf0342CE7fBf0AA15921524414C09f) - Proposal types configurator
+- [`0x1b7CA7437748375302bAA8954A2447fC3FBE44CC`](https://optimistic.etherscan.io/address/0x1b7CA7437748375302bAA8954A2447fC3FBE44CC) - Votable supply oracle
 
 ## See Also
 
@@ -103,31 +106,15 @@ Main implementation
 
 ## Data and event interpretation guidelines
 
-The latest versions of the governor introduced some changes that may affect how clients interpret onchain functions and events. Below are some notes and suggestions on how to handle them.
+The latest versions of the governor introduced changes that may affect how clients interpret onchain functions and events. Below are some notes and suggestions on how to handle them.
 
 ### Propose with modules
 
 `GovernorV5` introduced the `proposeWithModule` function, allowing to attach voting modules to proposals.
 
-When a proposal with module is created, a [`ProposalCreated`](./OptimismGovernorV5.sol#L42) event is emitted which includes the attached `votingModule` and `proposalData`.
+When a proposal with module is created, a new [`ProposalCreated`](./OptimismGovernorV5.sol#L42) event is emitted which includes the `votingModule` address and `proposalData`.
 
 Clients are able to determine if a proposal is standard, approval voting, optimistic or else by checking the module emitted in the event, as well as use the `PROPOSAL_DATA_ENCODING` function in the module to decode `proposalData` ([see modules section for more details](#modules)).
-
-### Votes (governor)
-
-Each vote cast emits a `VoteCast` or `VoteCastWithParams` event, same as with previous implementations.
-
-Since `GovernorV6` voters can cast votes not just with their normal delegations, but also via `Alligator` contract using partial delegations. As a result **multiple `VoteCast` events can be emitted for the same voter and proposal**.
-
-### Votes (modules)
-
-Votes for proposals with modules may hold additional data in `params`.
-
-Agora modules expose a read function `VOTE_PARAMS_ENCODING` that returns the expected types from the module, which can then be used by clients to decode the `params`.
-
-> For example [this is the encoding used by the Approval Voting module](./modules/ApprovalVotingModule.sol#L346)
-
-See the [modules section](#modules) for more details
 
 ### Modules
 
@@ -135,8 +122,18 @@ Agora modules adhere to the [VotingModule interface](./src/modules/VotingModule.
 
 Clients should particularly be aware of 2 functions:
 
-- `PROPOSAL_DATA_ENCODING`: returns the expected type for the `proposalData` passed when creating a proposal. Should be used to correctly format the `proposeWithModule` function and decode the emitted `ProposalCreated`
-- `VOTE_PARAMS_ENCODING`: returns the expected type for the `params` passed when casting a vote. Should be used to correctly format the `castVote` function and decode the emitted `VoteCast`
+- `PROPOSAL_DATA_ENCODING`: returns the expected type for the `proposalData` passed when creating a proposal. Should be used to correctly format the `proposeWithModule` function and decode the emitted `ProposalCreated` event.
+- `VOTE_PARAMS_ENCODING`: returns the expected type for the `params` passed when casting a vote. Should be used to correctly format the `castVote` function and decode the emitted `VoteCast` event.
+
+### Votes (modules)
+
+Votes for proposals with modules may hold additional data in `params`.
+
+Agora modules expose a read function `VOTE_PARAMS_ENCODING` that returns the expected types, which can then be used by clients to decode the `params`.
+
+> For example [this is the encoding used by the Approval Voting module](./modules/ApprovalVotingModule.sol#L346)
+
+See the [modules section](#modules) for more details.
 
 ### Partial delegations
 
@@ -149,6 +146,27 @@ Each `Subdelegation` contains a `delegator`, `delegate` and [`rules`](./src/stru
 Specifically with respect to partial delegations, `rules` contain `allowances`, which represent the maximum amount of voting power a `delegate` can use over the `delegator`'s proxy. They can be defined either in absolute or relative amounts (when relative, a value of 1e5 or higher represents 100%).
 
 > Caveat: A delegator can subdelegate more than 100% of their voting power. Due to how alligator works, **deriving partially delegated voting power is non-trivial** so we suggest waiting for the Agora API, or ask clarification to Agora.
+
+### Votes (partial)
+
+Each vote cast emits a `VoteCast` or `VoteCastWithParams` event, same as with previous implementations.
+
+Since `GovernorV6` voters can cast votes not just with their normal delegations, but also via `Alligator` contract using partial delegations. As a result clients should be aware that **multiple `VoteCast` events can be emitted for the same voter and proposal**.
+
+### Proposal types and approval thresholds
+
+`GovernorV6` introduced proposal types, which define quorum and approval threshold based on the type of the proposal.
+
+Proposal types are stored in the [`ProposalTypesConfigurator`](./src/ProposalTypesConfigurator.sol) contract.
+
+Proposal types can be tracked from `ProposalTypeSet` events or directly from the `proposalTypes(uint256 proposalTypeId)` function.
+
+Values are scaled by 1e4, so that
+
+- a quorum of 5100 means 51% of votable supply at the snapshot block
+- an approval threshold of 7600 means at least 76% of FOR votes are required for a proposal to pass.
+
+> Proposals by default use proposal type with id 0, currently with quorum and approval threshold at 50%.
 
 ### Quorum, onchain read function
 
