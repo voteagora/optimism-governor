@@ -64,6 +64,28 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         assertEq(forVotes, 75e18);
     }
 
+    function testCastVoteMaxRedelegations() public virtual {
+        uint256 length = 255;
+        subdelegationRules.allowanceType = AllowanceType.Absolute;
+        address[] memory authority = new address[](length + 1);
+        authority[0] = Utils.alice;
+        for (uint256 i = 0; i < length; i++) {
+            address delegator = i == 0 ? authority[0] : address(uint160(i));
+            address delegate = address(uint160(i + 1));
+            subdelegationRules.allowance = 1e18 - 10 * i;
+            vm.prank(delegator);
+            _subdelegate(delegator, baseRules, delegate, subdelegationRules);
+
+            authority[i + 1] = delegate;
+        }
+
+        // startMeasuringGas("castVote with max chain length - partial allowances");
+        vm.startPrank(address(uint160(length)));
+        standardCastVote(authority);
+        vm.stopPrank();
+        // stopMeasuringGas();
+    }
+
     function testLimitedCastVoteWithReasonAndParamsBatched() public virtual {
         (address[][] memory authorities,, BaseRules[] memory proxyRules, bytes32[] memory proxyRulesHashes) =
             _formatBatchData();

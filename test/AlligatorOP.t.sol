@@ -457,7 +457,13 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
     function standardCastVote(address[] memory authority) public virtual {
         vm.expectEmit();
-        emit VoteCast(_proxyAddress(authority[0], baseRules, baseRulesHash), address(this), authority, proposalId, 1);
+        emit VoteCast(
+            _proxyAddress(authority[0], baseRules, baseRulesHash),
+            authority[authority.length - 1],
+            authority,
+            proposalId,
+            1
+        );
         _castVote(baseRules, baseRulesHash, authority, proposalId, 1);
     }
 
