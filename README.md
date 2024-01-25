@@ -103,34 +103,53 @@ Main implementation
 
 ## Data and event interpretation guidelines
 
-The latest versions of the governor introduced some changes that might affect the data is fetched from onchain functions and events. Below are some notes and suggestions on how to handle them.
+The latest versions of the governor introduced some changes that may affect how clients interpret onchain functions and events. Below are some notes and suggestions on how to handle them.
 
-### Partial delegations
+### Propose with modules
 
-`Alligator` introduces partial delegations, or `subdelegations` as an alternative to delegate fractional amounts of voting power to multiple delegates.
+`GovernorV5` introduced the `proposeWithModule` function, allowing to attach voting modules to proposals.
 
-Each subdelegation is defined by a `delegator`, `delegate` and [`rules`](./src/structs/RulesV3.sol).
+When a proposal with module is created, a [`ProposalCreated`](./OptimismGovernorV5.sol#L42) event is emitted which includes the attached `votingModule` and `proposalData`.
 
-Specifically with respect to partial delegations, `allowances` are defined in the `rules` and represent the maximum amount of voting power that a `delegate` can use over the `delegator`'s proxy. They can be defined either in absolute or relative amounts (where a value of 1e5 or higher represents 100%).
-
-A partial delegation emits a [`Subdelegation` or `Subdelegations`](https://github.com/voteagora/optimism-gov/blob/main/src/alligator/AlligatorOP_V5.sol#L47) event, depending on the function used. Clients should use these events to reconstruct the allowances of each address.
-
-> Caveat: A delegator can technically subdelegate more than 100% of their voting power. Deriving voting power for each delegate is non-trivial and we suggest waiting for the Agora API, or ask clarification to Agora.
+Clients are able to determine if a proposal is standard, approval voting, optimistic or else by checking the module emitted in the event, as well as use the `PROPOSAL_DATA_ENCODING` function in the module to decode `proposalData` ([see modules section for more details](#modules)).
 
 ### Votes (governor)
 
-Each vote cast emits a `VoteCast` or `VoteCastWithParams` event, as with previous implementations.
+Each vote cast emits a `VoteCast` or `VoteCastWithParams` event, same as with previous implementations.
 
-The introduction of partial votes allows a voter to cast vote with their normal delegations, but also via `Alligator` contract through their proxy address. As a result it becomes possible for multiple `VoteCast` events to be emitted for the same voter and proposal.
+Since `GovernorV6` voters can cast votes not just with their normal delegations, but also via `Alligator` contract using partial delegations. As a result **multiple `VoteCast` events can be emitted for the same voter and proposal**.
 
 ### Votes (modules)
 
-Votes for proposals with modules could hold additional data in the `params`.
+Votes for proposals with modules may hold additional data in `params`.
 
-Modules should expose a read function `VOTE_PARAMS_ENCODING` that returns the expected types, which can be used by clients to decode the `params`.
+Agora modules expose a read function `VOTE_PARAMS_ENCODING` that returns the expected types from the module, which can then be used by clients to decode the `params`.
 
-> For example [this is the encoding used by the Approval Voting module](https://github.com/voteagora/optimism-gov/blob/main/src/modules/ApprovalVotingModule.sol#L346)
+> For example [this is the encoding used by the Approval Voting module](./modules/ApprovalVotingModule.sol#L346)
+
+See the [modules section](#modules) for more details
+
+### Modules
+
+Agora modules adhere to the [VotingModule interface](./src/modules/VotingModule.sol).
+
+Clients should particularly be aware of 2 functions:
+
+- `PROPOSAL_DATA_ENCODING`: returns the expected type for the `proposalData` passed when creating a proposal. Should be used to correctly format the `proposeWithModule` function and decode the emitted `ProposalCreated`
+- `VOTE_PARAMS_ENCODING`: returns the expected type for the `params` passed when casting a vote. Should be used to correctly format the `castVote` function and decode the emitted `VoteCast`
+
+### Partial delegations
+
+`Alligator` introduced partial delegations, or `subdelegations`, as an alternative way to delegate fractional amounts of voting power to multiple delegates.
+
+Each partial delegation emits a [`Subdelegation` or `Subdelegations`](./alligator/AlligatorOP_V5.sol#L47) event, respectively for single and batched operations. Clients should use these events to reconstruct the allowances of each address.
+
+Each `Subdelegation` contains a `delegator`, `delegate` and [`rules`](./src/structs/RulesV3.sol).
+
+Specifically with respect to partial delegations, `rules` contain `allowances`, which represent the maximum amount of voting power a `delegate` can use over the `delegator`'s proxy. They can be defined either in absolute or relative amounts (when relative, a value of 1e5 or higher represents 100%).
+
+> Caveat: A delegator can subdelegate more than 100% of their voting power. Due to how alligator works, **deriving partially delegated voting power is non-trivial** so we suggest waiting for the Agora API, or ask clarification to Agora.
 
 ### Quorum, onchain read function
 
-- Quorum now accepts `proposalId` as params, instead of `blockNumber`.
+From `GovernorV6`, quorum accepts `proposalId` as params instead of `blockNumber`.
