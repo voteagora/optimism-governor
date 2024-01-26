@@ -80,8 +80,14 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     // Subdelegation rules `from` => `to`
     mapping(address from => mapping(address to => SubdelegationRules subdelegationRules)) public subdelegations;
 
-    // Records of votes cast across an authority chain, to prevent double voting from the same proxy
-    mapping(address proxy => mapping(uint256 proposalId => mapping(address voter => uint256))) public votesCast;
+    mapping(address proxy => mapping(uint256 proposalId => mapping(address voter => uint256))) public UNUSED_SLOT;
+
+    // Records of votes cast on `proposalId` by `delegate` with `proxy` voting power from those subdelegated by `delegator`.
+    // Used to prevent double voting from the same proxy and authority chain.
+    mapping(
+        address proxy
+            => mapping(uint256 proposalId => mapping(address delegator => mapping(address delegate => uint256)))
+    ) public votesCast;
 
     // =============================================================
     //                         CONSTRUCTOR
@@ -410,10 +416,11 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
             // remaining votes. This is because it would be unnecessary to do so as if they voted they would exhaust the
             // proxy votes regardless of votes cast by their delegates.
             uint256 authorityLength = authority.length;
+            address delegator = authority[k - 1];
             for (k; k < authorityLength;) {
                 /// @dev cumulative votesCast cannot exceed proxy voting power, thus cannot overflow
                 unchecked {
-                    votesCast[proxy][proposalId][authority[k]] += votesToCast;
+                    votesCast[proxy][proposalId][delegator][delegator = authority[k]] += votesToCast;
 
                     ++k;
                 }
@@ -564,7 +571,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
                 _getVoterAllowance(subdelegationRules.allowanceType, subdelegationRules.allowance, voterAllowance);
 
             // Record the highest `delegatorsVotes` in the authority chain
-            toVotesCast = votesCast[proxy][proposalId][to];
+            toVotesCast = votesCast[proxy][proposalId][from][to];
             if (toVotesCast > delegatorsVotes) {
                 delegatorsVotes = toVotesCast;
             }
@@ -597,7 +604,6 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         }
 
         if (from != sender) revert NotDelegated(from, sender);
-
         // Prevent double spending of votes already cast by previous delegators.
         // Reverts for underflow when `delegatorsVotes > voterAllowance`, meaning that `sender` has no votes left.
         if (delegatorsVotes != 0) {
