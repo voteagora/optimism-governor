@@ -80,7 +80,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     // Subdelegation rules `from` => `to`
     mapping(address from => mapping(address to => SubdelegationRules subdelegationRules)) public subdelegations;
 
-    mapping(address proxy => mapping(uint256 proposalId => mapping(address voter => uint256))) public UNUSED_SLOT;
+    mapping(address proxy => mapping(uint256 proposalId => mapping(address voter => uint256))) private UNUSED_SLOT;
 
     // Records of votes cast on `proposalId` by `delegate` with `proxy` voting power from those subdelegated by `delegator`.
     // Used to prevent double voting from the same proxy and authority chain.
