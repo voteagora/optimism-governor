@@ -411,15 +411,17 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         // Record weight cast for a proxy, on the governor
         IOptimismGovernor(GOVERNOR).increaseWeightCast(proposalId, proxy, votesToCast, proxyTotalVotes);
 
+        // Record `votesToCast` across the authority chain, only for voters whose allowance does not exceed proxy
+        // remaining votes. This is because it would be unnecessary to do so as if they voted they would exhaust the
+        // proxy votes regardless of votes cast by their delegates.
         if (k != 0) {
-            // Record `votesToCast` across the authority chain, only for voters whose allowance does not exceed proxy
-            // remaining votes. This is because it would be unnecessary to do so as if they voted they would exhaust the
-            // proxy votes regardless of votes cast by their delegates.
-            uint256 authorityLength = authority.length;
-            address delegator = authority[k - 1];
-            for (k; k < authorityLength;) {
-                /// @dev cumulative votesCast cannot exceed proxy voting power, thus cannot overflow
-                unchecked {
+            /// @dev `k - 1` cannot underflow as `k` is always greater than 0
+            /// @dev cumulative votesCast cannot exceed proxy voting power, thus cannot overflow
+            unchecked {
+                address delegator = authority[k - 1];
+                uint256 authorityLength = authority.length;
+
+                for (k; k < authorityLength;) {
                     votesCast[proxy][proposalId][delegator][delegator = authority[k]] += votesToCast;
 
                     ++k;
