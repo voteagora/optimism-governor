@@ -409,6 +409,8 @@ contract AlligatorOPV6 is IAlligatorOPV6, UUPSUpgradeable, OwnableUpgradeable, P
      */
     function subdelegate(address to, SubdelegationRules calldata subdelegationRules) public override whenNotPaused {
         subdelegations[msg.sender][to] = subdelegationRules;
+        _addToSubdelegationKeys(msg.sender, to);
+
         emit SubDelegation(msg.sender, to, subdelegationRules);
     }
 
@@ -426,6 +428,7 @@ contract AlligatorOPV6 is IAlligatorOPV6, UUPSUpgradeable, OwnableUpgradeable, P
         uint256 targetsLength = targets.length;
         for (uint256 i; i < targetsLength;) {
             subdelegations[msg.sender][targets[i]] = subdelegationRules;
+            _addToSubdelegationKeys(msg.sender, targets[i]);
 
             unchecked {
                 ++i;
@@ -451,6 +454,7 @@ contract AlligatorOPV6 is IAlligatorOPV6, UUPSUpgradeable, OwnableUpgradeable, P
 
         for (uint256 i; i < targetsLength;) {
             subdelegations[msg.sender][targets[i]] = subdelegationRules[i];
+            _addToSubdelegationKeys(msg.sender, targets[i]);
 
             unchecked {
                 ++i;
@@ -458,6 +462,41 @@ contract AlligatorOPV6 is IAlligatorOPV6, UUPSUpgradeable, OwnableUpgradeable, P
         }
 
         emit SubDelegations(msg.sender, targets, subdelegationRules);
+    }
+
+    function _addToSubdelegationKeys(address from, address to) internal {
+        // Check if subdelegationKeys exists to avoid duplicates
+        if (backwardSubdelegationKeys[from].length == 0) {
+            backwardSubdelegationKeys[from].push(to);
+        } else {
+            // Check if the address is already in the array
+            bool found = false;
+            for (uint256 i = 0; i < backwardSubdelegationKeys[from].length; i++) {
+                if (backwardSubdelegationKeys[from][i] == to) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                backwardSubdelegationKeys[from].push(to);
+            }
+        }
+
+        // Do the same for forwardSubdelegationKeys
+        if (forwardSubdelegationKeys[to].length == 0) {
+            forwardSubdelegationKeys[to].push(from);
+        } else {
+            bool found = false;
+            for (uint256 i = 0; i < forwardSubdelegationKeys[to].length; i++) {
+                if (forwardSubdelegationKeys[to][i] == from) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                forwardSubdelegationKeys[to].push(from);
+            }
+        }
     }
 
     // =============================================================
