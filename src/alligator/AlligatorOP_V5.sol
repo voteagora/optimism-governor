@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {AlligatorProxy} from "./AlligatorProxy.sol";
 import {SubdelegationRules, AllowanceType} from "../structs/RulesV3.sol";
-import {IAlligatorOPV6} from "../interfaces/IAlligatorOPV6.sol";
+import {IAlligatorOPV5} from "../interfaces/IAlligatorOPV5.sol";
 import {IRule} from "../interfaces/IRule.sol";
 import {IOptimismGovernor} from "../interfaces/IOptimismGovernor.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
@@ -25,7 +25,7 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
  * - Upgradeable version of the contract
  * - Add castVoteBySigBatched
  */
-contract AlligatorOPV6 is IAlligatorOPV6, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable {
+contract IAlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable {
     // =============================================================
     //                             ERRORS
     // =============================================================
