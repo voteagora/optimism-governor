@@ -171,6 +171,51 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         assertEq(forVotes, 75e18);
     }
 
+    function testCastVoteTwiceWithTwoLongerChains() public virtual {
+        vm.prank(Utils.alice);
+        _subdelegate(Utils.alice, baseRules, Utils.dave, subdelegationRules);
+        vm.prank(Utils.alice);
+        _subdelegate(Utils.alice, baseRules, Utils.bob, subdelegationRules);
+        vm.prank(Utils.bob);
+        _subdelegate(Utils.bob, baseRules, Utils.dave, subdelegationRules);
+        vm.prank(Utils.dave);
+        _subdelegate(Utils.dave, baseRules, Utils.carol, subdelegationRules);
+
+        address[] memory authority1 = new address[](3);
+        authority1[0] = Utils.alice;
+        authority1[1] = Utils.dave;
+        authority1[2] = Utils.carol;
+
+        address[] memory authority2 = new address[](4);
+        authority2[0] = Utils.alice;
+        authority2[1] = Utils.bob;
+        authority2[2] = Utils.dave;
+        authority2[3] = Utils.carol;
+
+        address[][] memory authorities = new address[][](2);
+        authorities[0] = authority1;
+        authorities[1] = authority2;
+
+        address[] memory proxies = new address[](2);
+        proxies[0] = _proxyAddress(Utils.alice, baseRules, baseRulesHash);
+        proxies[1] = _proxyAddress(Utils.alice, baseRules, baseRulesHash);
+
+        BaseRules[] memory proxyRules = new BaseRules[](2);
+        proxyRules[0] = baseRules;
+        proxyRules[1] = baseRules;
+
+        bytes32[] memory proxyRulesHashes = new bytes32[](2);
+        proxyRulesHashes[0] = baseRulesHash;
+        proxyRulesHashes[1] = baseRulesHash;
+
+        standardCastVoteWithReasonAndParamsBatched(
+            authorities, proxies, proxyRules, proxyRulesHashes, "reason", "params"
+        );
+
+        (, uint256 forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
+        assertEq(forVotes, 375e17);
+    }
+
     function testLimitedCastVoteWithReasonAndParamsBatched() public virtual {
         (address[][] memory authorities,, BaseRules[] memory proxyRules, bytes32[] memory proxyRulesHashes) =
             _formatBatchData();
