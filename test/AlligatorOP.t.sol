@@ -312,7 +312,7 @@ contract AlligatorOPTest is SetupAlligatorOP {
         vm.expectRevert(
             abi.encodeWithSelector(NotValidAnymore.selector, address(this), Utils.alice, rules.baseRules.notValidAfter)
         );
-        _castVote(baseRules, baseRulesHash, authority, 1, 1);
+        _castVote(baseRules, baseRulesHash, authority, proposalId, 1);
     }
 
     function testRevert_validate_TooEarly() public {
