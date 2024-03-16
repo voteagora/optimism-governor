@@ -560,9 +560,9 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
             return (votesToCast);
         }
 
-        uint256 votesCastByDelegate;
         address to;
         SubdelegationRules memory subdelegationRules;
+        uint256 votesCastFactor;
         for (uint256 i = 1; i < authority.length;) {
             to = authority[i];
 
@@ -573,32 +573,26 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
             }
 
             // Prevent double spending of votes already cast by previous delegators by adjusting `subdelegationRules.allowance`.
-            // Reverts for underflow when `votesCastByDelegate > voterAllowance`, meaning that `from` has exceeded the allowance.
             if (subdelegationRules.allowanceType == AllowanceType.Relative) {
-                // For all nodes of the authority chain subtract the votes cast by the next node using the same authority chain
-                // (from 0 to i), except for the last node.
-                /// @dev Cannot underflow as `votesCastByAuthorityChain` of next node is always equal or lower than the one of the
-                /// previous node (see `_recordVotesToCast`)
-                unchecked {
-                    votesCastByDelegate = i == authority.length - 1
-                        ? votesCastByAuthorityChain[proxy][proposalId][keccak256(abi.encode(authority[0:i]))][authority[i]]
-                        : votesCastByAuthorityChain[proxy][proposalId][keccak256(abi.encode(authority[0:i]))][authority[i]]
-                            - votesCastByAuthorityChain[proxy][proposalId][keccak256(abi.encode(authority[0:i + 1]))][authority[i
-                                + 1]];
-                }
+                // `votesCastFactor`: remaining votes to cast by the delegate
+                // Get `votesCastFactor` by subtracting `votesCastByAuthorityChain` to given allowance amount
+                // Reverts for underflow when `votesCastByAuthorityChain > votesCastFactor`, when delegate has exceeded the allowance.
+                votesCastFactor = subdelegationRules.allowance * voterAllowance / 1e5
+                    - votesCastByAuthorityChain[proxy][proposalId][keccak256(abi.encode(authority[0:i]))][to];
 
-                // Adjust allowance by subtracting eventual votes already cast by the delegate
-                if (votesCastByDelegate != 0) {
-                    subdelegationRules.allowance = (
-                        subdelegationRules.allowance * voterAllowance / 1e5 - votesCastByDelegate
-                    ) * 1e5 / voterAllowance;
+                // Adjust `votesToCast` to the minimum between `votesCastFactor` and `votesToCast`
+                if (votesCastFactor < votesToCast) {
+                    votesToCast = votesCastFactor;
                 }
             } else {
-                votesCastByDelegate = votesCast[proxy][proposalId][from][to];
+                // `votesCastFactor`: total votes cast by the delegate
+                // Retrieve votes cast by `to` via `from` regardless of the used authority chain
+                votesCastFactor = votesCast[proxy][proposalId][from][to];
 
                 // Adjust allowance by subtracting eventual votes already cast by the delegate
-                if (votesCastByDelegate != 0) {
-                    subdelegationRules.allowance = subdelegationRules.allowance - votesCastByDelegate;
+                // Reverts for underflow when `votesCastFactor > voterAllowance`, when delegate has exceeded the allowance.
+                if (votesCastFactor != 0) {
+                    subdelegationRules.allowance = subdelegationRules.allowance - votesCastFactor;
                 }
             }
 
