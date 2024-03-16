@@ -633,6 +633,229 @@ contract AlligatorOPTest is SetupAlligatorOP {
         }
     }
 
+    function createAuthorityChain(address[1] memory initAuthority)
+        internal
+        virtual
+        returns (address[] memory authority)
+    {
+        authority = new address[](initAuthority.length);
+        for (uint256 i = 0; i < initAuthority.length - 1; i++) {
+            authority[i] = initAuthority[i];
+
+            address node = initAuthority[i];
+            vm.prank(node);
+            _subdelegate(node, baseRules, initAuthority[i + 1], subdelegationRules);
+        }
+        authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
+
+        return authority;
+    }
+
+    function createAuthorityChain(address[2] memory initAuthority)
+        internal
+        virtual
+        returns (address[] memory authority)
+    {
+        authority = new address[](initAuthority.length);
+        for (uint256 i = 0; i < initAuthority.length - 1; i++) {
+            authority[i] = initAuthority[i];
+
+            address node = initAuthority[i];
+            vm.prank(node);
+            _subdelegate(node, baseRules, initAuthority[i + 1], subdelegationRules);
+        }
+        authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
+
+        return authority;
+    }
+
+    function createAuthorityChain(
+        address[2] memory initAuthority,
+        ReducedSubdelegationRules[1] memory initSubdelegationRules
+    ) internal virtual returns (address[] memory authority) {
+        authority = new address[](initAuthority.length);
+        for (uint256 i = 0; i < initAuthority.length - 1; i++) {
+            authority[i] = initAuthority[i];
+            ReducedSubdelegationRules memory rules = initSubdelegationRules[i];
+
+            address node = initAuthority[i];
+            vm.prank(node);
+            _subdelegate(
+                node,
+                baseRules,
+                initAuthority[i + 1],
+                SubdelegationRules(baseRules, rules.allowanceType, rules.allowance)
+            );
+        }
+        authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
+
+        return authority;
+    }
+
+    function createAuthorityChain(address[3] memory initAuthority)
+        internal
+        virtual
+        returns (address[] memory authority)
+    {
+        authority = new address[](initAuthority.length);
+        for (uint256 i = 0; i < initAuthority.length - 1; i++) {
+            authority[i] = initAuthority[i];
+
+            address node = initAuthority[i];
+            vm.prank(node);
+            _subdelegate(node, baseRules, initAuthority[i + 1], subdelegationRules);
+        }
+        authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
+
+        return authority;
+    }
+
+    function createAuthorityChain(
+        address[3] memory initAuthority,
+        ReducedSubdelegationRules[2] memory initSubdelegationRules
+    ) internal virtual returns (address[] memory authority) {
+        authority = new address[](initAuthority.length);
+        for (uint256 i = 0; i < initAuthority.length - 1; i++) {
+            authority[i] = initAuthority[i];
+            ReducedSubdelegationRules memory rules = initSubdelegationRules[i];
+
+            address node = initAuthority[i];
+            vm.prank(node);
+            _subdelegate(
+                node,
+                baseRules,
+                initAuthority[i + 1],
+                SubdelegationRules(baseRules, rules.allowanceType, rules.allowance)
+            );
+        }
+        authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
+
+        return authority;
+    }
+
+    function createAuthorityChain(address[4] memory initAuthority)
+        internal
+        virtual
+        returns (address[] memory authority)
+    {
+        authority = new address[](initAuthority.length);
+        for (uint256 i = 0; i < initAuthority.length - 1; i++) {
+            authority[i] = initAuthority[i];
+
+            address node = initAuthority[i];
+            vm.prank(node);
+            _subdelegate(node, baseRules, initAuthority[i + 1], subdelegationRules);
+        }
+        authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
+
+        return authority;
+    }
+
+    function createAuthorityChain(
+        address[4] memory initAuthority,
+        ReducedSubdelegationRules[3] memory initSubdelegationRules
+    ) internal virtual returns (address[] memory authority) {
+        authority = new address[](initAuthority.length);
+        for (uint256 i = 0; i < initAuthority.length - 1; i++) {
+            authority[i] = initAuthority[i];
+            ReducedSubdelegationRules memory rules = initSubdelegationRules[i];
+
+            address node = initAuthority[i];
+            vm.prank(node);
+            _subdelegate(
+                node,
+                baseRules,
+                initAuthority[i + 1],
+                SubdelegationRules(baseRules, rules.allowanceType, rules.allowance)
+            );
+        }
+        authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
+
+        return authority;
+    }
+
+    function createAuthorityChain(address[5] memory initAuthority)
+        internal
+        virtual
+        returns (address[] memory authority)
+    {
+        authority = new address[](initAuthority.length);
+        for (uint256 i = 0; i < initAuthority.length - 1; i++) {
+            authority[i] = initAuthority[i];
+
+            address node = initAuthority[i];
+            vm.prank(node);
+            _subdelegate(node, baseRules, initAuthority[i + 1], subdelegationRules);
+        }
+        authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
+
+        return authority;
+    }
+
+    function createAuthorityChain(
+        address[5] memory initAuthority,
+        ReducedSubdelegationRules[4] memory initSubdelegationRules
+    ) internal virtual returns (address[] memory authority) {
+        authority = new address[](initAuthority.length);
+        for (uint256 i = 0; i < initAuthority.length - 1; i++) {
+            authority[i] = initAuthority[i];
+            ReducedSubdelegationRules memory rules = initSubdelegationRules[i];
+
+            address node = initAuthority[i];
+            vm.prank(node);
+            _subdelegate(
+                node,
+                baseRules,
+                initAuthority[i + 1],
+                SubdelegationRules(baseRules, rules.allowanceType, rules.allowance)
+            );
+        }
+        authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
+
+        return authority;
+    }
+
+    function createAuthorityChain(address[6] memory initAuthority)
+        internal
+        virtual
+        returns (address[] memory authority)
+    {
+        authority = new address[](initAuthority.length);
+        for (uint256 i = 0; i < initAuthority.length - 1; i++) {
+            authority[i] = initAuthority[i];
+
+            address node = initAuthority[i];
+            vm.prank(node);
+            _subdelegate(node, baseRules, initAuthority[i + 1], subdelegationRules);
+        }
+        authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
+
+        return authority;
+    }
+
+    function createAuthorityChain(
+        address[6] memory initAuthority,
+        ReducedSubdelegationRules[5] memory initSubdelegationRules
+    ) internal virtual returns (address[] memory authority) {
+        authority = new address[](initAuthority.length);
+        for (uint256 i = 0; i < initAuthority.length - 1; i++) {
+            authority[i] = initAuthority[i];
+            ReducedSubdelegationRules memory rules = initSubdelegationRules[i];
+
+            address node = initAuthority[i];
+            vm.prank(node);
+            _subdelegate(
+                node,
+                baseRules,
+                initAuthority[i + 1],
+                SubdelegationRules(baseRules, rules.allowanceType, rules.allowance)
+            );
+        }
+        authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
+
+        return authority;
+    }
+
     /*//////////////////////////////////////////////////////////////
                               CALCULATIONS
     //////////////////////////////////////////////////////////////*/

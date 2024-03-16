@@ -1103,4 +1103,91 @@ contract AlligatorOPV5Test is AlligatorOPTest {
             maxVotingPower, authorities, propId, support, reason, params, v, r, s
         );
     }
+
+    function createBasicAuthorities(address[][1] memory initAuthorities)
+        internal
+        virtual
+        returns (
+            address[][] memory authorities,
+            address[] memory proxies,
+            BaseRules[] memory proxyRules,
+            bytes32[] memory proxyRulesHashes,
+            uint256 totalVotesToCast
+        )
+    {
+        authorities = new address[][](initAuthorities.length);
+        proxies = new address[](initAuthorities.length);
+        proxyRules = new BaseRules[](initAuthorities.length);
+        proxyRulesHashes = new bytes32[](initAuthorities.length);
+
+        uint256[] memory votesToCast = new uint256[](authorities.length);
+
+        for (uint256 i = 0; i < initAuthorities.length; i++) {
+            authorities[i] = initAuthorities[i];
+            proxies[i] = _proxyAddress(authorities[i][0], baseRules, baseRulesHash);
+            proxyRules[i] = baseRules;
+            proxyRulesHashes[i] = baseRulesHash;
+
+            (, votesToCast[i],,) = _getInitParams(authorities[i]);
+            totalVotesToCast += votesToCast[i];
+        }
+    }
+
+    function createBasicAuthorities(address[][2] memory initAuthorities)
+        internal
+        virtual
+        returns (
+            address[][] memory authorities,
+            address[] memory proxies,
+            BaseRules[] memory proxyRules,
+            bytes32[] memory proxyRulesHashes,
+            uint256 totalVotesToCast
+        )
+    {
+        authorities = new address[][](initAuthorities.length);
+        proxies = new address[](initAuthorities.length);
+        proxyRules = new BaseRules[](initAuthorities.length);
+        proxyRulesHashes = new bytes32[](initAuthorities.length);
+
+        uint256[] memory votesToCast = new uint256[](authorities.length);
+
+        for (uint256 i = 0; i < initAuthorities.length; i++) {
+            authorities[i] = initAuthorities[i];
+            proxies[i] = _proxyAddress(authorities[i][0], baseRules, baseRulesHash);
+            proxyRules[i] = baseRules;
+            proxyRulesHashes[i] = baseRulesHash;
+
+            (, votesToCast[i],,) = _getInitParams(authorities[i]);
+            totalVotesToCast += votesToCast[i];
+        }
+    }
+
+    function createBasicAuthorities(address[][3] memory initAuthorities)
+        internal
+        virtual
+        returns (
+            address[][] memory authorities,
+            address[] memory proxies,
+            BaseRules[] memory proxyRules,
+            bytes32[] memory proxyRulesHashes,
+            uint256 totalVotesToCast
+        )
+    {
+        authorities = new address[][](initAuthorities.length);
+        proxies = new address[](initAuthorities.length);
+        proxyRules = new BaseRules[](initAuthorities.length);
+        proxyRulesHashes = new bytes32[](initAuthorities.length);
+
+        uint256[] memory votesToCast = new uint256[](authorities.length);
+
+        for (uint256 i = 0; i < initAuthorities.length; i++) {
+            authorities[i] = initAuthorities[i];
+            proxies[i] = _proxyAddress(authorities[i][0], baseRules, baseRulesHash);
+            proxyRules[i] = baseRules;
+            proxyRulesHashes[i] = baseRulesHash;
+
+            (, votesToCast[i],,) = _getInitParams(authorities[i]);
+            totalVotesToCast += votesToCast[i];
+        }
+    }
 }
