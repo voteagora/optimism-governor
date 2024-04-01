@@ -171,3 +171,13 @@ Values are scaled by 1e4, so that
 ### Quorum, onchain read function
 
 From `GovernorV6`, quorum accepts `proposalId` as params instead of `blockNumber`.
+
+## Run tests
+
+To run the tests, you can execute the command `forge test`
+
+If you haven't installed [`Foundry`](https://book.getfoundry.sh/) before, we recommend referring to the official [`documentation`](https://book.getfoundry.sh/projects/working-on-an-existing-project).
+
+
+
+
