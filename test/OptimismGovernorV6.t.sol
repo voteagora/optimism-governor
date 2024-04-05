@@ -179,21 +179,22 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
         _governorV6().castVoteFromAlligator(proposalId, voter, 0, "test", 10, "");
 
         (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes) = _governorV6().proposalVotes(proposalId);
-        assertEq(againstVotes, 10);
+        // standard votes are added only the first time voter casts the vote
+        assertEq(againstVotes, 10 + op.getVotes(voter));
         assertEq(forVotes, 0);
         assertEq(abstainVotes, 0);
 
         _governorV6().castVoteFromAlligator(proposalId, voter, 1, "test", 10, "");
 
         (againstVotes, forVotes, abstainVotes) = _governorV6().proposalVotes(proposalId);
-        assertEq(againstVotes, 10);
+        assertEq(againstVotes, 10 + op.getVotes(voter));
         assertEq(forVotes, 10);
         assertEq(abstainVotes, 0);
 
         _governorV6().castVoteFromAlligator(proposalId, voter, 2, "test", 10, "");
 
         (againstVotes, forVotes, abstainVotes) = _governorV6().proposalVotes(proposalId);
-        assertEq(againstVotes, 10);
+        assertEq(againstVotes, 10 + op.getVotes(voter));
         assertEq(forVotes, 10);
         assertEq(abstainVotes, 10);
 
