@@ -49,7 +49,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         standardCastVote(authority2);
 
         (, uint256 forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
-        assertEq(forVotes, 50e18);
+        assertEq(forVotes, 50e18 + op.getVotes(address(this)));
 
         vm.prank(Utils.alice);
         subdelegationRules = SubdelegationRules({
@@ -61,7 +61,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         standardCastVote(authority2);
 
         (, forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
-        assertEq(forVotes, 75e18);
+        assertEq(forVotes, 75e18 + op.getVotes(address(this)));
     }
 
     function testCastVoteMaxRedelegations() public virtual {
@@ -264,27 +264,42 @@ contract AlligatorOPV5Test is AlligatorOPTest {
     //////////////////////////////////////////////////////////////*/
 
     function standardCastVote(address[] memory authority) public virtual override {
+        address voterAddress = authority[authority.length - 1];
         (, uint256 initForVotes,) = governor.proposalVotes(proposalId);
         (address proxy, uint256 votesToCast, uint256 k, uint256 initWeightCast, uint256[] memory initWeights) =
             _getInitParams(authority);
 
+        bool isStandardVote = !governor.hasVoted(proposalId, voterAddress);
+
         vm.expectEmit();
-        emit VoteCastWithParams(authority[authority.length - 1], proposalId, 1, votesToCast, "", "");
+        emit VoteCastWithParams(
+            voterAddress, proposalId, 1, isStandardVote ? votesToCast + op.getVotes(voterAddress) : votesToCast, "", ""
+        );
         super.standardCastVote(authority);
 
-        _castVoteAssertions(authority, proxy, votesToCast, k, initWeightCast, initForVotes, initWeights);
+        _castVoteAssertions(authority, proxy, votesToCast, k, initWeightCast, initForVotes, initWeights, isStandardVote);
     }
 
     function standardCastVoteWithReason(address[] memory authority, string memory reason) public virtual override {
+        address voterAddress = authority[authority.length - 1];
         (, uint256 initForVotes,) = governor.proposalVotes(proposalId);
         (address proxy, uint256 votesToCast, uint256 k, uint256 initWeightCast, uint256[] memory initWeights) =
             _getInitParams(authority);
 
+        bool isStandardVote = !governor.hasVoted(proposalId, voterAddress);
+
         vm.expectEmit();
-        emit VoteCastWithParams(authority[authority.length - 1], proposalId, 1, votesToCast, reason, "");
+        emit VoteCastWithParams(
+            voterAddress,
+            proposalId,
+            1,
+            isStandardVote ? votesToCast + op.getVotes(voterAddress) : votesToCast,
+            reason,
+            ""
+        );
         super.standardCastVoteWithReason(authority, reason);
 
-        _castVoteAssertions(authority, proxy, votesToCast, k, initWeightCast, initForVotes, initWeights);
+        _castVoteAssertions(authority, proxy, votesToCast, k, initWeightCast, initForVotes, initWeights, isStandardVote);
     }
 
     function standardCastVoteWithReasonAndParams(address[] memory authority, string memory reason, bytes memory params)
@@ -292,15 +307,25 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         virtual
         override
     {
+        address voterAddress = authority[authority.length - 1];
         (, uint256 initForVotes,) = governor.proposalVotes(proposalId);
         (address proxy, uint256 votesToCast, uint256 k, uint256 initWeightCast, uint256[] memory initWeights) =
             _getInitParams(authority);
 
+        bool isStandardVote = !governor.hasVoted(proposalId, voterAddress);
+
         vm.expectEmit();
-        emit VoteCastWithParams(authority[authority.length - 1], proposalId, 1, votesToCast, reason, params);
+        emit VoteCastWithParams(
+            authority[authority.length - 1],
+            proposalId,
+            1,
+            isStandardVote ? votesToCast + op.getVotes(voterAddress) : votesToCast,
+            reason,
+            params
+        );
         super.standardCastVoteWithReasonAndParams(authority, reason, params);
 
-        _castVoteAssertions(authority, proxy, votesToCast, k, initWeightCast, initForVotes, initWeights);
+        _castVoteAssertions(authority, proxy, votesToCast, k, initWeightCast, initForVotes, initWeights, isStandardVote);
     }
 
     mapping(address proxy => uint256) public votesToCast_;
@@ -318,7 +343,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         uint256[] memory initWeightCast = new uint256[](authorities.length);
         uint256[][] memory initWeights = new uint256[][](authorities.length);
         (, uint256 initForVotes,) = governor.proposalVotes(proposalId);
-        uint256 totalVotesToCast;
+        uint256 totalVotesToCast = op.getVotes(authorities[0][authorities[0].length - 1]);
 
         for (uint256 i = 0; i < authorities.length; i++) {
             address[] memory authority = authorities[i];
@@ -353,7 +378,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         uint256[] memory initWeightCast = new uint256[](authorities.length);
         uint256[][] memory initWeights = new uint256[][](authorities.length);
         (, uint256 initForVotes,) = governor.proposalVotes(proposalId);
-        uint256 totalVotesToCast;
+        uint256 totalVotesToCast = op.getVotes(authorities[0][authorities[0].length - 1]);
 
         for (uint256 i = 0; i < authorities.length; i++) {
             address[] memory authority = authorities[i];
@@ -426,7 +451,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         uint256[] memory initWeightCast = new uint256[](authorities.length);
         uint256[][] memory initWeights = new uint256[][](authorities.length);
         (, uint256 initForVotes,) = governor.proposalVotes(proposalId);
-        uint256 totalVotesToCast;
+        uint256 totalVotesToCast = op.getVotes(authorities[0][authorities[0].length - 1]);
 
         for (uint256 i = 0; i < authorities.length; i++) {
             address[] memory authority = authorities[i];
@@ -480,13 +505,17 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         uint256 k,
         uint256 initWeightCast,
         uint256 initForVotes,
-        uint256[] memory initWeights
+        uint256[] memory initWeights,
+        bool isStandardVote
     ) internal {
         (, uint256 finalForVotes,) = governor.proposalVotes(proposalId);
 
         assertTrue(governor.hasVoted(proposalId, proxy));
         assertEq(governor.weightCast(proposalId, proxy), initWeightCast + votesToCast);
-        assertEq(finalForVotes, initForVotes + votesToCast);
+        assertEq(
+            finalForVotes,
+            initForVotes + votesToCast + (isStandardVote ? op.getVotes(authority[authority.length - 1]) : 0)
+        );
 
         for (uint256 i; i < authority.length; ++i) {
             uint256 recordedVotes = AlligatorOPV5Mock(alligator).votesCast(proxy, proposalId, authority[i]);
