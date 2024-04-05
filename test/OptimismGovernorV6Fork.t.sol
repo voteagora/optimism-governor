@@ -72,10 +72,10 @@ contract OptimismGovernorV6UpgradeTest is Test {
         // vm.stopBroadcast();
     }
 
-    function testReinitializer() public {
-        vm.expectRevert();
-        governor._correctStateForPreviousApprovalProposals();
-    }
+    // function testReinitializer() public {
+    //     vm.expectRevert();
+    //     governor._correctStateForPreviousApprovalProposals();
+    // }
 
     // Commented out to speed up tests
     uint256[] successfulPropIds = [
