@@ -215,7 +215,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
             _getInitParams(authority1);
         vm.prank(Utils.frank);
         _castVoteWithReasonAndParams(baseRules, baseRulesHash, authority1, proposalId, 1, "reason", "");
-        _castVoteAssertions(authority1, proxy, votesToCast, initWeightCast, initForVotes, initWeights);
+        _castVoteAssertions(authority1, proxy, votesToCast, initWeightCast, initForVotes, initWeights, true);
 
         (, uint256 forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
         assertEq(forVotes, 250e17);
@@ -224,7 +224,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         (proxy, votesToCast, initWeightCast, initWeights) = _getInitParams(authority2);
         vm.prank(Utils.carol);
         _castVoteWithReasonAndParams(baseRules, baseRulesHash, authority2, proposalId, 1, "reason", "");
-        _castVoteAssertions(authority2, proxy, votesToCast, initWeightCast, initForVotes, initWeights);
+        _castVoteAssertions(authority2, proxy, votesToCast, initWeightCast, initForVotes, initWeights, true);
 
         (, forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
         assertEq(forVotes, 375e17);
@@ -245,7 +245,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
             _getInitParams(authority1);
         vm.prank(Utils.frank);
         _castVoteWithReasonAndParams(baseRules, baseRulesHash, authority1, proposalId, 1, "reason", "");
-        _castVoteAssertions(authority1, proxy, votesToCast, initWeightCast, initForVotes, initWeights);
+        _castVoteAssertions(authority1, proxy, votesToCast, initWeightCast, initForVotes, initWeights, true);
 
         (, uint256 forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
         assertEq(forVotes, 450e17);
@@ -254,7 +254,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         (proxy, votesToCast, initWeightCast, initWeights) = _getInitParams(authority2);
         vm.prank(Utils.carol);
         _castVoteWithReasonAndParams(baseRules, baseRulesHash, authority2, proposalId, 1, "reason", "");
-        _castVoteAssertions(authority2, proxy, votesToCast, initWeightCast, initForVotes, initWeights);
+        _castVoteAssertions(authority2, proxy, votesToCast, initWeightCast, initForVotes, initWeights, true);
 
         (, forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
         assertEq(forVotes, 500e17);
@@ -505,7 +505,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         );
         super.standardCastVote(authority);
 
-        _castVoteAssertions(authority, proxy, votesToCast, initWeightCast, initForVotes, initWeights);
+        _castVoteAssertions(authority, proxy, votesToCast, initWeightCast, initForVotes, initWeights, true);
     }
 
     function standardCastVoteWithReason(address[] memory authority, string memory reason) public virtual override {
@@ -527,7 +527,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         );
         super.standardCastVoteWithReason(authority, reason);
 
-        _castVoteAssertions(authority, proxy, votesToCast, initWeightCast, initForVotes, initWeights);
+        _castVoteAssertions(authority, proxy, votesToCast, initWeightCast, initForVotes, initWeights, true);
     }
 
     function standardCastVoteWithReasonAndParams(address[] memory authority, string memory reason, bytes memory params)
@@ -553,7 +553,7 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         );
         super.standardCastVoteWithReasonAndParams(authority, reason, params);
 
-        _castVoteAssertions(authority, proxy, votesToCast, initWeightCast, initForVotes, initWeights);
+        _castVoteAssertions(authority, proxy, votesToCast, initWeightCast, initForVotes, initWeights, true);
     }
 
     mapping(address proxy => uint256) public votesToCast_;
