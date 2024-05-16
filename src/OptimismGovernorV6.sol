@@ -139,6 +139,11 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
         // Skip `totalWeight` check and count `votes`
         ProposalVote storage proposalVote = _proposalVotes[proposalId];
 
+        if (!proposalVote.hasVoted[voter]) {
+            proposalVote.hasVoted[voter] = true;
+            votes += _getVotes(voter, _proposals[proposalId].voteStart.getDeadline(), "");
+        }
+
         if (support == uint8(VoteType.Against)) {
             proposalVote.againstVotes += votes;
         } else if (support == uint8(VoteType.For)) {
@@ -428,38 +433,5 @@ contract OptimismGovernorV6 is OptimismGovernorV5 {
      */
     function VERSION() public pure virtual returns (uint256) {
         return GOVERNOR_VERSION;
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                           COMPATIBILITY FIX
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-     * Old modules store votes in their own storage, while new ones directly use governor state.
-     *
-     * In order to keep compatibility for state of old approval voting props, related votes are cloned in the governor.
-     */
-    function _correctStateForPreviousApprovalProposals() external reinitializer(3) {
-        uint256[] memory proposalIds = new uint256[](10);
-        proposalIds[0] = 102821998933460159156263544808281872605936639206851804749751748763651967264110;
-        proposalIds[1] = 13644637236772462780287582686131348226526824657027343360896627559283471469688;
-        proposalIds[2] = 87355419461675705865096288750937924893466943101654806912041265394266455745819;
-        proposalIds[3] = 96868135958111078064987938855232246504506994378309573614627090826820561655088;
-        proposalIds[4] = 16633367863894036056841722161407059007904922838583677995599242776177398115322;
-        proposalIds[5] = 76298930109016961673734608568752969826843280855214969572559472848313136347131;
-        proposalIds[6] = 89065519272487155253137299698235721564519179632704918690534400514930936156393;
-        proposalIds[7] = 103713749716503028671815481721039004389156473487450783632177114353117435138377;
-        proposalIds[8] = 33427192599934651870985988641044334656392659371327786207584390219532311772967;
-        proposalIds[9] = 2803748188551238423262549847018364268422519232004056376953100549201854740200;
-
-        IApprovalVotingModuleOld approvalModule = IApprovalVotingModuleOld(0x54A8fCBBf05ac14bEf782a2060A8C752C7CC13a5);
-
-        for (uint256 i = 0; i < proposalIds.length; i++) {
-            uint256 proposalId = proposalIds[i];
-            IApprovalVotingModuleOld.ProposalVotes memory existingVotes = approvalModule._proposals(proposalId).votes;
-            ProposalVote storage proposalVote = _proposalVotes[proposalId];
-            proposalVote.forVotes = existingVotes.forVotes;
-            proposalVote.abstainVotes = existingVotes.abstainVotes;
-        }
     }
 }
