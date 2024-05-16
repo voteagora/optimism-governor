@@ -2,7 +2,7 @@
 
 ## Motivation
 
-Agora's governor powers commmunities like Optimism, helping the collective move towards onchain governance. The initial version of the governance system is used for signalling purposes only and is designed to be upgraded in the future.
+Agora's governor powers communities like Optimism, helping the collective move towards onchain governance. The initial version of the governance system is used for signalling purposes only and is designed to be upgraded in the future.
 
 ## Overview
 
@@ -23,7 +23,7 @@ The contracts in this repo are designed to be used by the following roles:
 - **admin** is the top-level owner of the governance system. The admin address can only do the following:
 
   - Upgrade implementation to a new version
-  - Transfer admin role to a new address (inlcuding renouncing ownership)
+  - Transfer admin role to a new address (including renouncing ownership)
   - Can't have any other roles (i.e. can't be a manager and can't interact with the governance system in any other way)
 
 - **manager** address used in day-to-day operations of the governance system. The manager address has the following permissions:
