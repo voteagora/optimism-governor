@@ -1899,3 +1899,101 @@ contract GovernanceToken is ERC20Burnable, ERC20Votes, Ownable {
         super._burn(account, amount);
     }
 }
+
+
+// File Alligator.sol
+
+// pragma solidity 0.8.12;
+
+
+
+
+/**
+ * @dev The Alligator contract implements the advanced delegation features of the Optimism token.
+ */
+contract Alligator is GovernanceToken {
+    bytes32 private constant _DELEGATION_TYPEHASH =
+        keccak256("Delegation(address delegatee,uint256 nonce,uint256 expiry)");
+
+    GovernanceToken public governanceToken;
+    mapping(address => bool) public migrated;
+
+    mapping(address => address) private _delegates;
+    mapping(address => Checkpoint[]) private _checkpoints;
+
+    function checkpoints(address account, uint32 pos) public view override returns (Checkpoint memory) {
+        if (migrated[account]) {
+            return _checkpoints[account][pos];
+        } else {
+            return governanceToken.checkpoints(account, pos);
+        }
+    }
+
+    function numCheckpoints(address account) public view override returns (uint32) {
+        if (migrated[account]) {
+            return SafeCast.toUint32(_checkpoints[account].length);
+        } else {
+            return governanceToken.numCheckpoints(account);
+        }
+    }
+
+    function delegates(address account) public view override returns (address) {
+        if (migrated[account]) {
+            return _delegates[account];
+        } else {
+            return governanceToken.delegates(account);
+        }
+    }
+
+    function delegate(address delegatee) public virtual override(GovernanceToken) {
+        _delegate(_msgSender(), delegatee);
+    }
+
+    function delegateBySig(
+        address delegatee,
+        uint256 nonce,
+        uint256 expiry,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public virtual override {
+        require(block.timestamp <= expiry, "ERC20Votes: signature expired");
+        address signer = ECDSA.recover(
+            _hashTypedDataV4(keccak256(abi.encode(_DELEGATION_TYPEHASH, delegatee, nonce, expiry))),
+            v,
+            r,
+            s
+        );
+        require(nonce == _useNonce(signer), "ERC20Votes: invalid nonce");
+        _delegate(signer, delegatee);
+    }
+
+    function afterTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) public {
+        super._afterTokenTransfer(from, to, amount);
+
+        if (!migrated[from]) _migrate(from);
+        if (!migrated[to]) _migrate(to);
+    }
+
+    function _migrate(address account) public {
+        // set migrated flag
+        migrated[account] = true;
+
+        // copy delegates from governanceToken
+        _delegates[account] = governanceToken.delegates(account);
+
+        // copy checkpoints from governanceToken
+        Checkpoint[] storage accountCheckpoints = _checkpoints[account];
+
+        for (uint32 i = 0; i < governanceToken.numCheckpoints(account); i++) {
+            Checkpoint memory checkpoint = governanceToken.checkpoints(account, i);
+            accountCheckpoints.push(checkpoint);
+        }
+
+        _checkpoints[account] = accountCheckpoints;
+    }
+}
