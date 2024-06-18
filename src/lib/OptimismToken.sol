@@ -1867,6 +1867,9 @@ abstract contract Ownable is Context {
  * for the purposes of enforcing the token inflation schedule.
  */
 contract GovernanceToken is ERC20Burnable, ERC20Votes, Ownable {
+    // TODO: replace by OP predeploy
+    address public alligator;
+
     /**
      * @dev Constructor.
      */
@@ -1877,12 +1880,64 @@ contract GovernanceToken is ERC20Burnable, ERC20Votes, Ownable {
     }
 
     // The following functions are overrides required by Solidity.
+    function checkpoints(address account, uint32 pos) public virtual view override(ERC20Votes) returns (Checkpoint memory) {
+        if (Alligator(alligator).migrated(account)) {
+            return Alligator(alligator).checkpoints(account, pos);
+        } else {
+            return super.checkpoints(account, pos);
+        }
+    }
+
+    function numCheckpoints(address account) public virtual view override(ERC20Votes) returns (uint32) {
+        if (Alligator(alligator).migrated(account)) {
+            return Alligator(alligator).numCheckpoints(account);
+        } else {
+            return super.numCheckpoints(account);
+        }
+    }
+
+    function delegates(address account)
+        public
+        view
+        virtual
+        override(ERC20Votes)
+        returns (address)
+    {
+        if (Alligator(alligator).migrated(account)) {
+            return Alligator(alligator).delegates(account);
+        } else {
+            return super.delegates(account);
+        }
+    }
+
+    function delegate(address delegatee) public virtual override {
+        Alligator(alligator).delegate(delegatee);
+    }
+
+    function delegateBySig(
+        address delegatee,
+        uint256 nonce,
+        uint256 expiry,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public virtual override {
+        Alligator(alligator).delegateBySig(
+            delegatee,
+            nonce,
+            expiry,
+            v,
+            r,
+            s
+        );
+    }
+
     function _afterTokenTransfer(
         address from,
         address to,
         uint256 amount
     ) internal override(ERC20, ERC20Votes) {
-        super._afterTokenTransfer(from, to, amount);
+        Alligator(alligator).afterTokenTransfer(from, to, amount);
     }
 
     function _mint(address to, uint256 amount)
