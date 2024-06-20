@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {SubdelegationRules} from "../structs/RulesV3.sol";
 
-interface IAlligatorOPV5 {
+interface IAlligatorOPV6 {
     // =============================================================
     //                     GOVERNOR OPERATIONS
     // =============================================================
