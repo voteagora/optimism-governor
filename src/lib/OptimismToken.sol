@@ -1906,22 +1906,29 @@ contract GovernanceToken is ERC20Burnable, ERC20Votes, Ownable {
 // pragma solidity 0.8.12;
 
 
-
+import {AlligatorOPV5} from "src/alligator/AlligatorOP_V5.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/utils/ContextUpgradeable.sol";
 
 /**
  * @dev The Alligator contract implements the advanced delegation features of the Optimism token.
  */
-contract Alligator is GovernanceToken {
-    bytes32 private constant _DELEGATION_TYPEHASH =
-        keccak256("Delegation(address delegatee,uint256 nonce,uint256 expiry)");
-
+contract Alligator is AlligatorOPV5, ERC20Votes {
     GovernanceToken public governanceToken;
     mapping(address => bool) public migrated;
 
+    bytes32 private constant _DELEGATION_TYPEHASH =
+    keccak256("Delegation(address delegatee,uint256 nonce,uint256 expiry)");
+
     mapping(address => address) private _delegates;
     mapping(address => Checkpoint[]) private _checkpoints;
+    Checkpoint[] private _totalSupplyCheckpoints;
 
-    function checkpoints(address account, uint32 pos) public view override returns (Checkpoint memory) {
+    constructor(address _governanceTokenAddress) ERC20("Alligator", "ALL") ERC20Permit("Alligator") {
+        governanceToken = GovernanceToken(_governanceTokenAddress);
+    }
+
+    // TODO: should we add additional functions since we are inheriting from ERC20Votes but ERC20Votes uses other private variables?
+    function checkpoints(address account, uint32 pos) public view override(ERC20Votes) returns (Checkpoint memory) {
         if (migrated[account]) {
             return _checkpoints[account][pos];
         } else {
@@ -1943,29 +1950,6 @@ contract Alligator is GovernanceToken {
         } else {
             return governanceToken.delegates(account);
         }
-    }
-
-    function delegate(address delegatee) public virtual override(GovernanceToken) {
-        _delegate(_msgSender(), delegatee);
-    }
-
-    function delegateBySig(
-        address delegatee,
-        uint256 nonce,
-        uint256 expiry,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) public virtual override {
-        require(block.timestamp <= expiry, "ERC20Votes: signature expired");
-        address signer = ECDSA.recover(
-            _hashTypedDataV4(keccak256(abi.encode(_DELEGATION_TYPEHASH, delegatee, nonce, expiry))),
-            v,
-            r,
-            s
-        );
-        require(nonce == _useNonce(signer), "ERC20Votes: invalid nonce");
-        _delegate(signer, delegatee);
     }
 
     function afterTokenTransfer(
@@ -1995,5 +1979,13 @@ contract Alligator is GovernanceToken {
         }
 
         _checkpoints[account] = accountCheckpoints;
+    }
+
+    function _msgSender() internal view override(Context, ContextUpgradeable) returns (address) {
+        return super._msgSender();
+    }
+
+    function _msgData() internal view override(Context, ContextUpgradeable) returns (bytes calldata) {
+        return super._msgData();
     }
 }
