@@ -2,12 +2,22 @@
 pragma solidity 0.8.19;
 
 import {SubdelegationRules} from "../structs/RulesV3.sol";
+import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 
-interface IAlligatorOPV6 {
+interface IAlligatorOPV6 is IVotes {
     struct Checkpoint {
         uint32 fromBlock;
         uint224 votes;
     }
+
+    function migrated(address account) external view returns (bool);
+
+    // =============================================================
+    //                    ERC20Votes FUNCTIONS
+    // =============================================================
+    function checkpoints(address account, uint32 pos) external view returns (Checkpoint memory);
+
+    function numCheckpoints(address account) external view returns (uint32);
 
     // =============================================================
     //                     GOVERNOR OPERATIONS

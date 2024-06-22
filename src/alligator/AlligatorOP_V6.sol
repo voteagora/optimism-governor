@@ -35,7 +35,7 @@ import {ERC20Votes} from "src/lib/OptimismToken.sol";
  * - Upgradeable version of the contract
  * - Add castVoteBySigBatched
  */
-contract AlligatorOPV6 is IAlligatorOPV6, IVotes, ERC20Permit, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable {
+contract AlligatorOPV6 is IAlligatorOPV6, ERC20Permit, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable {
     // =============================================================
     //                             ERRORS
     // =============================================================
