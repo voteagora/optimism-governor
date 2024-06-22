@@ -11,6 +11,16 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ECDSAUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {ERC20Permit} from "src/lib/OptimismToken.sol";
+import {ERC20} from "src/lib/OptimismToken.sol";
+import {ContextUpgradeable} from "src/lib/OptimismToken.sol";
+import {Context} from "src/lib/OptimismToken.sol";
+import {SafeCast} from "src/lib/OptimismToken.sol";
+import {Math} from "src/lib/OptimismToken.sol";
+import {ECDSA} from "src/lib/OptimismToken.sol";
+import {GovernanceToken} from "src/lib/OptimismToken.sol";
+import {ERC20Votes} from "src/lib/OptimismToken.sol";
+
 
 /**
  * Liquid delegator contract for OP Governor.
@@ -25,7 +35,12 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
  * - Upgradeable version of the contract
  * - Add castVoteBySigBatched
  */
-contract AlligatorOPV6 is IAlligatorOPV6, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable {
+contract AlligatorOPV6 is IAlligatorOPV6, IVotes, ERC20Permit, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable {
+    struct Checkpoint {
+        uint32 fromBlock;
+        uint224 votes;
+    }
+
     // =============================================================
     //                             ERRORS
     // =============================================================
@@ -72,6 +87,8 @@ contract AlligatorOPV6 is IAlligatorOPV6, UUPSUpgradeable, OwnableUpgradeable, P
     bytes32 public constant BALLOT_WITHPARAMS_BATCHED_TYPEHASH = keccak256(
         "Ballot(uint256 proposalId,uint8 support,uint256 maxVotingPower,address[][] authorities,string reason,bytes params)"
     );
+    bytes32 private constant _DELEGATION_TYPEHASH =
+        keccak256("Delegation(address delegatee,uint256 nonce,uint256 expiry)");
 
     // =============================================================
     //                        MUTABLE STORAGE
@@ -97,12 +114,24 @@ contract AlligatorOPV6 is IAlligatorOPV6, UUPSUpgradeable, OwnableUpgradeable, P
             )
     ) public votesCastByAuthorityChain;
 
+    // Mapping to keep track of migrated accounts
+    mapping(address account => bool migrated) public migrated;
+
+    // Mapping to keep track of the delegates of each account
+    mapping(address => address) private _delegates;
+
+    // Checkpointing for votes for each account
+    mapping(address => Checkpoint[]) private _checkpoints;
+
+    // Array of all checkpoints
+    Checkpoint[] private _totalSupplyCheckpoints;
+
     // =============================================================
     //                         CONSTRUCTOR
     // =============================================================
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
+    constructor() ERC20("Alligator", "ALL") ERC20Permit("Alligator") {
         _disableInitializers();
     }
 
@@ -114,8 +143,265 @@ contract AlligatorOPV6 is IAlligatorOPV6, UUPSUpgradeable, OwnableUpgradeable, P
     }
 
     // =============================================================
+    //                    ERC20Votes FUNCTIONS
+    // =============================================================
+
+    /**
+     * @dev Get the `pos`-th checkpoint for `account`.
+     */
+     function checkpoints(address account, uint32 pos) public view virtual returns (Checkpoint memory) {
+        if (migrated[account]) {
+            return _checkpoints[account][pos];
+        } else {
+            return Checkpoint(GovernanceToken(OP_TOKEN).checkpoints(account, pos).fromBlock, GovernanceToken(OP_TOKEN).checkpoints(account, pos).votes);
+        }
+    }
+
+    /**
+     * @dev Get number of checkpoints for `account`.
+     */
+    function numCheckpoints(address account) public view virtual returns (uint32) {
+        if (migrated[account]) {
+            return SafeCast.toUint32(_checkpoints[account].length);
+        } else {
+            return GovernanceToken(OP_TOKEN).numCheckpoints(account);
+        }
+    }
+
+    /**
+     * @dev Get the address `account` is currently delegating to.
+     */
+    function delegates(address account) public view virtual override returns (address) {
+        if (migrated[account]) {
+            return _delegates[account];
+        } else {
+            return GovernanceToken(OP_TOKEN).delegates(account);
+        }
+    }
+
+    /**
+     * @dev Gets the current votes balance for `account`
+     */
+    function getVotes(address account) public view virtual override returns (uint256) {
+        if (migrated[account]) {
+            uint256 pos = _checkpoints[account].length;
+            return pos == 0 ? 0 : _checkpoints[account][pos - 1].votes;
+        } else {
+            return GovernanceToken(OP_TOKEN).getVotes(account);
+        }
+    }
+
+    /**
+     * @dev Retrieve the number of votes for `account` at the end of `blockNumber`.
+     *
+     * Requirements:
+     *
+     * - `blockNumber` must have been already mined
+     */
+    function getPastVotes(address account, uint256 blockNumber) public view virtual override returns (uint256) {
+        if (migrated[account]) {
+            require(blockNumber < block.number, "Alligator: block not yet mined");
+            return _checkpointsLookup(_checkpoints[account], blockNumber);
+        } else {
+            return GovernanceToken(OP_TOKEN).getPastVotes(account, blockNumber);
+        }
+    }
+
+    /**
+     * @dev Retrieve the `totalSupply` at the end of `blockNumber`. Note, this value is the sum of all balances.
+     * It is but NOT the sum of all the delegated votes!
+     *
+     * Requirements:
+     *
+     * - `blockNumber` must have been already mined
+     */
+    function getPastTotalSupply(uint256 blockNumber) public view virtual override returns (uint256) {
+        require(blockNumber < block.number, "Alligator: block not yet mined");
+        return _checkpointsLookup(_totalSupplyCheckpoints, blockNumber);
+    }
+
+    /**
+     * @dev Lookup a value in a list of (sorted) checkpoints.
+     */
+    function _checkpointsLookup(Checkpoint[] storage ckpts, uint256 blockNumber) private view returns (uint256) {
+        // We run a binary search to look for the earliest checkpoint taken after `blockNumber`.
+        //
+        // During the loop, the index of the wanted checkpoint remains in the range [low-1, high).
+        // With each iteration, either `low` or `high` is moved towards the middle of the range to maintain the invariant.
+        // - If the middle checkpoint is after `blockNumber`, we look in [low, mid)
+        // - If the middle checkpoint is before or equal to `blockNumber`, we look in [mid+1, high)
+        // Once we reach a single value (when low == high), we've found the right checkpoint at the index high-1, if not
+        // out of bounds (in which case we're looking too far in the past and the result is 0).
+        // Note that if the latest checkpoint available is exactly for `blockNumber`, we end up with an index that is
+        // past the end of the array, so we technically don't find a checkpoint after `blockNumber`, but it works out
+        // the same.
+        uint256 high = ckpts.length;
+        uint256 low = 0;
+        while (low < high) {
+            uint256 mid = Math.average(low, high);
+            if (ckpts[mid].fromBlock > blockNumber) {
+                high = mid;
+            } else {
+                low = mid + 1;
+            }
+        }
+
+        return high == 0 ? 0 : ckpts[high - 1].votes;
+    }
+
+    /**
+     * @dev Delegate votes from the sender to `delegatee`.
+     */
+    function delegate(address delegatee) public virtual override {
+        require(migrated[_msgSender()], "Alligator: msg.sender account not migrated");
+        _delegate(_msgSender(), delegatee);
+    }
+
+    /**
+     * @dev Delegates votes from signer to `delegatee`
+     */
+    function delegateBySig(
+        address delegatee,
+        uint256 nonce,
+        uint256 expiry,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public virtual override {
+        require(block.timestamp <= expiry, "Alligator: signature expired");
+        address signer = ECDSA.recover(
+            _hashTypedDataV4(keccak256(abi.encode(_DELEGATION_TYPEHASH, delegatee, nonce, expiry))),
+            v,
+            r,
+            s
+        );
+        require(nonce == _useNonce(signer), "Alligator: invalid nonce");
+        if (migrated[signer]) {
+            _delegate(signer, delegatee);
+        } else {
+            GovernanceToken(OP_TOKEN).delegateBySig(delegatee, nonce, expiry, v, r, s);
+        }
+    }
+
+    /**
+     * @dev Maximum token supply. Defaults to `type(uint224).max` (2^224^ - 1).
+     */
+    function _maxSupply() internal view virtual returns (uint224) {
+        return type(uint224).max;
+    }
+
+    /**
+     * @dev Snapshots the totalSupply after it has been increased.
+     */
+    function _mint(address account, uint256 amount) internal virtual override {
+        super._mint(account, amount);
+        require(totalSupply() <= _maxSupply(), "ERC20Votes: total supply risks overflowing votes");
+
+        _writeCheckpoint(_totalSupplyCheckpoints, _add, amount);
+    }
+
+    /**
+     * @dev Snapshots the totalSupply after it has been decreased.
+     */
+    function _burn(address account, uint256 amount) internal virtual override {
+        super._burn(account, amount);
+
+        _writeCheckpoint(_totalSupplyCheckpoints, _subtract, amount);
+    }
+
+    /**
+     * @dev Move voting power when tokens are transferred.
+     *
+     * Emits a {DelegateVotesChanged} event.
+     */
+    function _afterTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual override {
+        super._afterTokenTransfer(from, to, amount);
+
+        _moveVotingPower(delegates(from), delegates(to), amount);
+    }
+
+    /**
+     * @dev Change delegation for `delegator` to `delegatee`.
+     *
+     * Emits events {DelegateChanged} and {DelegateVotesChanged}.
+     */
+    function _delegate(address delegator, address delegatee) internal virtual {
+        address currentDelegate = delegates(delegator);
+        uint256 delegatorBalance = balanceOf(delegator);
+        _delegates[delegator] = delegatee;
+
+        emit DelegateChanged(delegator, currentDelegate, delegatee);
+
+        _moveVotingPower(currentDelegate, delegatee, delegatorBalance);
+    }
+
+    function _moveVotingPower(
+        address src,
+        address dst,
+        uint256 amount
+    ) private {
+        if (src != dst && amount > 0) {
+            if (src != address(0)) {
+                (uint256 oldWeight, uint256 newWeight) = _writeCheckpoint(_checkpoints[src], _subtract, amount);
+                emit DelegateVotesChanged(src, oldWeight, newWeight);
+            }
+
+            if (dst != address(0)) {
+                (uint256 oldWeight, uint256 newWeight) = _writeCheckpoint(_checkpoints[dst], _add, amount);
+                emit DelegateVotesChanged(dst, oldWeight, newWeight);
+            }
+        }
+    }
+
+    function _writeCheckpoint(
+        Checkpoint[] storage ckpts,
+        function(uint256, uint256) view returns (uint256) op,
+        uint256 delta
+    ) private returns (uint256 oldWeight, uint256 newWeight) {
+        uint256 pos = ckpts.length;
+        oldWeight = pos == 0 ? 0 : ckpts[pos - 1].votes;
+        newWeight = op(oldWeight, delta);
+
+        if (pos > 0 && ckpts[pos - 1].fromBlock == block.number) {
+            ckpts[pos - 1].votes = SafeCast.toUint224(newWeight);
+        } else {
+            ckpts.push(Checkpoint({fromBlock: SafeCast.toUint32(block.number), votes: SafeCast.toUint224(newWeight)}));
+        }
+    }
+
+    function _add(uint256 a, uint256 b) private pure returns (uint256) {
+        return a + b;
+    }
+
+    function _subtract(uint256 a, uint256 b) private pure returns (uint256) {
+        return a - b;
+    }
+    
+    // =============================================================
     //                     GOVERNOR OPERATIONS
     // =============================================================
+
+    /**
+     * Function to be called by governance token after a token transfer.
+     *
+     * @param from The sender of the tokens
+     * @param to The receiver of the tokens
+     * @param amount The amount of tokens to transfer
+    */
+    function afterTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) public {
+        _afterTokenTransfer(from, to, amount);
+
+        if (!migrated[from]) _migrate(from);
+        if (!migrated[to]) _migrate(to);
+    }
 
     /**
      * Validate subdelegation rules and cast a vote on the governor.
@@ -771,5 +1057,48 @@ contract AlligatorOPV6 is IAlligatorOPV6, UUPSUpgradeable, OwnableUpgradeable, P
 
         // else if (allowanceType == AllowanceType.Absolute)
         return delegatorAllowance > subdelegationAllowance ? subdelegationAllowance : delegatorAllowance;
+    }
+
+    /**
+     * Migrate the account's delegation data from the governance token to this contract.
+     *
+     * @param account The account to migrate.
+     */
+    function _migrate(address account) public {
+        // set migrated flag
+        migrated[account] = true;
+
+        // copy delegates from governance token
+        _delegates[account] = GovernanceToken(OP_TOKEN).delegates(account);
+
+        // copy checkpoints from governance token
+        Checkpoint[] storage accountCheckpoints = _checkpoints[account];
+
+        for (uint32 i = 0; i < GovernanceToken(OP_TOKEN).numCheckpoints(account); i++) {
+            Checkpoint memory checkpoint = Checkpoint(GovernanceToken(OP_TOKEN).checkpoints(account, i).fromBlock, GovernanceToken(OP_TOKEN).checkpoints(account, i).votes);
+            accountCheckpoints.push(checkpoint);
+        }
+
+        _checkpoints[account] = accountCheckpoints;
+    }
+
+    /**
+     * Retrieves the msg sender.
+     *
+     * @return Msg sender.
+     */
+    function _msgSender() internal view override(Context, ContextUpgradeable) returns (address) {
+        // TODO: check that the line below is correct
+        return super._msgSender();
+    }
+
+    /**
+     * Retrieves the msg data.
+     *
+     * @return Msg data.
+     */
+    function _msgData() internal view override(Context, ContextUpgradeable) returns (bytes calldata) {
+        // TODO: check that the line below is correct
+        return super._msgData();
     }
 }
