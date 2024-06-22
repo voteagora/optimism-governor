@@ -13,7 +13,7 @@ import {ECDSAUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/crypto
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ERC20Permit} from "src/lib/OptimismToken.sol";
 import {ERC20} from "src/lib/OptimismToken.sol";
-import {ContextUpgradeable} from "src/lib/OptimismToken.sol";
+import {ContextUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/utils/ContextUpgradeable.sol";
 import {Context} from "src/lib/OptimismToken.sol";
 import {SafeCast} from "src/lib/OptimismToken.sol";
 import {Math} from "src/lib/OptimismToken.sol";
@@ -36,11 +36,6 @@ import {ERC20Votes} from "src/lib/OptimismToken.sol";
  * - Add castVoteBySigBatched
  */
 contract AlligatorOPV6 is IAlligatorOPV6, IVotes, ERC20Permit, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable {
-    struct Checkpoint {
-        uint32 fromBlock;
-        uint224 votes;
-    }
-
     // =============================================================
     //                             ERRORS
     // =============================================================
@@ -396,7 +391,7 @@ contract AlligatorOPV6 is IAlligatorOPV6, IVotes, ERC20Permit, UUPSUpgradeable, 
         address from,
         address to,
         uint256 amount
-    ) public {
+    ) external {
         _afterTokenTransfer(from, to, amount);
 
         if (!migrated[from]) _migrate(from);

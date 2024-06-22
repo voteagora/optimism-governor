@@ -4,9 +4,20 @@ pragma solidity 0.8.19;
 import {SubdelegationRules} from "../structs/RulesV3.sol";
 
 interface IAlligatorOPV6 {
+    struct Checkpoint {
+        uint32 fromBlock;
+        uint224 votes;
+    }
+
     // =============================================================
     //                     GOVERNOR OPERATIONS
     // =============================================================
+
+    function afterTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) external;
 
     function castVote(address[] calldata authority, uint256 proposalId, uint8 support) external;
 
