@@ -470,6 +470,136 @@ contract AlligatorOPV5Test is AlligatorOPTest {
         assertEq(votesToCast, subRules.allowance);
     }
 
+    function testChangeDelegatorBalanceAfterCastVote() public virtual {
+        address[] memory authority = createAuthorityChain([Utils.alice, Utils.bob, Utils.frank]);
+
+        vm.prank(Utils.frank);
+
+        _castVoteWithReasonAndParams(baseRules, baseRulesHash, authority, proposalId, 1, "reason", "");
+
+        uint256 recordedVotes = AlligatorOPV5Mock(alligator).votesCast(
+            _proxyAddress(authority[0], baseRules, baseRulesHash),
+            proposalId,
+            authority[authority.length - 2],
+            authority[authority.length - 1]
+        );
+
+        assertEq(recordedVotes, 25e18);
+    }
+
+    function testCastVoteDelegationChains4() public virtual {
+        uint256 length = 4;
+
+        address[] memory authority1 = createAuthorityChain([Utils.alice, voter, Utils.carol]);
+        address[] memory authority2 = createAuthorityChain([Utils.alice, Utils.bob, Utils.carol]);
+        address[] memory authority3 = createAuthorityChain([Utils.alice, Utils.erin, Utils.carol]);
+        address[] memory authority4 = createAuthorityChain([Utils.alice, Utils.frank, Utils.carol]);
+   
+
+        address[] memory proxies = new address[](length);
+        BaseRules[] memory proxyRules = new BaseRules[](length);
+        bytes32[] memory proxyRulesHashes = new bytes32[](length);
+
+        address[][] memory authorities = new address[][](length);
+
+        authorities[3] = authority1;
+        authorities[2] = authority2;
+        authorities[1] = authority3;
+        authorities[0] = authority4;
+
+
+        for (uint256 i = 0; i < length; i++) {
+         proxies[i] = _proxyAddress(Utils.alice, baseRules, baseRulesHash);
+
+         proxyRules[i] = baseRules;
+
+         proxyRulesHashes[i] = baseRulesHash;
+        }
+
+        standardCastVoteWithReasonAndParamsBatched(
+            authorities, proxies, proxyRules, proxyRulesHashes, "reason", "params"
+        );
+
+        (, uint256 forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
+        assertEq(forVotes, 25e18 * length);
+    }
+
+    function testCastVoteAfterDelegationAuthorities2() public virtual {
+        address[] memory authority = new address[](2);
+        authority[0] = Utils.alice;
+        authority[1] = Utils.bob;
+
+        address proxy = _proxyAddress(Utils.alice, baseRules, baseRulesHash);
+        uint256 proxyTotalVotes = op.getPastVotes(proxy, governor.proposalSnapshot(proposalId)); 
+
+         vm.expectRevert(
+            abi.encodeWithSelector(
+                NotDelegated.selector,
+                Utils.alice,
+                Utils.bob
+            )
+        );
+        AlligatorOPV5Mock(alligator)._validate(
+            proxy,
+            Utils.bob,
+            authority,
+            proposalId,
+            1,
+            proxyTotalVotes
+       );
+    
+       vm.startPrank(Utils.alice);
+
+       _subdelegate(Utils.alice, baseRules, Utils.bob, subdelegationRules);
+       (,,,,,,uint256 allowance) = AlligatorOPV5Mock(alligator).subdelegations(Utils.alice, Utils.bob);
+
+       assertEq(allowance, subdelegationRules.allowance);
+
+       vm.stopPrank();
+
+       uint256 recordedVotesBeforeCastVote = AlligatorOPV5Mock(alligator).votesCast(
+            proxy,
+            proposalId,
+            Utils.alice,
+            Utils.bob
+       );
+
+       uint256 allowanceOfBobBeforeCastVote = AlligatorOPV5Mock(alligator)._validate(
+            proxy,
+            Utils.bob,
+            authority,
+            proposalId,
+            1,
+            proxyTotalVotes
+       );
+
+       
+       assertEq(allowanceOfBobBeforeCastVote, 50e18);
+       assertEq(recordedVotesBeforeCastVote, 0);
+       
+       vm.prank(Utils.bob);
+       AlligatorOPV5Mock(alligator).castVoteWithReasonAndParams(authority, proposalId, 1, "", "");
+
+       uint256 recordedVotesAfterCastVote = AlligatorOPV5Mock(alligator).votesCast(
+            proxy,
+            proposalId,
+            Utils.alice,
+            Utils.bob
+        );
+
+       uint256 allowanceOfBobAfterCastVote = AlligatorOPV5Mock(alligator)._validate(
+            proxy,
+            Utils.bob,
+            authority,
+            proposalId,
+            1,
+            proxyTotalVotes
+       );
+
+       assertEq(allowanceOfBobAfterCastVote, 0);
+       assertEq(recordedVotesAfterCastVote, 50e18);  
+    }
+
     /*//////////////////////////////////////////////////////////////
                                 REVERTS
     //////////////////////////////////////////////////////////////*/
