@@ -12,7 +12,9 @@ contract ProposalTypesConfiguratorTest is Test {
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event ProposalTypeSet(uint256 indexed proposalTypeId, uint16 quorum, uint16 approvalThreshold, string name);
+    event ProposalTypeSet(
+        uint256 indexed proposalTypeId, uint16 quorum, uint16 approvalThreshold, string name, string description
+    );
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -34,8 +36,8 @@ contract ProposalTypesConfiguratorTest is Test {
         vm.stopPrank();
 
         vm.startPrank(manager);
-        proposalTypesConfigurator.setProposalType(0, 3_000, 5_000, "Default");
-        proposalTypesConfigurator.setProposalType(1, 5_000, 7_000, "Alt");
+        proposalTypesConfigurator.setProposalType(0, 3_000, 5_000, "Default", "Default", address(0));
+        proposalTypesConfigurator.setProposalType(1, 5_000, 7_000, "Alt", "Alt", address(0));
         vm.stopPrank();
     }
 
@@ -54,8 +56,8 @@ contract ProposalTypesConfiguratorTest is Test {
     function testSetProposalType() public {
         vm.prank(manager);
         vm.expectEmit();
-        emit ProposalTypeSet(0, 4_000, 6_000, "New Default");
-        proposalTypesConfigurator.setProposalType(0, 4_000, 6_000, "New Default");
+        emit ProposalTypeSet(0, 4_000, 6_000, "New Default", "New Default");
+        proposalTypesConfigurator.setProposalType(0, 4_000, 6_000, "New Default", "New Default", address(0));
 
         IProposalTypesConfigurator.ProposalType memory propType = proposalTypesConfigurator.proposalTypes(0);
 
@@ -64,7 +66,7 @@ contract ProposalTypesConfiguratorTest is Test {
         assertEq(propType.name, "New Default");
 
         vm.prank(manager);
-        proposalTypesConfigurator.setProposalType(1, 0, 0, "Optimistic");
+        proposalTypesConfigurator.setProposalType(1, 0, 0, "Optimistic", "Optimistic", address(0));
         propType = proposalTypesConfigurator.proposalTypes(1);
         assertEq(propType.quorum, 0);
         assertEq(propType.approvalThreshold, 0);
@@ -77,19 +79,19 @@ contract ProposalTypesConfiguratorTest is Test {
 
     function testRevert_onlyManager() public {
         vm.expectRevert(IProposalTypesConfigurator.NotManager.selector);
-        proposalTypesConfigurator.setProposalType(0, 0, 0, "");
+        proposalTypesConfigurator.setProposalType(0, 0, 0, "", "", address(0));
     }
 
     function testRevert_setProposalType_InvalidQuorum() public {
         vm.prank(manager);
         vm.expectRevert(IProposalTypesConfigurator.InvalidQuorum.selector);
-        proposalTypesConfigurator.setProposalType(0, 10_001, 0, "");
+        proposalTypesConfigurator.setProposalType(0, 10_001, 0, "", "", address(0));
     }
 
     function testRevert_setProposalType_InvalidApprovalThreshold() public {
         vm.prank(manager);
         vm.expectRevert(IProposalTypesConfigurator.InvalidApprovalThreshold.selector);
-        proposalTypesConfigurator.setProposalType(0, 0, 10_001, "");
+        proposalTypesConfigurator.setProposalType(0, 0, 10_001, "", "", address(0));
     }
 }
 

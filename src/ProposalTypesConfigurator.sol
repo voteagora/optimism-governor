@@ -54,16 +54,19 @@ contract ProposalTypesConfigurator is IProposalTypesConfigurator {
      * @param approvalThreshold Approval threshold percentage, scaled by `PERCENT_DIVISOR`
      * @param name Name of the proposal type
      */
-    function setProposalType(uint256 proposalTypeId, uint16 quorum, uint16 approvalThreshold, string memory name)
-        external
-        override
-        onlyManager
-    {
+    function setProposalType(
+        uint256 proposalTypeId,
+        uint16 quorum,
+        uint16 approvalThreshold,
+        string memory name,
+        string calldata description,
+        address module
+    ) external override onlyManager {
         if (quorum > PERCENT_DIVISOR) revert InvalidQuorum();
         if (approvalThreshold > PERCENT_DIVISOR) revert InvalidApprovalThreshold();
 
-        _proposalTypes[proposalTypeId] = ProposalType(quorum, approvalThreshold, name);
+        _proposalTypes[proposalTypeId] = ProposalType(quorum, approvalThreshold, name, description, module);
 
-        emit ProposalTypeSet(proposalTypeId, quorum, approvalThreshold, name);
+        emit ProposalTypeSet(proposalTypeId, quorum, approvalThreshold, name, description);
     }
 }

@@ -45,6 +45,7 @@ abstract contract GovernorUpgradeableV2 is
         bool canceled;
         address votingModule;
         uint8 proposalType;
+        address proposer;
     }
 
     string private _name;

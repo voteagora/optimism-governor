@@ -14,7 +14,9 @@ interface IProposalTypesConfigurator {
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event ProposalTypeSet(uint256 indexed proposalTypeId, uint16 quorum, uint16 approvalThreshold, string name);
+    event ProposalTypeSet(
+        uint256 indexed proposalTypeId, uint16 quorum, uint16 approvalThreshold, string name, string description
+    );
 
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
@@ -24,6 +26,8 @@ interface IProposalTypesConfigurator {
         uint16 quorum;
         uint16 approvalThreshold;
         string name;
+        string description;
+        address module;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -32,6 +36,12 @@ interface IProposalTypesConfigurator {
 
     function proposalTypes(uint256 proposalTypeId) external view returns (ProposalType memory);
 
-    function setProposalType(uint256 proposalTypeId, uint16 quorum, uint16 approvalThreshold, string memory name)
-        external;
+    function setProposalType(
+        uint256 proposalTypeId,
+        uint16 quorum,
+        uint16 approvalThreshold,
+        string memory name,
+        string memory description,
+        address module
+    ) external;
 }

@@ -138,7 +138,7 @@ abstract contract SetupAlligatorOP is Test {
 
         votableSupplyOracle._updateVotableSupply(op.totalSupply());
         vm.prank(manager);
-        proposalTypesConfigurator.setProposalType(0, 1_000, 5_000, "Test");
+        proposalTypesConfigurator.setProposalType(0, 1_000, 5_000, "Test", "Test", address(0));
 
         proposalId = _propose("Test");
     }

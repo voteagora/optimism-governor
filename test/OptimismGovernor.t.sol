@@ -119,8 +119,8 @@ contract OptimismGovernorTest is Test {
         vm.stopPrank();
 
         vm.startPrank(manager);
-        proposalTypesConfigurator.setProposalType(0, 3_000, 5_000, "Default");
-        proposalTypesConfigurator.setProposalType(1, 5_000, 7_000, "Alt");
+        proposalTypesConfigurator.setProposalType(0, 3_000, 5_000, "Default", "Default", address(0));
+        proposalTypesConfigurator.setProposalType(1, 5_000, 7_000, "Alt", "Alt", address(0));
         vm.stopPrank();
     }
 
@@ -129,7 +129,7 @@ contract OptimismGovernorTest is Test {
         _preSetUp(implementation);
 
         vm.startPrank(manager);
-        proposalTypesConfigurator.setProposalType(1, 0, 0, "Optimistic");
+        proposalTypesConfigurator.setProposalType(1, 0, 0, "Optimistic", "Optimistic", optimisticModule);
         _governorV6().setModuleApproval(optimisticModule, true);
         vm.stopPrank();
     }
@@ -296,7 +296,7 @@ contract OptimismGovernorTest is Test {
 
     function testVoteSucceeded() public virtual {
         vm.prank(manager);
-        proposalTypesConfigurator.setProposalType(0, 3_000, 9_910, "Default");
+        proposalTypesConfigurator.setProposalType(0, 3_000, 9_910, "Default", "Default", address(0));
 
         address[] memory targets = new address[](1);
         targets[0] = address(this);
@@ -331,7 +331,7 @@ contract OptimismGovernorTest is Test {
 
     function testEditProposalType() public virtual {
         vm.startPrank(manager);
-        proposalTypesConfigurator.setProposalType(0, 3_000, 9_910, "Default");
+        proposalTypesConfigurator.setProposalType(0, 3_000, 9_910, "Default", "Default", address(0));
 
         address[] memory targets = new address[](1);
         targets[0] = address(this);
