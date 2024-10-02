@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity ^0.8.19;
 
-import {VotingModule} from "./VotingModule.sol";
 import {IGovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/IGovernorUpgradeable.sol";
-import {IOptimismGovernor} from "src/interfaces/IOptimismGovernor.sol";
+import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 import {IProposalTypesConfigurator} from "src/interfaces/IProposalTypesConfigurator.sol";
+import {IOptimismGovernor} from "src/interfaces/IOptimismGovernor.sol";
+import {VotingModule} from "src/modules/VotingModule.sol";
 
 enum VoteType {
     Against,
@@ -43,6 +44,12 @@ contract OptimisticModule_SocialSignalling is VotingModule {
     mapping(uint256 proposalId => Proposal) public proposals;
 
     /*//////////////////////////////////////////////////////////////
+                               CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
+
+    constructor(address _governor) VotingModule(_governor) {}
+
+    /*//////////////////////////////////////////////////////////////
                             WRITE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
@@ -53,20 +60,25 @@ contract OptimisticModule_SocialSignalling is VotingModule {
      * @param proposalData The proposal data encoded as `PROPOSAL_DATA_ENCODING`.
      */
     function propose(uint256 proposalId, bytes memory proposalData, bytes32 descriptionHash) external override {
+        _onlyGovernor();
         if (proposalId != uint256(keccak256(abi.encode(msg.sender, address(this), proposalData, descriptionHash)))) {
             revert WrongProposalId();
         }
 
-        if (proposals[proposalId].governor != address(0)) revert ExistingProposal();
+        if (proposals[proposalId].governor != address(0)) {
+            revert ExistingProposal();
+        }
 
-        (ProposalSettings memory proposalSettings) = abi.decode(proposalData, (ProposalSettings));
+        ProposalSettings memory proposalSettings = abi.decode(proposalData, (ProposalSettings));
 
-        uint256 proposalTypeId = IOptimismGovernor(msg.sender).getProposalType(proposalId);
+        uint8 proposalTypeId = IOptimismGovernor(msg.sender).getProposalType(proposalId);
         IProposalTypesConfigurator proposalConfigurator =
             IProposalTypesConfigurator(IOptimismGovernor(msg.sender).PROPOSAL_TYPES_CONFIGURATOR());
         IProposalTypesConfigurator.ProposalType memory proposalType = proposalConfigurator.proposalTypes(proposalTypeId);
 
-        if (proposalType.quorum != 0 || proposalType.approvalThreshold != 0) revert NotOptimisticProposalType();
+        if (proposalType.quorum != 0 || proposalType.approvalThreshold != 0) {
+            revert NotOptimisticProposalType();
+        }
         if (
             proposalSettings.againstThreshold == 0
                 || (proposalSettings.isRelativeToVotableSupply && proposalSettings.againstThreshold > PERCENT_DIVISOR)
@@ -119,8 +131,8 @@ contract OptimisticModule_SocialSignalling is VotingModule {
         uint256 againstThreshold = proposal.settings.againstThreshold;
         if (proposal.settings.isRelativeToVotableSupply) {
             uint256 snapshotBlock = IGovernorUpgradeable(proposal.governor).proposalSnapshot(proposalId);
-            againstThreshold =
-                IOptimismGovernor(proposal.governor).votableSupply(snapshotBlock) * againstThreshold / PERCENT_DIVISOR;
+            IVotesUpgradeable token = IOptimismGovernor(proposal.governor).token();
+            againstThreshold = (token.getPastTotalSupply(snapshotBlock) * againstThreshold) / PERCENT_DIVISOR;
         }
 
         return againstVotes < againstThreshold;
