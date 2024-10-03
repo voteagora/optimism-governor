@@ -95,6 +95,11 @@ abstract contract SetupAlligatorOP is Test {
         uint256 allowance;
     }
 
+    struct ReducedSubdelegationRules {
+        IAlligatorOP.AllowanceType allowanceType;
+        uint256 allowance;
+    }
+
     // =============================================================
     //                             SETUP
     // =============================================================
