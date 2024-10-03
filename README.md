@@ -141,7 +141,7 @@ See the [modules section](#modules) for more details.
 
 Each partial delegation emits a [`Subdelegation` or `Subdelegations`](./alligator/AlligatorOP#L47) event, respectively for single and batched operations. Clients should use these events to reconstruct the allowances of each address.
 
-Each `Subdelegation` contains a `delegator`, `delegate` and [`rules`](./src/structs/RulesV3.sol).
+Each `Subdelegation` contains a `delegator`, `delegate` and [`rules`](./interfaces/IAlligatorOP.sol).
 
 Specifically with respect to partial delegations, `rules` contain `allowances`, which represent the maximum amount of voting power a `delegate` can use over the `delegator`'s proxy. They can be defined either in absolute or relative amounts (when relative, a value of 1e5 or higher represents 100%).
 

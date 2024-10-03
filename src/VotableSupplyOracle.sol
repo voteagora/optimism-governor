@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity ^0.8.19;
 
 import {IVotableSupplyOracle} from "./interfaces/IVotableSupplyOracle.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";

@@ -1,8 +1,7 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
 
 import {AlligatorProxy} from "./AlligatorProxy.sol";
-import {SubdelegationRules, AllowanceType} from "../structs/RulesV3.sol";
 import {IAlligatorOP} from "../interfaces/IAlligatorOP.sol";
 import {IRule} from "../interfaces/IRule.sol";
 import {IOptimismGovernor} from "../interfaces/IOptimismGovernor.sol";
@@ -44,9 +43,9 @@ contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, Pausa
     //                             EVENTS
     // =============================================================
 
-    event SubDelegation(address indexed from, address indexed to, SubdelegationRules subdelegationRules);
-    event SubDelegations(address indexed from, address[] to, SubdelegationRules subdelegationRules);
-    event SubDelegations(address indexed from, address[] to, SubdelegationRules[] subdelegationRules);
+    event SubDelegation(address indexed from, address indexed to, IAlligatorOP.SubdelegationRules subdelegationRules);
+    event SubDelegations(address indexed from, address[] to, IAlligatorOP.SubdelegationRules subdelegationRules);
+    event SubDelegations(address indexed from, address[] to, IAlligatorOP.SubdelegationRules[] subdelegationRules);
     event VoteCast(
         address indexed proxy, address indexed voter, address[] authority, uint256 proposalId, uint8 support
     );
@@ -78,7 +77,8 @@ contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, Pausa
     // =============================================================
 
     // Subdelegation rules `from` => `to`
-    mapping(address from => mapping(address to => SubdelegationRules subdelegationRules)) public subdelegations;
+    mapping(address from => mapping(address to => IAlligatorOP.SubdelegationRules subdelegationRules)) public
+        subdelegations;
 
     mapping(address proxy => mapping(uint256 proposalId => mapping(address voter => uint256))) private UNUSED_SLOT;
 
@@ -470,7 +470,11 @@ contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, Pausa
      * @param to The address to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegation.
      */
-    function subdelegate(address to, SubdelegationRules calldata subdelegationRules) public override whenNotPaused {
+    function subdelegate(address to, IAlligatorOP.SubdelegationRules calldata subdelegationRules)
+        public
+        override
+        whenNotPaused
+    {
         subdelegations[msg.sender][to] = subdelegationRules;
         emit SubDelegation(msg.sender, to, subdelegationRules);
     }
@@ -481,7 +485,7 @@ contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, Pausa
      * @param targets The addresses to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegations.
      */
-    function subdelegateBatched(address[] calldata targets, SubdelegationRules calldata subdelegationRules)
+    function subdelegateBatched(address[] calldata targets, IAlligatorOP.SubdelegationRules calldata subdelegationRules)
         public
         override
         whenNotPaused
@@ -504,11 +508,10 @@ contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, Pausa
      * @param targets The addresses to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegations.
      */
-    function subdelegateBatched(address[] calldata targets, SubdelegationRules[] calldata subdelegationRules)
-        public
-        override
-        whenNotPaused
-    {
+    function subdelegateBatched(
+        address[] calldata targets,
+        IAlligatorOP.SubdelegationRules[] calldata subdelegationRules
+    ) public override whenNotPaused {
         uint256 targetsLength = targets.length;
         if (targetsLength != subdelegationRules.length) revert LengthMismatch();
 
@@ -561,7 +564,7 @@ contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, Pausa
         }
 
         address to;
-        SubdelegationRules memory subdelegationRules;
+        IAlligatorOP.SubdelegationRules memory subdelegationRules;
         uint256 votesCastFactor;
         for (uint256 i = 1; i < authority.length;) {
             to = authority[i];
@@ -573,7 +576,7 @@ contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, Pausa
             }
 
             // Prevent double spending of votes already cast by previous delegators by adjusting `subdelegationRules.allowance`.
-            if (subdelegationRules.allowanceType == AllowanceType.Relative) {
+            if (subdelegationRules.allowanceType == IAlligatorOP.AllowanceType.Relative) {
                 // `votesCastFactor`: remaining votes to cast by the delegate
                 // Get `votesCastFactor` by subtracting `votesCastByAuthorityChain` to given allowance amount
                 // Reverts for underflow when `votesCastByAuthorityChain > votesCastFactor`, when delegate has exceeded the allowance.
@@ -719,7 +722,7 @@ contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, Pausa
     }
 
     function _validateRules(
-        SubdelegationRules memory rules,
+        IAlligatorOP.SubdelegationRules memory rules,
         address sender,
         uint256 authorityLength,
         uint256 proposalId,
@@ -759,17 +762,17 @@ contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, Pausa
     /**
      * Return the allowance of a voter, used in `validate`.
      */
-    function _getVoterAllowance(AllowanceType allowanceType, uint256 subdelegationAllowance, uint256 delegatorAllowance)
-        private
-        pure
-        returns (uint256)
-    {
-        if (allowanceType == AllowanceType.Relative) {
+    function _getVoterAllowance(
+        IAlligatorOP.AllowanceType allowanceType,
+        uint256 subdelegationAllowance,
+        uint256 delegatorAllowance
+    ) private pure returns (uint256) {
+        if (allowanceType == IAlligatorOP.AllowanceType.Relative) {
             return
                 subdelegationAllowance >= 1e5 ? delegatorAllowance : delegatorAllowance * subdelegationAllowance / 1e5;
         }
 
-        // else if (allowanceType == AllowanceType.Absolute)
+        // else if (allowanceType == IAlligatorOP.AllowanceType.Absolute)
         return delegatorAllowance > subdelegationAllowance ? subdelegationAllowance : delegatorAllowance;
     }
 }
