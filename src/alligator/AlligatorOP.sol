@@ -62,7 +62,7 @@ contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, Pausa
     // =============================================================
 
     address public constant GOVERNOR = 0xcDF27F107725988f2261Ce2256bDfCdE8B382B10;
-    address public constant OP_TOKEN = 0x4200000000000000000000000000000000000042;
+    address public opToken;
     bytes32 public constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
     bytes32 public constant BALLOT_TYPEHASH = keccak256("Ballot(uint256 proposalId,uint8 support,address[] authority)");
@@ -106,11 +106,12 @@ contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, Pausa
         _disableInitializers();
     }
 
-    function initialize(address _initOwner) external initializer {
+    function initialize(address _initOwner, address _op) external initializer {
         PausableUpgradeable.__Pausable_init();
         OwnableUpgradeable.__Ownable_init();
         UUPSUpgradeable.__UUPSUpgradeable_init();
         _transferOwnership(_initOwner);
+        opToken = _op;
     }
 
     // =============================================================
@@ -335,7 +336,7 @@ contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, Pausa
         bytes memory params
     ) internal {
         address proxy = proxyAddress(authority[0]);
-        uint256 proxyTotalVotes = IVotes(OP_TOKEN).getPastVotes(proxy, _proposalSnapshot(proposalId));
+        uint256 proxyTotalVotes = IVotes(opToken).getPastVotes(proxy, _proposalSnapshot(proposalId));
 
         (uint256 votesToCast) = validate(proxy, voter, authority, proposalId, support, proxyTotalVotes);
 
@@ -377,7 +378,7 @@ contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, Pausa
         uint256 proxyTotalVotes;
         for (uint256 i; i < authorities.length;) {
             proxies[i] = proxyAddress(authorities[i][0]);
-            proxyTotalVotes = IVotes(OP_TOKEN).getPastVotes(proxies[i], snapshotBlock);
+            proxyTotalVotes = IVotes(opToken).getPastVotes(proxies[i], snapshotBlock);
 
             (votesToCast) = validate(proxies[i], voter, authorities[i], proposalId, support, proxyTotalVotes);
 

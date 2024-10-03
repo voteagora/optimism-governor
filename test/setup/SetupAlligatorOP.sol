@@ -155,7 +155,7 @@ abstract contract SetupAlligatorOP is Test {
         bytes[] memory calldatas = new bytes[](1);
         vm.prank(manager);
         propId = governor.propose(targets, values, calldatas, propDescription);
-        vm.roll(block.number + 10);
+        vm.roll(governor.proposalSnapshot(propId) + 10);
     }
 
     string private checkpointLabel;
