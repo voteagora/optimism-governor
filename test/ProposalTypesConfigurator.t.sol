@@ -18,7 +18,6 @@ contract ProposalTypesConfiguratorTest is Test {
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
 
-    address admin = makeAddr("admin");
     address timelock = makeAddr("timelock");
     address manager = makeAddr("manager");
     address deployer = makeAddr("deployer");
@@ -30,21 +29,21 @@ contract ProposalTypesConfiguratorTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function setUp() public virtual {
-        governor = new GovernorMock(admin, timelock);
+        governor = new GovernorMock(manager, timelock);
 
         vm.startPrank(deployer);
         proposalTypesConfigurator = new ProposalTypesConfigurator();
         proposalTypesConfigurator.initialize(address(governor), new ProposalTypesConfigurator.ProposalType[](0));
         vm.stopPrank();
 
-        vm.startPrank(admin);
+        vm.startPrank(manager);
         proposalTypesConfigurator.setProposalType(0, 3_000, 5_000, "Default", "Default", address(0));
         proposalTypesConfigurator.setProposalType(1, 5_000, 7_000, "Alt", "Alt", address(0));
         vm.stopPrank();
     }
 
-    function _adminOrTimelock(uint256 _actorSeed) internal view returns (address) {
-        if (_actorSeed % 2 == 1) return admin;
+    function _managerOrTimelock(uint256 _actorSeed) internal view returns (address) {
+        if (_actorSeed % 2 == 1) return manager;
         else return governor.timelock();
     }
 }
@@ -89,7 +88,7 @@ contract ProposalTypes is ProposalTypesConfiguratorTest {
 
 contract SetProposalType is ProposalTypesConfiguratorTest {
     function testFuzz_SetProposalType(uint256 _actorSeed) public {
-        vm.prank(_adminOrTimelock(_actorSeed));
+        vm.prank(_managerOrTimelock(_actorSeed));
         vm.expectEmit();
         emit ProposalTypeSet(0, 4_000, 6_000, "New Default", "New Default");
         proposalTypesConfigurator.setProposalType(0, 4_000, 6_000, "New Default", "New Default", address(0));
@@ -100,7 +99,7 @@ contract SetProposalType is ProposalTypesConfiguratorTest {
         assertEq(propType.approvalThreshold, 6_000);
         assertEq(propType.name, "New Default");
 
-        vm.prank(_adminOrTimelock(_actorSeed));
+        vm.prank(_managerOrTimelock(_actorSeed));
         proposalTypesConfigurator.setProposalType(1, 0, 0, "Optimistic", "Optimistic", address(0));
         propType = proposalTypesConfigurator.proposalTypes(1);
         assertEq(propType.quorum, 0);
@@ -109,35 +108,35 @@ contract SetProposalType is ProposalTypesConfiguratorTest {
     }
 
     function test_RevertIf_NotAdminOrTimelock(address _actor) public {
-        vm.assume(_actor != admin && _actor != GovernorMock(governor).timelock());
+        vm.assume(_actor != manager && _actor != GovernorMock(governor).timelock());
         vm.expectRevert(IProposalTypesConfigurator.NotManagerOrTimelock.selector);
         proposalTypesConfigurator.setProposalType(0, 0, 0, "", "", address(0));
     }
 
     function test_RevertIf_setProposalType_InvalidQuorum(uint256 _actorSeed) public {
-        vm.prank(_adminOrTimelock(_actorSeed));
+        vm.prank(_managerOrTimelock(_actorSeed));
         vm.expectRevert(IProposalTypesConfigurator.InvalidQuorum.selector);
         proposalTypesConfigurator.setProposalType(0, 10_001, 0, "", "", address(0));
     }
 
     function testRevert_setProposalType_InvalidApprovalThreshold(uint256 _actorSeed) public {
-        vm.prank(_adminOrTimelock(_actorSeed));
+        vm.prank(_managerOrTimelock(_actorSeed));
         vm.expectRevert(IProposalTypesConfigurator.InvalidApprovalThreshold.selector);
         proposalTypesConfigurator.setProposalType(0, 0, 10_001, "", "", address(0));
     }
 }
 
 contract GovernorMock {
-    address immutable adminAddress;
+    address immutable managerAddress;
     address immutable timelockAddress;
 
-    constructor(address admin_, address _timelock) {
-        adminAddress = admin_;
-        timelockAddress = _timelock;
+    constructor(address manager_, address timelock_) {
+        managerAddress = manager_;
+        timelockAddress = timelock_;
     }
 
-    function admin() external view returns (address) {
-        return adminAddress;
+    function manager() external view returns (address) {
+        return managerAddress;
     }
 
     function timelock() external view returns (address) {
