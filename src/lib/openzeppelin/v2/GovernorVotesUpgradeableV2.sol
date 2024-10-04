@@ -4,8 +4,8 @@
 pragma solidity ^0.8.0;
 
 import "./GovernorUpgradeableV2.sol";
-import "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {IVotingToken} from "src/interfaces/IVotingToken.sol";
 
 /**
  * Modifications:
@@ -13,13 +13,13 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
  * - Replaced `token` with immutable version to optimize gas
  */
 abstract contract GovernorVotesUpgradeableV2 is Initializable, GovernorUpgradeableV2 {
-    IVotesUpgradeable public token;
+    IVotingToken public token;
 
-    function __GovernorVotes_init(IVotesUpgradeable tokenAddress) internal onlyInitializing {
+    function __GovernorVotes_init(IVotingToken tokenAddress) internal onlyInitializing {
         __GovernorVotes_init_unchained(tokenAddress);
     }
 
-    function __GovernorVotes_init_unchained(IVotesUpgradeable tokenAddress) internal onlyInitializing {
+    function __GovernorVotes_init_unchained(IVotingToken tokenAddress) internal onlyInitializing {
         token = tokenAddress;
     }
 
