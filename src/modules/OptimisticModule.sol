@@ -30,6 +30,7 @@ contract OptimisticModule_SocialSignalling is VotingModule {
 
     error WrongProposalId();
     error NotOptimisticProposalType();
+    error OptimisticModuleOnlySignal();
 
     /*//////////////////////////////////////////////////////////////
                            IMMUTABLE STORAGE
@@ -96,22 +97,15 @@ contract OptimisticModule_SocialSignalling is VotingModule {
     function _countVote(uint256, address, uint8, uint256, bytes memory) external virtual override {}
 
     /**
-     * Format executeParams for a governor, given `proposalId` and `proposalData`.
-     * Returns empty `targets`, `values` and `calldatas`.
-     *
-     * @return targets The targets of the proposal.
-     * @return values The values of the proposal.
-     * @return calldatas The calldatas of the proposal.
+     * @notice Reverts to prevent queue and execute of proposals with optimistic module.
      */
     function _formatExecuteParams(uint256, bytes memory)
         public
         pure
         override
-        returns (address[] memory targets, uint256[] memory values, bytes[] memory calldatas)
+        returns (address[] memory, uint256[] memory, bytes[] memory)
     {
-        targets = new address[](0);
-        values = new uint256[](0);
-        calldatas = new bytes[](0);
+        revert OptimisticModuleOnlySignal();
     }
 
     /*//////////////////////////////////////////////////////////////
