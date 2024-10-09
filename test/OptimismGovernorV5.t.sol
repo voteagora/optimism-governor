@@ -87,9 +87,9 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts {
 
         address proxy = address(
             new TransparentUpgradeableProxy(
-            impl,
-            admin,
-            abi.encodeCall(OptimismGovernorV5Mock.initialize, (IVotesUpgradeable(address(op)), manager))
+                impl,
+                admin,
+                abi.encodeCall(OptimismGovernorV5Mock.initialize, (IVotesUpgradeable(address(op)), manager))
             )
         );
 
