@@ -3,11 +3,9 @@ pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {UpgradeScripts} from "upgrade-scripts/UpgradeScripts.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {OptimismGovernorV2} from "../src/OptimismGovernorV2.sol";
 import {IOptimismGovernor} from "../src/interfaces/IOptimismGovernor.sol";
 import {VotingModule} from "../src/modules/VotingModule.sol";
 import {
@@ -16,16 +14,19 @@ import {
     VoteType
 } from "../src/modules/OptimisticModule.sol";
 import {GovernanceToken as OptimismToken} from "../src/lib/OptimismToken.sol";
-import {OptimismGovernorV6Mock} from "./mocks/OptimismGovernorV6Mock.sol";
-import {OptimismGovernorV4UpgradeMock} from "./mocks/OptimismGovernorV4UpgradeMock.sol";
-import {OptimismGovernorV6UpgradeMock} from "./mocks/OptimismGovernorV6UpgradeMock.sol";
+import {OptimismGovernorMock} from "./mocks/OptimismGovernorMock.sol";
 import {ApprovalVotingModuleMock} from "./mocks/ApprovalVotingModuleMock.sol";
-import {OptimismGovernorV5Test} from "./OptimismGovernorV5.t.sol";
 import {VotableSupplyOracle} from "../src/VotableSupplyOracle.sol";
 import {ProposalTypesConfigurator} from "../src/ProposalTypesConfigurator.sol";
 import {IGovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/IGovernorUpgradeable.sol";
+import {
+    ApprovalVotingModule,
+    ProposalOption,
+    ProposalSettings,
+    PassingCriteria
+} from "../src/modules/ApprovalVotingModule.sol";
 
-contract OptimismGovernorV6Test is OptimismGovernorV5Test {
+contract OptimismGovernorTest is Test {
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -65,6 +66,17 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
 
+    address internal admin = makeAddr("admin");
+    address internal manager = makeAddr("manager");
+    string description = "a nice description";
+    address voter = makeAddr("voter");
+    address altVoter = makeAddr("altVoter");
+    address altVoter2 = makeAddr("altVoter2");
+
+    OptimismToken internal op = OptimismToken(0x4200000000000000000000000000000000000042);
+    address internal governor;
+    ApprovalVotingModuleMock internal module;
+
     address internal alligator = 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9;
     address deployer = makeAddr("deployer");
     VotableSupplyOracle private votableSupplyOracle;
@@ -75,8 +87,31 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
                                  SETUP
     //////////////////////////////////////////////////////////////*/
 
-    function _preSetUp(address impl) public virtual override {
-        OptimismGovernorV5Test._preSetUp(impl);
+    function _preSetUp(address impl) public virtual {
+        vm.etch(address(op), address(new OptimismToken()).code);
+
+        address proxy = address(
+            new TransparentUpgradeableProxy(
+                impl, admin, abi.encodeCall(OptimismGovernorMock.initialize, (IVotesUpgradeable(address(op)), manager))
+            )
+        );
+
+        module = new ApprovalVotingModuleMock();
+
+        vm.startPrank(op.owner());
+        op.mint(voter, 1e18);
+        op.mint(altVoter, 1e20);
+        op.mint(altVoter2, 1e18);
+        vm.stopPrank();
+
+        vm.prank(voter);
+        op.delegate(voter);
+        vm.prank(altVoter);
+        op.delegate(altVoter);
+        vm.prank(altVoter2);
+        op.delegate(altVoter2);
+
+        governor = proxy;
 
         vm.startPrank(deployer);
         votableSupplyOracle = new VotableSupplyOracle(address(this), op.totalSupply() * 30 / 100);
@@ -89,8 +124,8 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
         vm.stopPrank();
     }
 
-    function setUp() public virtual override {
-        address implementation = address(new OptimismGovernorV6Mock());
+    function setUp() public virtual {
+        address implementation = address(new OptimismGovernorMock());
         _preSetUp(implementation);
 
         vm.startPrank(manager);
@@ -585,7 +620,7 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
                                 OVERRIDES
     //////////////////////////////////////////////////////////////*/
 
-    function testProposeWithModule() public virtual override {
+    function testProposeWithModule() public virtual {
         uint256 snapshot = block.number + _governorV6().votingDelay();
         uint256 deadline = snapshot + _governorV6().votingPeriod();
         bytes memory proposalData = _formatProposalData();
@@ -607,11 +642,51 @@ contract OptimismGovernorV6Test is OptimismGovernorV5Test {
                                 HELPERS
     //////////////////////////////////////////////////////////////*/
 
-    function _governorV6() private view returns (OptimismGovernorV6Mock) {
-        return OptimismGovernorV6Mock(payable(governor));
+    function executeCallback() public payable virtual {
+        revert("Executor shouldn't have called this function");
     }
 
-    function _quorum(uint256, uint256 proposalId) internal view override returns (uint256) {
+    function _formatProposalData() public virtual returns (bytes memory proposalData) {
+        address receiver1 = makeAddr("receiver1");
+        address receiver2 = makeAddr("receiver2");
+
+        address[] memory targets1 = new address[](1);
+        uint256[] memory values1 = new uint256[](1);
+        bytes[] memory calldatas1 = new bytes[](1);
+        // Call executeCallback and send 0.01 ether to receiver1
+        targets1[0] = receiver1;
+        values1[0] = 0.01 ether;
+        calldatas1[0] = abi.encodeWithSelector(this.executeCallback.selector);
+
+        address[] memory targets2 = new address[](2);
+        uint256[] memory values2 = new uint256[](2);
+        bytes[] memory calldatas2 = new bytes[](2);
+        // Send 0.01 ether to receiver2
+        targets2[0] = receiver2;
+        values2[0] = 0.01 ether;
+        // Transfer 100 OP tokens to receiver2
+        targets2[1] = address(op);
+        calldatas2[1] = abi.encodeCall(IERC20.transfer, (receiver2, 100));
+
+        ProposalOption[] memory options = new ProposalOption[](2);
+        options[0] = ProposalOption(0, targets1, values1, calldatas1, "option 1");
+        options[1] = ProposalOption(100, targets2, values2, calldatas2, "option 2");
+        ProposalSettings memory settings = ProposalSettings({
+            maxApprovals: 1,
+            criteria: uint8(PassingCriteria.TopChoices),
+            criteriaValue: 1,
+            budgetToken: address(0),
+            budgetAmount: 1 ether
+        });
+
+        return abi.encode(options, settings);
+    }
+
+    function _governorV6() private view returns (OptimismGovernorMock) {
+        return OptimismGovernorMock(payable(governor));
+    }
+
+    function _quorum(uint256, uint256 proposalId) internal view returns (uint256) {
         return _governorV6().quorum(proposalId);
     }
 }

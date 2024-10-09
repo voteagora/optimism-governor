@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {IVotesUpgradeable} from "../../src/OptimismGovernorV5.sol";
-import {OptimismGovernorV6} from "../../src/OptimismGovernorV6.sol";
+import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
+import {OptimismGovernor} from "../../src/OptimismGovernor.sol";
 
 // Expose internal functions for testing
-contract OptimismGovernorV6Mock is OptimismGovernorV6 {
+contract OptimismGovernorMock is OptimismGovernor {
     function initialize(IVotesUpgradeable _votingToken, address _manager) public initializer {
         __Governor_init("Optimism");
         __GovernorCountingSimple_init();

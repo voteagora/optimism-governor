@@ -1,41 +1,44 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
 
 import "./setup/SetupAlligatorOP.sol";
+import {AlligatorOP, IAlligatorOP} from "src/alligator/AlligatorOP.sol";
+import {GovernorCountingSimpleUpgradeableV2} from "src/lib/openzeppelin/v2/GovernorCountingSimpleUpgradeableV2.sol";
 import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {IERC721} from "@openzeppelin/contracts/interfaces/IERC721.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {AlligatorOP} from "src/alligator/AlligatorOP.sol";
-import {GovernorCountingSimpleUpgradeableV2} from "src/lib/openzeppelin/v2/GovernorCountingSimpleUpgradeableV2.sol";
+import {AlligatorOPMock} from "./mocks/AlligatorOPMock.sol";
 
 contract AlligatorOPTest is SetupAlligatorOP {
+    /*//////////////////////////////////////////////////////////////
+                                CONSTANTS
+    //////////////////////////////////////////////////////////////*/
+
+    bytes32 internal constant BALLOT_TYPEHASH_V5 =
+        keccak256("Ballot(uint256 proposalId,uint8 support,address[] authority)");
+    bytes32 internal constant BALLOT_WITHPARAMS_TYPEHASH =
+        keccak256("Ballot(uint256 proposalId,uint8 support,address[] authority,string reason,bytes params)");
+    bytes32 internal constant BALLOT_WITHPARAMS_BATCHED_TYPEHASH = keccak256(
+        "Ballot(uint256 proposalId,uint8 support,uint256 maxVotingPower,address[][] authorities,string reason,bytes params)"
+    );
+
     function setUp() public virtual override {
         SetupAlligatorOP.setUp();
 
-        alligatorAlt = address(new AlligatorOP(address(governor), address(op), address(this)));
-        vm.etch(alligator, alligatorAlt.code);
-
-        proxy1 = _create(address(this), baseRules, baseRulesHash);
-        proxy2 = _create(Utils.alice, baseRules, baseRulesHash);
-        proxy3 = _create(Utils.bob, baseRules, baseRulesHash);
+        proxy1 = _proxyAddress(address(this));
+        proxy2 = _proxyAddress(address(alice));
+        proxy3 = _proxyAddress(address(bob));
 
         _postSetup();
     }
 
     function testDeploy() public virtual {
-        assertEq(Ownable(address(alligatorAlt)).owner(), address(this));
-    }
-
-    function testCreate() public virtual {
-        address computedAddress = _proxyAddress(Utils.carol, baseRules, baseRulesHash);
-        assertTrue(computedAddress.code.length == 0);
-        _create(Utils.carol, baseRules, baseRulesHash);
-        assertTrue(computedAddress.code.length != 0);
+        assertEq(Ownable(address(alligator)).owner(), address(this));
     }
 
     function testProxyAddressMatches() public virtual {
-        address proxy = _proxyAddress(Utils.carol, baseRules, baseRulesHash);
-        assertEq(_create(Utils.carol, baseRules, baseRulesHash), proxy);
+        address proxy = _proxyAddress(carol);
+        assertEq(_create(carol), proxy);
     }
 
     function testCastVote() public virtual {
@@ -45,11 +48,11 @@ contract AlligatorOPTest is SetupAlligatorOP {
         standardCastVote(authority);
 
         address[] memory authority2 = new address[](2);
-        authority2[0] = Utils.alice;
+        authority2[0] = alice;
         authority2[1] = address(this);
 
-        vm.prank(Utils.alice);
-        _subdelegate(Utils.alice, baseRules, address(this), subdelegationRules);
+        vm.prank(alice);
+        AlligatorOPMock(alligator).subdelegate(address(this), subdelegationRules);
 
         standardCastVote(authority2);
     }
@@ -58,45 +61,46 @@ contract AlligatorOPTest is SetupAlligatorOP {
         address[] memory authority = new address[](1);
         authority[0] = address(this);
 
-        standardCastVoteWithReason(authority, "reason");
+        vm.expectEmit();
+        emit VoteCast(_proxyAddress(authority[0]), address(this), authority, proposalId, 1);
+        AlligatorOPMock(alligator).castVoteWithReason(authority, proposalId, 1, "reason");
 
         address[] memory authority2 = new address[](2);
-        authority2[0] = Utils.alice;
+        authority2[0] = alice;
         authority2[1] = address(this);
 
-        vm.prank(Utils.alice);
-        _subdelegate(Utils.alice, baseRules, address(this), subdelegationRules);
+        vm.prank(alice);
+        AlligatorOPMock(alligator).subdelegate(address(this), subdelegationRules);
 
-        standardCastVoteWithReason(authority2, "reason");
+        vm.expectEmit();
+        emit VoteCast(_proxyAddress(authority2[0]), address(this), authority2, proposalId, 1);
+        AlligatorOPMock(alligator).castVoteWithReason(authority2, proposalId, 1, "reason");
     }
 
     function testCastVoteWithReasonAndParams() public virtual {
         address[] memory authority = new address[](1);
         authority[0] = address(this);
 
-        standardCastVoteWithReasonAndParams(authority, "reason", "params");
+        vm.expectEmit();
+        emit VoteCast(_proxyAddress(authority[0]), address(this), authority, proposalId, 1);
+        AlligatorOPMock(alligator).castVoteWithReasonAndParams(authority, proposalId, 1, "reason", "params");
 
         address[] memory authority2 = new address[](2);
-        authority2[0] = Utils.alice;
+        authority2[0] = alice;
         authority2[1] = address(this);
 
-        vm.prank(Utils.alice);
-        _subdelegate(Utils.alice, baseRules, address(this), subdelegationRules);
+        vm.prank(alice);
+        AlligatorOPMock(alligator).subdelegate(address(this), subdelegationRules);
 
-        standardCastVoteWithReasonAndParams(authority2, "reason", "params");
+        vm.expectEmit();
+        emit VoteCast(_proxyAddress(authority2[0]), address(this), authority2, proposalId, 1);
+        AlligatorOPMock(alligator).castVoteWithReasonAndParams(authority2, proposalId, 1, "reason", "params");
     }
 
     function testCastVoteWithReasonAndParamsBatched() public virtual {
-        (
-            address[][] memory authorities,
-            address[] memory proxies,
-            BaseRules[] memory proxyRules,
-            bytes32[] memory proxyRulesHashes
-        ) = _formatBatchData();
+        (address[][] memory authorities, address[] memory proxies,) = _formatBatchData();
 
-        standardCastVoteWithReasonAndParamsBatched(
-            authorities, proxies, proxyRules, proxyRulesHashes, "reason", "params"
-        );
+        standardCastVoteWithReasonAndParamsBatched(authorities, proxies, "reason", "params");
 
         for (uint256 i = 0; i < proxies.length; i++) {
             assertEq(governor.hasVoted(proposalId, proxies[i]), true);
@@ -105,63 +109,37 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
     function testCastVoteBySig() public virtual {
         address[] memory authority = new address[](2);
-        authority[0] = Utils.alice;
+        authority[0] = alice;
         authority[1] = signer;
 
-        vm.prank(Utils.alice);
-        _subdelegate(Utils.alice, baseRules, signer, subdelegationRules);
+        vm.prank(alice);
+        AlligatorOPMock(alligator).subdelegate(signer, subdelegationRules);
 
         standardCastVoteBySig(authority);
     }
 
     function testCastVoteWithReasonAndParamsBySig() public virtual {
         address[] memory authority = new address[](2);
-        authority[0] = Utils.alice;
+        authority[0] = alice;
         authority[1] = signer;
 
-        vm.prank(Utils.alice);
-        _subdelegate(Utils.alice, baseRules, signer, subdelegationRules);
+        vm.prank(alice);
+        AlligatorOPMock(alligator).subdelegate(signer, subdelegationRules);
 
         standardCastVoteWithReasonAndParamsBySig(authority);
     }
 
-    function testSubdelegate() public virtual {
-        _subdelegate(address(this), baseRules, Utils.alice, subdelegationRules);
-
-        (BaseRules memory baseRulesSet, AllowanceType allowanceType, uint256 allowance) = AlligatorOP(alligator)
-            .subdelegationsProxy(_proxyAddress(address(this), baseRules, baseRulesHash), address(this), Utils.alice);
-
-        subdelegateAssertions(baseRulesSet, allowanceType, allowance, subdelegationRules);
-    }
-
-    function testSubdelegateBatched() public virtual {
-        address[] memory targets = new address[](2);
-        targets[0] = Utils.bob;
-        targets[1] = Utils.alice;
-
-        _subdelegateBatched(address(this), baseRules, targets, subdelegationRules);
-
-        for (uint256 i = 0; i < targets.length; i++) {
-            (BaseRules memory baseRulesSet, AllowanceType allowanceType, uint256 allowance) = AlligatorOP(alligator)
-                .subdelegationsProxy(_proxyAddress(address(this), baseRules, baseRulesHash), address(this), targets[i]);
-
-            subdelegateAssertions(baseRulesSet, allowanceType, allowance, subdelegationRules);
-        }
-    }
-
     function subdelegateAssertions(
-        BaseRules memory baseRulesSet,
-        AllowanceType allowanceType,
-        uint256 allowance,
-        SubdelegationRules memory subRules
+        IAlligatorOP.SubdelegationRules memory rules1,
+        IAlligatorOP.SubdelegationRules memory rules2
     ) internal virtual {
-        assertEq(baseRulesSet.maxRedelegations, subRules.baseRules.maxRedelegations);
-        assertEq(baseRulesSet.notValidBefore, subRules.baseRules.notValidBefore);
-        assertEq(baseRulesSet.notValidAfter, subRules.baseRules.notValidAfter);
-        assertEq(baseRulesSet.blocksBeforeVoteCloses, subRules.baseRules.blocksBeforeVoteCloses);
-        assertEq(baseRulesSet.customRule, subRules.baseRules.customRule);
-        assertEq(uint8(allowanceType), uint8(subRules.allowanceType));
-        assertEq(allowance, subRules.allowance);
+        assertEq(rules1.maxRedelegations, rules2.maxRedelegations);
+        assertEq(rules1.notValidBefore, rules2.notValidBefore);
+        assertEq(rules1.notValidAfter, rules2.notValidAfter);
+        assertEq(rules1.blocksBeforeVoteCloses, rules2.blocksBeforeVoteCloses);
+        assertEq(rules1.customRule, rules2.customRule);
+        assertEq(uint8(rules1.allowanceType), uint8(rules2.allowanceType));
+        assertEq(rules1.allowance, rules2.allowance);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -170,168 +148,143 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
     function testRevert_castVote_ZeroVotesToCast() public virtual {
         address[] memory authority = new address[](2);
-        authority[0] = Utils.alice;
+        authority[0] = alice;
         authority[1] = address(this);
 
-        vm.prank(Utils.alice);
-        _subdelegate(Utils.alice, baseRules, address(this), subdelegationRules);
+        vm.prank(alice);
+        AlligatorOPMock(alligator).subdelegate(address(this), subdelegationRules);
 
         standardCastVote(authority);
 
         vm.expectRevert(ZeroVotesToCast.selector);
-        _castVote(baseRules, baseRulesHash, authority, proposalId, 1);
+        AlligatorOPMock(alligator).castVote(authority, proposalId, 1);
         vm.expectRevert(ZeroVotesToCast.selector);
-        _castVoteWithReason(baseRules, baseRulesHash, authority, proposalId, 1, "reason");
+        AlligatorOPMock(alligator).castVoteWithReason(authority, proposalId, 1, "reason");
         vm.expectRevert(ZeroVotesToCast.selector);
-        _castVoteWithReasonAndParams(baseRules, baseRulesHash, authority, proposalId, 1, "reason", "params");
-    }
-
-    function testRevert_castVoteBatched_ZeroVotesToCast() public virtual {
-        (
-            address[][] memory authorities,
-            address[] memory proxies,
-            BaseRules[] memory proxyRules,
-            bytes32[] memory proxyRulesHashes
-        ) = _formatBatchData();
-
-        standardCastVoteWithReasonAndParamsBatched(
-            authorities, proxies, proxyRules, proxyRulesHashes, "reason", "params"
-        );
-
-        vm.expectRevert(ZeroVotesToCast.selector);
-        vm.prank(Utils.carol);
-        _castVoteWithReasonAndParamsBatched(
-            proxyRules, proxyRulesHashes, authorities, proposalId, 1, "reason", "params"
-        );
+        AlligatorOPMock(alligator).castVoteWithReasonAndParams(authority, proposalId, 1, "reason", "params");
     }
 
     function testRevert_validate_notDelegated() public {
         address[] memory authority = new address[](2);
-        authority[0] = Utils.alice;
+        authority[0] = alice;
         authority[1] = address(this);
 
-        vm.expectRevert(abi.encodeWithSelector(NotDelegated.selector, Utils.alice, address(this)));
-        _castVote(baseRules, baseRulesHash, authority, proposalId, 1);
+        vm.expectRevert(abi.encodeWithSelector(NotDelegated.selector, alice, address(this)));
+        AlligatorOPMock(alligator).castVote(authority, proposalId, 1);
     }
 
     function testRevert_validate_senderNotAuthorityLeaf() public {
         address[] memory authority = new address[](3);
-        authority[0] = Utils.alice;
-        authority[1] = Utils.bob;
+        authority[0] = alice;
+        authority[1] = bob;
         authority[2] = address(this);
 
-        _subdelegate(Utils.alice, baseRules, Utils.bob, subdelegationRules);
-        vm.prank(Utils.alice);
-        _subdelegate(Utils.alice, baseRules, Utils.bob, subdelegationRules);
-        vm.prank(Utils.bob);
-        _subdelegate(Utils.alice, baseRules, address(this), subdelegationRules);
+        AlligatorOPMock(alligator).subdelegate(bob, subdelegationRules);
+        vm.prank(alice);
+        AlligatorOPMock(alligator).subdelegate(bob, subdelegationRules);
+        vm.prank(bob);
+        AlligatorOPMock(alligator).subdelegate(address(this), subdelegationRules);
 
-        vm.prank(Utils.bob);
-        vm.expectRevert(abi.encodeWithSelector(NotDelegated.selector, address(this), Utils.bob));
-        _castVote(baseRules, baseRulesHash, authority, proposalId, 1);
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSelector(NotDelegated.selector, address(this), bob));
+        AlligatorOPMock(alligator).castVote(authority, proposalId, 1);
     }
 
     function testRevert_validate_delegationRevoked() public {
-        SubdelegationRules memory subRules = subdelegationRules;
+        IAlligatorOP.SubdelegationRules memory subRules = subdelegationRules;
         address[] memory authority = new address[](2);
-        authority[0] = Utils.alice;
+        authority[0] = alice;
         authority[1] = address(this);
 
-        vm.prank(Utils.alice);
-        _subdelegate(Utils.alice, baseRules, address(this), subRules);
+        vm.prank(alice);
+        AlligatorOPMock(alligator).subdelegate(address(this), subRules);
 
-        _castVote(baseRules, baseRulesHash, authority, proposalId, 1);
+        AlligatorOPMock(alligator).castVote(authority, proposalId, 1);
 
         subRules.allowance = 0;
-        vm.prank(Utils.alice);
-        _subdelegate(Utils.alice, baseRules, address(this), subRules);
+        vm.prank(alice);
+        AlligatorOPMock(alligator).subdelegate(address(this), subRules);
 
-        vm.expectRevert(abi.encodeWithSelector(NotDelegated.selector, Utils.alice, address(this)));
-        _castVote(baseRules, baseRulesHash, authority, proposalId, 1);
+        vm.expectRevert(abi.encodeWithSelector(NotDelegated.selector, alice, address(this)));
+        AlligatorOPMock(alligator).castVote(authority, proposalId, 1);
     }
 
     function testRevert_validate_TooManyRedelegations() public {
         address[] memory authority = new address[](4);
         authority[0] = address(this);
-        authority[1] = Utils.alice;
-        authority[2] = Utils.bob;
-        authority[3] = Utils.carol;
+        authority[1] = alice;
+        authority[2] = bob;
+        authority[3] = carol;
 
-        SubdelegationRules memory rules = subdelegationRules;
-        rules.baseRules.maxRedelegations = 1;
+        subdelegationRules.maxRedelegations = 1;
 
-        _subdelegate(address(this), baseRules, Utils.alice, rules);
-        vm.prank(Utils.alice);
-        rules.baseRules.maxRedelegations = 255;
-        _subdelegate(address(this), baseRules, Utils.bob, rules);
-        vm.prank(Utils.bob);
-        _subdelegate(address(this), baseRules, Utils.carol, rules);
+        AlligatorOPMock(alligator).subdelegate(alice, subdelegationRules);
+        vm.prank(alice);
+        subdelegationRules.maxRedelegations = 255;
+        AlligatorOPMock(alligator).subdelegate(bob, subdelegationRules);
+        vm.prank(bob);
+        AlligatorOPMock(alligator).subdelegate(carol, subdelegationRules);
 
-        vm.prank(Utils.carol);
-        vm.expectRevert(abi.encodeWithSelector(TooManyRedelegations.selector, address(this), Utils.alice));
-        _castVote(baseRules, baseRulesHash, authority, proposalId, 1);
+        vm.prank(carol);
+        vm.expectRevert(abi.encodeWithSelector(TooManyRedelegations.selector, address(this), alice));
+        AlligatorOPMock(alligator).castVote(authority, proposalId, 1);
 
         address[] memory authority2 = new address[](3);
         authority2[0] = address(this);
-        authority2[1] = Utils.alice;
-        authority2[2] = Utils.bob;
+        authority2[1] = alice;
+        authority2[2] = bob;
 
-        vm.prank(Utils.bob);
-        _castVote(baseRules, baseRulesHash, authority2, proposalId, 1);
+        vm.prank(bob);
+        AlligatorOPMock(alligator).castVote(authority2, proposalId, 1);
     }
 
     function testRevert_validate_NotValidYet() public {
         address[] memory authority = new address[](2);
         authority[0] = address(this);
-        authority[1] = Utils.alice;
+        authority[1] = alice;
 
-        SubdelegationRules memory rules = subdelegationRules;
-        rules.baseRules.notValidBefore = uint32(block.timestamp + 1e3);
+        subdelegationRules.notValidBefore = uint32(block.timestamp + 1e3);
 
-        _subdelegate(address(this), baseRules, Utils.alice, rules);
+        AlligatorOPMock(alligator).subdelegate(alice, subdelegationRules);
 
-        vm.prank(Utils.alice);
+        vm.prank(alice);
         vm.expectRevert(
-            abi.encodeWithSelector(NotValidYet.selector, address(this), Utils.alice, rules.baseRules.notValidBefore)
+            abi.encodeWithSelector(NotValidYet.selector, address(this), alice, subdelegationRules.notValidBefore)
         );
-        _castVote(baseRules, baseRulesHash, authority, proposalId, 1);
+        AlligatorOPMock(alligator).castVote(authority, proposalId, 1);
     }
 
     function testRevert_validate_NotValidAnymore() public {
         address[] memory authority = new address[](2);
         authority[0] = address(this);
-        authority[1] = Utils.alice;
+        authority[1] = alice;
 
-        SubdelegationRules memory rules = subdelegationRules;
-        rules.baseRules.notValidAfter = 90;
+        subdelegationRules.notValidAfter = 90;
 
-        _subdelegate(address(this), baseRules, Utils.alice, rules);
+        AlligatorOPMock(alligator).subdelegate(alice, subdelegationRules);
 
         vm.warp(100);
-        vm.prank(Utils.alice);
+        vm.prank(alice);
         vm.expectRevert(
-            abi.encodeWithSelector(NotValidAnymore.selector, address(this), Utils.alice, rules.baseRules.notValidAfter)
+            abi.encodeWithSelector(NotValidAnymore.selector, address(this), alice, subdelegationRules.notValidAfter)
         );
-        _castVote(baseRules, baseRulesHash, authority, proposalId, 1);
+        AlligatorOPMock(alligator).castVote(authority, proposalId, 1);
     }
 
     function testRevert_validate_TooEarly() public {
         address[] memory authority = new address[](2);
         authority[0] = address(this);
-        authority[1] = Utils.alice;
+        authority[1] = alice;
 
-        SubdelegationRules memory rules = subdelegationRules;
-        rules.baseRules.blocksBeforeVoteCloses = 99;
+        subdelegationRules.blocksBeforeVoteCloses = 99;
 
-        _subdelegate(address(this), baseRules, Utils.alice, rules);
+        AlligatorOPMock(alligator).subdelegate(alice, subdelegationRules);
 
-        vm.prank(Utils.alice);
+        vm.prank(alice);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                TooEarly.selector, address(this), Utils.alice, rules.baseRules.blocksBeforeVoteCloses
-            )
+            abi.encodeWithSelector(TooEarly.selector, address(this), alice, subdelegationRules.blocksBeforeVoteCloses)
         );
-        _castVote(baseRules, baseRulesHash, authority, proposalId, 1);
+        AlligatorOPMock(alligator).castVote(authority, proposalId, 1);
     }
 
     function testRevert_togglePause_notOwner() public {
@@ -344,228 +297,51 @@ contract AlligatorOPTest is SetupAlligatorOP {
                               FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function _proxyAddress(address proxyOwner, BaseRules memory rules, bytes32)
-        internal
-        view
-        virtual
-        returns (address computedAddress)
-    {
-        return AlligatorOP(alligator).proxyAddress(proxyOwner, rules);
-    }
-
-    function _create(address proxyOwner, BaseRules memory rules, bytes32)
-        internal
-        virtual
-        returns (address computedAddress)
-    {
-        return AlligatorOP(alligator).create(proxyOwner, rules);
-    }
-
-    function _subdelegate(
-        address proxyOwner,
-        BaseRules memory rules,
-        address to,
-        SubdelegationRules memory subdelegateRules
-    ) internal virtual {
-        AlligatorOP(alligator).subdelegate(proxyOwner, rules, to, subdelegateRules);
-    }
-
-    function _subdelegateBatched(
-        address proxyOwner,
-        BaseRules memory rules,
-        address[] memory targets,
-        SubdelegationRules memory subdelegateRules
-    ) internal virtual {
-        AlligatorOP(alligator).subdelegateBatched(proxyOwner, rules, targets, subdelegateRules);
-    }
-
-    function _castVote(BaseRules memory rules, bytes32, address[] memory authority, uint256 propId, uint8 support)
-        internal
-        virtual
-    {
-        AlligatorOP(alligator).castVote(rules, authority, propId, support);
-    }
-
-    function _castVoteWithReason(
-        BaseRules memory rules,
-        bytes32,
-        address[] memory authority,
-        uint256 propId,
-        uint8 support,
-        string memory reason
-    ) internal virtual {
-        AlligatorOP(alligator).castVoteWithReason(rules, authority, propId, support, reason);
-    }
-
-    function _castVoteWithReasonAndParams(
-        BaseRules memory rules,
-        bytes32,
-        address[] memory authority,
-        uint256 propId,
-        uint8 support,
-        string memory reason,
-        bytes memory params
-    ) internal virtual {
-        AlligatorOP(alligator).castVoteWithReasonAndParams(rules, authority, propId, support, reason, params);
-    }
-
-    function _castVoteWithReasonAndParamsBatched(
-        BaseRules[] memory rules,
-        bytes32[] memory,
-        address[][] memory authorities,
-        uint256 propId,
-        uint8 support,
-        string memory reason,
-        bytes memory params
-    ) internal virtual {
-        AlligatorOP(alligator).castVoteWithReasonAndParamsBatched(rules, authorities, propId, support, reason, params);
-    }
-
-    function _castVoteBySig(
-        BaseRules memory rules,
-        bytes32,
-        address[] memory authority,
-        uint256 propId,
-        uint8 support,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) internal virtual {
-        AlligatorOP(alligator).castVoteBySig(rules, authority, propId, support, v, r, s);
-    }
-
-    function _castVoteWithReasonAndParamsBySig(
-        BaseRules memory rules,
-        bytes32,
-        address[] memory authority,
-        uint256 propId,
-        uint8 support,
-        string memory reason,
-        bytes memory params,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) internal virtual {
-        AlligatorOP(alligator).castVoteWithReasonAndParamsBySig(
-            rules, authority, propId, support, reason, params, v, r, s
-        );
+    function _proxyAddress(address proxyOwner) internal view virtual returns (address computedAddress) {
+        return AlligatorOP(alligator).proxyAddress(proxyOwner);
     }
 
     /*//////////////////////////////////////////////////////////////
                                 HELPERS
     //////////////////////////////////////////////////////////////*/
 
-    function standardCastVote(address[] memory authority) public virtual {
-        vm.expectEmit();
-        emit VoteCast(
-            _proxyAddress(authority[0], baseRules, baseRulesHash),
-            authority[authority.length - 1],
-            authority,
-            proposalId,
-            1
-        );
-        _castVote(baseRules, baseRulesHash, authority, proposalId, 1);
-    }
-
-    function standardCastVoteWithReason(address[] memory authority, string memory reason) public virtual {
-        vm.expectEmit();
-        emit VoteCast(_proxyAddress(authority[0], baseRules, baseRulesHash), address(this), authority, proposalId, 1);
-        _castVoteWithReason(baseRules, baseRulesHash, authority, proposalId, 1, reason);
-    }
-
-    function standardCastVoteWithReasonAndParams(address[] memory authority, string memory reason, bytes memory params)
-        public
-        virtual
-    {
-        vm.expectEmit();
-        emit VoteCast(_proxyAddress(authority[0], baseRules, baseRulesHash), address(this), authority, proposalId, 1);
-        _castVoteWithReasonAndParams(baseRules, baseRulesHash, authority, proposalId, 1, reason, params);
-    }
-
-    function standardCastVoteWithReasonAndParamsBatched(
-        address[][] memory authorities,
-        address[] memory proxies,
-        BaseRules[] memory proxyRules,
-        bytes32[] memory proxyRulesHashes,
-        string memory reason,
-        bytes memory params
-    ) public virtual {
-        vm.prank(Utils.carol);
-
-        vm.expectEmit();
-        emit VotesCast(proxies, Utils.carol, authorities, proposalId, 1);
-        _castVoteWithReasonAndParamsBatched(proxyRules, proxyRulesHashes, authorities, proposalId, 1, reason, params);
-    }
-
-    function standardCastVoteBySig(address[] memory authority) public virtual {
-        bytes32 domainSeparator =
-            keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, alligator));
-        bytes32 structHash = keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, 1));
-        (uint8 v, bytes32 r, bytes32 s) =
-            vm.sign(vm.envUint("SIGNER_KEY"), keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash)));
-
-        vm.expectEmit();
-        emit VoteCast(_proxyAddress(authority[0], baseRules, baseRulesHash), signer, authority, proposalId, 1);
-        _castVoteBySig(baseRules, baseRulesHash, authority, proposalId, 1, v, r, s);
-    }
-
-    function standardCastVoteWithReasonAndParamsBySig(address[] memory authority) public virtual {
-        bytes32 domainSeparator =
-            keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, alligator));
-        bytes32 structHash =
-            keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, 1, keccak256(bytes("reason")), keccak256("params")));
-        (uint8 v, bytes32 r, bytes32 s) =
-            vm.sign(vm.envUint("SIGNER_KEY"), keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash)));
-
-        vm.expectEmit();
-        emit VoteCast(_proxyAddress(authority[0], baseRules, baseRulesHash), signer, authority, proposalId, 1);
-        _castVoteWithReasonAndParamsBySig(
-            baseRules, baseRulesHash, authority, proposalId, 1, "reason", "params", v, r, s
-        );
-    }
-
     function _formatBatchData()
         internal
         returns (
             address[][] memory authorities,
             address[] memory proxies,
-            BaseRules[] memory proxyRules,
-            bytes32[] memory proxyRulesHashes
+            IAlligatorOP.SubdelegationRules[] memory proxyRules
         )
     {
         address[] memory authority1 = new address[](4);
         authority1[0] = address(this);
-        authority1[1] = Utils.alice;
-        authority1[2] = Utils.bob;
-        authority1[3] = Utils.carol;
+        authority1[1] = alice;
+        authority1[2] = bob;
+        authority1[3] = carol;
 
         address[] memory authority2 = new address[](2);
-        authority2[0] = Utils.bob;
-        authority2[1] = Utils.carol;
+        authority2[0] = bob;
+        authority2[1] = carol;
 
         authorities = new address[][](2);
         authorities[0] = authority1;
         authorities[1] = authority2;
 
-        _subdelegate(address(this), baseRules, Utils.alice, subdelegationRules);
-        vm.prank(Utils.alice);
-        _subdelegate(address(this), baseRules, Utils.bob, subdelegationRules);
-        vm.prank(Utils.bob);
-        _subdelegate(address(this), baseRules, Utils.carol, subdelegationRules);
-        vm.prank(Utils.bob);
-        _subdelegate(Utils.bob, baseRules, Utils.carol, subdelegationRules);
+        AlligatorOPMock(alligator).subdelegate(alice, subdelegationRules);
+        vm.prank(alice);
+        AlligatorOPMock(alligator).subdelegate(bob, subdelegationRules);
+        vm.prank(bob);
+        AlligatorOPMock(alligator).subdelegate(carol, subdelegationRules);
+        vm.prank(bob);
+        AlligatorOPMock(alligator).subdelegate(carol, subdelegationRules);
 
         proxies = new address[](2);
-        proxies[0] = _proxyAddress(address(this), baseRules, baseRulesHash);
-        proxies[1] = _proxyAddress(Utils.bob, baseRules, baseRulesHash);
+        proxies[0] = _proxyAddress(address(this));
+        proxies[1] = _proxyAddress(bob);
 
-        proxyRules = new BaseRules[](2);
-        proxyRules[0] = baseRules;
-        proxyRules[1] = baseRules;
-
-        proxyRulesHashes = new bytes32[](2);
-        proxyRulesHashes[0] = baseRulesHash;
-        proxyRulesHashes[1] = baseRulesHash;
+        proxyRules = new IAlligatorOP.SubdelegationRules[](2);
+        proxyRules[0] = subdelegationRules;
+        proxyRules[1] = subdelegationRules;
     }
 
     function _formatBatchDataSigner()
@@ -573,18 +349,17 @@ contract AlligatorOPTest is SetupAlligatorOP {
         returns (
             address[][] memory authorities,
             address[] memory proxies,
-            BaseRules[] memory proxyRules,
-            bytes32[] memory proxyRulesHashes
+            IAlligatorOP.SubdelegationRules[] memory proxyRules
         )
     {
-        (authorities, proxies, proxyRules, proxyRulesHashes) = _formatBatchData();
+        (authorities, proxies, proxyRules) = _formatBatchData();
         authorities[0][3] = signer;
         authorities[1][1] = signer;
 
-        vm.prank(Utils.bob);
-        _subdelegate(address(this), baseRules, signer, subdelegationRules);
-        vm.prank(Utils.bob);
-        _subdelegate(Utils.bob, baseRules, signer, subdelegationRules);
+        vm.prank(bob);
+        AlligatorOPMock(alligator).subdelegate(signer, subdelegationRules);
+        vm.prank(bob);
+        AlligatorOPMock(alligator).subdelegate(signer, subdelegationRules);
     }
 
     function _formatBatchDataAlt(uint256 proxiesNumber)
@@ -592,14 +367,12 @@ contract AlligatorOPTest is SetupAlligatorOP {
         returns (
             address[][] memory authorities,
             address[] memory proxies,
-            BaseRules[] memory proxyRules,
-            bytes32[] memory proxyRulesHashes
+            IAlligatorOP.SubdelegationRules[] memory proxyRules
         )
     {
         authorities = new address[][](proxiesNumber);
         proxies = new address[](proxiesNumber);
-        proxyRules = new BaseRules[](proxiesNumber);
-        proxyRulesHashes = new bytes32[](proxiesNumber);
+        proxyRules = new IAlligatorOP.SubdelegationRules[](proxiesNumber);
 
         for (uint256 i = 0; i < proxiesNumber; i++) {
             // Define an owner and mint OP to it
@@ -608,7 +381,7 @@ contract AlligatorOPTest is SetupAlligatorOP {
             op.mint(proxyOwner, 1e20);
 
             // Create a proxy for the owner
-            address proxyAddress = _create(proxyOwner, baseRules, baseRulesHash);
+            address proxyAddress = _create(proxyOwner);
 
             vm.startPrank(proxyOwner);
 
@@ -616,7 +389,7 @@ contract AlligatorOPTest is SetupAlligatorOP {
             op.delegate(proxyAddress);
 
             // Subdelegate the proxy to `address(this)`
-            _subdelegate(proxyOwner, baseRules, address(this), subdelegationRules);
+            AlligatorOPMock(alligator).subdelegate(address(this), subdelegationRules);
 
             vm.stopPrank();
 
@@ -628,8 +401,7 @@ contract AlligatorOPTest is SetupAlligatorOP {
             // Push values to the returned arrays
             authorities[i] = authority;
             proxies[i] = proxyAddress;
-            proxyRules[i] = baseRules;
-            proxyRulesHashes[i] = baseRulesHash;
+            proxyRules[i] = subdelegationRules;
         }
     }
 
@@ -644,7 +416,7 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
             address node = initAuthority[i];
             vm.prank(node);
-            _subdelegate(node, baseRules, initAuthority[i + 1], subdelegationRules);
+            AlligatorOPMock(alligator).subdelegate(initAuthority[i + 1], subdelegationRules);
         }
         authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
 
@@ -662,7 +434,7 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
             address node = initAuthority[i];
             vm.prank(node);
-            _subdelegate(node, baseRules, initAuthority[i + 1], subdelegationRules);
+            AlligatorOPMock(alligator).subdelegate(initAuthority[i + 1], subdelegationRules);
         }
         authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
 
@@ -680,11 +452,17 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
             address node = initAuthority[i];
             vm.prank(node);
-            _subdelegate(
-                node,
-                baseRules,
+            AlligatorOPMock(alligator).subdelegate(
                 initAuthority[i + 1],
-                SubdelegationRules(baseRules, rules.allowanceType, rules.allowance)
+                IAlligatorOP.SubdelegationRules(
+                    subdelegationRules.maxRedelegations,
+                    subdelegationRules.blocksBeforeVoteCloses,
+                    subdelegationRules.notValidBefore,
+                    subdelegationRules.notValidAfter,
+                    subdelegationRules.customRule,
+                    rules.allowanceType,
+                    rules.allowance
+                )
             );
         }
         authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
@@ -703,7 +481,7 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
             address node = initAuthority[i];
             vm.prank(node);
-            _subdelegate(node, baseRules, initAuthority[i + 1], subdelegationRules);
+            AlligatorOPMock(alligator).subdelegate(initAuthority[i + 1], subdelegationRules);
         }
         authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
 
@@ -721,11 +499,17 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
             address node = initAuthority[i];
             vm.prank(node);
-            _subdelegate(
-                node,
-                baseRules,
+            AlligatorOPMock(alligator).subdelegate(
                 initAuthority[i + 1],
-                SubdelegationRules(baseRules, rules.allowanceType, rules.allowance)
+                IAlligatorOP.SubdelegationRules(
+                    subdelegationRules.maxRedelegations,
+                    subdelegationRules.blocksBeforeVoteCloses,
+                    subdelegationRules.notValidBefore,
+                    subdelegationRules.notValidAfter,
+                    subdelegationRules.customRule,
+                    rules.allowanceType,
+                    rules.allowance
+                )
             );
         }
         authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
@@ -744,7 +528,7 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
             address node = initAuthority[i];
             vm.prank(node);
-            _subdelegate(node, baseRules, initAuthority[i + 1], subdelegationRules);
+            AlligatorOPMock(alligator).subdelegate(initAuthority[i + 1], subdelegationRules);
         }
         authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
 
@@ -762,11 +546,17 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
             address node = initAuthority[i];
             vm.prank(node);
-            _subdelegate(
-                node,
-                baseRules,
+            AlligatorOPMock(alligator).subdelegate(
                 initAuthority[i + 1],
-                SubdelegationRules(baseRules, rules.allowanceType, rules.allowance)
+                IAlligatorOP.SubdelegationRules(
+                    subdelegationRules.maxRedelegations,
+                    subdelegationRules.blocksBeforeVoteCloses,
+                    subdelegationRules.notValidBefore,
+                    subdelegationRules.notValidAfter,
+                    subdelegationRules.customRule,
+                    rules.allowanceType,
+                    rules.allowance
+                )
             );
         }
         authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
@@ -785,7 +575,7 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
             address node = initAuthority[i];
             vm.prank(node);
-            _subdelegate(node, baseRules, initAuthority[i + 1], subdelegationRules);
+            AlligatorOPMock(alligator).subdelegate(initAuthority[i + 1], subdelegationRules);
         }
         authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
 
@@ -803,11 +593,17 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
             address node = initAuthority[i];
             vm.prank(node);
-            _subdelegate(
-                node,
-                baseRules,
+            AlligatorOPMock(alligator).subdelegate(
                 initAuthority[i + 1],
-                SubdelegationRules(baseRules, rules.allowanceType, rules.allowance)
+                IAlligatorOP.SubdelegationRules(
+                    subdelegationRules.maxRedelegations,
+                    subdelegationRules.blocksBeforeVoteCloses,
+                    subdelegationRules.notValidBefore,
+                    subdelegationRules.notValidAfter,
+                    subdelegationRules.customRule,
+                    rules.allowanceType,
+                    rules.allowance
+                )
             );
         }
         authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
@@ -826,7 +622,7 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
             address node = initAuthority[i];
             vm.prank(node);
-            _subdelegate(node, baseRules, initAuthority[i + 1], subdelegationRules);
+            AlligatorOPMock(alligator).subdelegate(initAuthority[i + 1], subdelegationRules);
         }
         authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
 
@@ -844,11 +640,17 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
             address node = initAuthority[i];
             vm.prank(node);
-            _subdelegate(
-                node,
-                baseRules,
+            AlligatorOPMock(alligator).subdelegate(
                 initAuthority[i + 1],
-                SubdelegationRules(baseRules, rules.allowanceType, rules.allowance)
+                IAlligatorOP.SubdelegationRules(
+                    subdelegationRules.maxRedelegations,
+                    subdelegationRules.blocksBeforeVoteCloses,
+                    subdelegationRules.notValidBefore,
+                    subdelegationRules.notValidAfter,
+                    subdelegationRules.customRule,
+                    rules.allowanceType,
+                    rules.allowance
+                )
             );
         }
         authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
@@ -857,77 +659,859 @@ contract AlligatorOPTest is SetupAlligatorOP {
     }
 
     /*//////////////////////////////////////////////////////////////
-                              CALCULATIONS
+                                 TESTS
     //////////////////////////////////////////////////////////////*/
 
-    // /**
-    //  * @dev Uncomment the relative version to log the calldata size of before running this function.
-    //  * The logged calldata are those of the `castVoteWithReasonAndParamsBatched` function
-    //  * Gas values reported are derived from the result of `getL1GasUsed` from the [GasPriceOracle contract]
-    //  * (https://optimistic.etherscan.io/address/0x420000000000000000000000000000000000000F)
-    //  */
-    // function testLogCalldataSize_CastVoteWithReasonAndParamsBatched() public view virtual {
-    //     uint256 proxiesNumber = 200;
+    function testCastVoteTwice() public virtual {
+        address[] memory authority = createAuthorityChain([alice, address(this)]);
 
-    //     address[] memory authority = new address[](2);
-    //     authority[0] = address(this);
-    //     authority[1] = Utils.alice;
+        standardCastVote(authority);
 
-    //     address[][] memory authorities = new address[][](proxiesNumber);
-    //     bytes32[] memory baseRulesHashes = new bytes32[](proxiesNumber);
-    //     BaseRules[] memory baseProxyRules = new BaseRules[](proxiesNumber);
+        (, uint256 forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
+        assertEq(forVotes, 50e18 + op.getVotes(address(this)));
 
-    //     for (uint256 i = 0; i < proxiesNumber; i++) {
-    //         authorities[i] = authority;
-    //         baseRulesHashes[i] = bytes32(type(uint256).max);
-    //         baseProxyRules[i] = BaseRules({
-    //             maxRedelegations: 255,
-    //             notValidBefore: type(uint32).max,
-    //             notValidAfter: type(uint32).max,
-    //             blocksBeforeVoteCloses: type(uint16).max,
-    //             customRule: address(type(uint160).max)
-    //         });
-    //     }
+        createAuthorityChain(
+            [alice, address(this)], [ReducedSubdelegationRules(IAlligatorOP.AllowanceType.Relative, 75e3 /* 75% */ )]
+        );
+        standardCastVote(authority);
 
-    //     // uint8 support = 2;
-    //     // string memory reason = "";
-    //     // bytes memory params = "";
+        (, forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
+        assertEq(forVotes, 75e18 + op.getVotes(address(this)));
+    }
 
-    //     // Current version: 2,05k gas/proxy
-    //     // console.logBytes(abi.encode(baseProxyRules, authorities, proposalId, support, reason, params));
+    function testCastVoteMaxRedelegations() public virtual {
+        uint256 length = 255;
+        subdelegationRules.allowanceType = IAlligatorOP.AllowanceType.Absolute;
+        address[] memory authority = new address[](length + 1);
+        authority[0] = alice;
+        for (uint256 i = 0; i < length; i++) {
+            address delegator = i == 0 ? authority[0] : address(uint160(i));
+            address delegate = address(uint160(i + 1));
+            subdelegationRules.allowance = 1e18 - 10 * i;
+            vm.prank(delegator);
+            AlligatorOPMock(alligator).subdelegate(delegate, subdelegationRules);
 
-    //     // Optimized baseRules: 1,55k gas/proxy
-    //     // console.logBytes(abi.encode(baseRulesHashes, authorities, proposalId, support, reason, params));
+            authority[i + 1] = delegate;
+        }
 
-    //     // 1 proxy per address: 1,04k gas/proxy
-    //     // console.logBytes(abi.encode(authorities, proposalId, support, reason, params));
+        // startMeasuringGas("castVote with max chain length - partial allowances");
+        vm.startPrank(address(uint160(length)));
+        standardCastVote(authority);
+        vm.stopPrank();
+        // stopMeasuringGas();
+    }
 
-    //     // No authority chains: 523 gas/proxy
-    //     // console.logBytes(abi.encode(baseRulesHashes, proposalId, support, reason, params));
-    // }
+    function testCastVoteTwiceWithTwoChains_Alt() public virtual {
+        address[] memory authority1 = createAuthorityChain([alice, voter, carol]);
+        address[] memory authority2 = createAuthorityChain([alice, bob, carol]);
 
-    // /**
-    //  * @dev Measure the execution cost of the `castVoteWithReasonAndParamsBatched` function for a given `proxiesNumber`
-    //  */
-    // function testMeasureGas_CastVoteWithReasonAndParamsBatched() public virtual {
-    //     uint256 proxiesNumber = 100;
+        address[][] memory authorities = new address[][](2);
+        authorities[1] = authority1;
+        authorities[0] = authority2;
 
-    //     (
-    //         address[][] memory authorities,
-    //         address[] memory proxies,
-    //         BaseRules[] memory proxyRules,
-    //         bytes32[] memory proxyRulesHashes
-    //     ) = _formatBatchDataAlt(proxiesNumber);
+        address[] memory proxies = new address[](2);
+        proxies[0] = _proxyAddress(alice);
+        proxies[1] = _proxyAddress(alice);
 
-    //     uint256 propId = _propose("Alt proposal");
+        IAlligatorOP.SubdelegationRules[] memory proxyRules = new IAlligatorOP.SubdelegationRules[](2);
+        proxyRules[0] = subdelegationRules;
+        proxyRules[1] = subdelegationRules;
 
-    //     console2.log("For %s proxies", proxiesNumber);
-    //     startMeasuringGas("Measured gas cost");
-    //     _castVoteWithReasonAndParamsBatched(proxyRules, proxyRulesHashes, authorities, propId, 1, "reason", "");
-    //     stopMeasuringGas();
+        standardCastVoteWithReasonAndParamsBatched(authorities, proxies, "reason", "params");
 
-    //     for (uint256 i = 0; i < proxiesNumber; i++) {
-    //         assertEq(governor.hasVoted(propId, proxies[i]), true);
-    //     }
-    // }
+        (, uint256 forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
+        assertEq(forVotes, 50e18);
+    }
+
+    function testCastVoteTwiceWithTwoChains() public virtual {
+        address[] memory authority1 = createAuthorityChain([alice, carol]);
+        address[] memory authority2 = createAuthorityChain([alice, bob, carol]);
+
+        address[][] memory authorities = new address[][](2);
+        authorities[1] = authority1;
+        authorities[0] = authority2;
+
+        address[] memory proxies = new address[](2);
+        proxies[0] = _proxyAddress(alice);
+        proxies[1] = _proxyAddress(alice);
+
+        standardCastVoteWithReasonAndParamsBatched(authorities, proxies, "reason", "params");
+
+        (, uint256 forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
+        assertEq(forVotes, 75e18);
+    }
+
+    function testCastVoteTwiceWithTwoLongerChains_Relative1() public virtual {
+        address[] memory authority1 = createAuthorityChain([alice, erin, dave, carol]);
+        address[] memory authority2 = createAuthorityChain([alice, bob, dave, carol]);
+
+        (address[][] memory authorities, address[] memory proxies,,) = createBasicAuthorities([authority1, authority2]);
+
+        vm.prank(carol);
+
+        vm.expectEmit();
+        emit VotesCast(proxies, carol, authorities, proposalId, 1);
+        AlligatorOPMock(alligator).castVoteWithReasonAndParamsBatched(authorities, proposalId, 1, "reason", "params");
+
+        (, uint256 forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
+        assertEq(forVotes, 250e17);
+    }
+
+    function testCastVoteTwiceWithTwoLongerChains_Relative2() public virtual {
+        address[] memory authority1 = createAuthorityChain([alice, dave, carol]);
+        address[] memory authority2 = createAuthorityChain([alice, bob, dave, carol]);
+
+        (address[][] memory authorities, address[] memory proxies,,) = createBasicAuthorities([authority1, authority2]);
+
+        vm.prank(carol);
+
+        vm.expectEmit();
+        emit VotesCast(proxies, carol, authorities, proposalId, 1);
+        AlligatorOPMock(alligator).castVoteWithReasonAndParamsBatched(authorities, proposalId, 1, "reason", "params");
+
+        (, uint256 forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
+        assertEq(forVotes, 375e17);
+    }
+
+    function testCastVoteTwiceWithTwoLongerChains_Relative3() public virtual {
+        address[] memory authority1 = createAuthorityChain([alice, erin, dave, carol]);
+        address[] memory authority2 = createAuthorityChain([alice, bob, dave, carol]);
+
+        (address[][] memory authorities, address[] memory proxies,,) = createBasicAuthorities([authority1, authority2]);
+
+        vm.prank(carol);
+
+        vm.expectEmit();
+        emit VotesCast(proxies, carol, authorities, proposalId, 1);
+        AlligatorOPMock(alligator).castVoteWithReasonAndParamsBatched(authorities, proposalId, 1, "reason", "params");
+
+        subdelegationRules.allowance = 75e3;
+        vm.prank(dave);
+        AlligatorOPMock(alligator).subdelegate(carol, subdelegationRules);
+
+        vm.prank(carol);
+
+        vm.expectEmit();
+        emit VotesCast(proxies, carol, authorities, proposalId, 1);
+        AlligatorOPMock(alligator).castVoteWithReasonAndParamsBatched(authorities, proposalId, 1, "reason", "params");
+
+        (, uint256 forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
+        assertEq(forVotes, 375e17);
+    }
+
+    function testCastVoteTwiceWithTwoLongerChains_Relative4() public virtual {
+        address[] memory authority1 = createAuthorityChain([alice, bob, frank]);
+        address[] memory authority2 = createAuthorityChain([alice, bob, dave, carol]);
+
+        (, uint256 initForVotes,) = governor.proposalVotes(proposalId);
+        (address proxy, uint256 votesToCast, uint256 initWeightCast, uint256[] memory initWeights) =
+            _getInitParams(authority1);
+        vm.prank(frank);
+        AlligatorOPMock(alligator).castVoteWithReasonAndParams(authority1, proposalId, 1, "reason", "");
+        _castVoteAssertions(authority1, proxy, votesToCast, initWeightCast, initForVotes, initWeights, true);
+
+        (, uint256 forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
+        assertEq(forVotes, 250e17);
+
+        (, initForVotes,) = governor.proposalVotes(proposalId);
+        (proxy, votesToCast, initWeightCast, initWeights) = _getInitParams(authority2);
+        vm.prank(carol);
+        AlligatorOPMock(alligator).castVoteWithReasonAndParams(authority2, proposalId, 1, "reason", "");
+        _castVoteAssertions(authority2, proxy, votesToCast, initWeightCast, initForVotes, initWeights, true);
+
+        (, forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
+        assertEq(forVotes, 375e17);
+    }
+
+    function testCastVoteTwiceWithTwoLongerChains_Relative5() public virtual {
+        address[] memory authority1 = createAuthorityChain(
+            [alice, bob, frank],
+            [
+                ReducedSubdelegationRules(IAlligatorOP.AllowanceType.Relative, 5e4),
+                ReducedSubdelegationRules(IAlligatorOP.AllowanceType.Relative, 9e4)
+            ]
+        );
+        address[] memory authority2 = createAuthorityChain([alice, bob, dave, carol]);
+
+        (, uint256 initForVotes,) = governor.proposalVotes(proposalId);
+        (address proxy, uint256 votesToCast, uint256 initWeightCast, uint256[] memory initWeights) =
+            _getInitParams(authority1);
+        vm.prank(frank);
+        AlligatorOPMock(alligator).castVoteWithReasonAndParams(authority1, proposalId, 1, "reason", "");
+        _castVoteAssertions(authority1, proxy, votesToCast, initWeightCast, initForVotes, initWeights, true);
+
+        (, uint256 forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
+        assertEq(forVotes, 450e17);
+
+        (, initForVotes,) = governor.proposalVotes(proposalId);
+        (proxy, votesToCast, initWeightCast, initWeights) = _getInitParams(authority2);
+        vm.prank(carol);
+        AlligatorOPMock(alligator).castVoteWithReasonAndParams(authority2, proposalId, 1, "reason", "");
+        _castVoteAssertions(authority2, proxy, votesToCast, initWeightCast, initForVotes, initWeights, true);
+
+        (, forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
+        assertEq(forVotes, 500e17);
+    }
+
+    function testCastVoteTwiceWithTwoLongerChains_Absolute1() public virtual {
+        address[] memory authority1 = createAuthorityChain(
+            [alice, erin, dave, carol],
+            [
+                ReducedSubdelegationRules(IAlligatorOP.AllowanceType.Absolute, 100),
+                ReducedSubdelegationRules(IAlligatorOP.AllowanceType.Absolute, 250),
+                ReducedSubdelegationRules(IAlligatorOP.AllowanceType.Absolute, 250)
+            ]
+        );
+        address[] memory authority2 = createAuthorityChain(
+            [alice, bob, dave, carol],
+            [
+                ReducedSubdelegationRules(IAlligatorOP.AllowanceType.Absolute, 200),
+                ReducedSubdelegationRules(IAlligatorOP.AllowanceType.Absolute, 250),
+                ReducedSubdelegationRules(IAlligatorOP.AllowanceType.Absolute, 250)
+            ]
+        );
+
+        (address[][] memory authorities, address[] memory proxies,,) = createBasicAuthorities([authority1, authority2]);
+
+        vm.prank(carol);
+
+        vm.expectEmit();
+        emit VotesCast(proxies, carol, authorities, proposalId, 1);
+        AlligatorOPMock(alligator).castVoteWithReasonAndParamsBatched(authorities, proposalId, 1, "reason", "params");
+
+        (, uint256 forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
+        assertEq(forVotes, 250);
+    }
+
+    function testCastVoteTwiceWithTwoLongerChains_Absolute2() public virtual {
+        address[] memory authority1 = createAuthorityChain(
+            [alice, erin, dave, carol],
+            [
+                ReducedSubdelegationRules(IAlligatorOP.AllowanceType.Absolute, 100),
+                ReducedSubdelegationRules(IAlligatorOP.AllowanceType.Absolute, 500),
+                ReducedSubdelegationRules(IAlligatorOP.AllowanceType.Absolute, 500)
+            ]
+        );
+
+        (address[][] memory authorities, address[] memory proxies,,) = createBasicAuthorities([authority1, authority1]);
+
+        vm.prank(carol);
+
+        vm.expectEmit();
+        emit VotesCast(proxies, carol, authorities, proposalId, 1);
+        AlligatorOPMock(alligator).castVoteWithReasonAndParamsBatched(authorities, proposalId, 1, "reason", "params");
+
+        (, uint256 forVotes,) = GovernorCountingSimpleUpgradeableV2(governor).proposalVotes(proposalId);
+        assertEq(forVotes, 100);
+    }
+
+    function testLimitedCastVoteWithReasonAndParamsBatched() public virtual {
+        (address[][] memory authorities,,) = _formatBatchData();
+
+        standardLimitedCastVoteWithReasonAndParamsBatched(1e12, authorities, "reason", "params");
+    }
+
+    function testLimitedCastVoteWithReasonAndParamsBatchedBySig() public virtual {
+        (address[][] memory authorities,,) = _formatBatchDataSigner();
+
+        standardLimitedCastVoteWithReasonAndParamsBatchedBySig(1e12, authorities);
+    }
+
+    function testSubdelegate() public virtual {
+        AlligatorOPMock(alligator).subdelegate(alice, subdelegationRules);
+
+        (
+            uint8 maxRedelegations,
+            uint16 blocksBeforeVoteCloses,
+            uint32 notValidBefore,
+            uint32 notValidAfter,
+            address customRule,
+            IAlligatorOP.AllowanceType allowanceType,
+            uint256 allowance
+        ) = AlligatorOPMock(alligator).subdelegations(address(this), alice);
+
+        IAlligatorOP.SubdelegationRules memory subdelegationRulesSet = IAlligatorOP.SubdelegationRules(
+            maxRedelegations,
+            uint16(notValidBefore),
+            uint16(notValidAfter),
+            blocksBeforeVoteCloses,
+            customRule,
+            allowanceType,
+            allowance
+        );
+
+        subdelegateAssertions(subdelegationRulesSet, subdelegationRules);
+    }
+
+    function testSubdelegateBatched() public virtual {
+        address[] memory targets = new address[](2);
+        targets[0] = address(bob);
+        targets[1] = address(alice);
+
+        AlligatorOPMock(alligator).subdelegateBatched(targets, subdelegationRules);
+
+        for (uint256 i = 0; i < targets.length; i++) {
+            (
+                uint8 maxRedelegations,
+                uint16 blocksBeforeVoteCloses,
+                uint32 notValidBefore,
+                uint32 notValidAfter,
+                address customRule,
+                IAlligatorOP.AllowanceType allowanceType,
+                uint256 allowance
+            ) = AlligatorOPMock(alligator).subdelegations(address(this), targets[i]);
+
+            IAlligatorOP.SubdelegationRules memory subdelegationRulesSet = IAlligatorOP.SubdelegationRules(
+                maxRedelegations,
+                uint16(notValidBefore),
+                uint16(notValidAfter),
+                blocksBeforeVoteCloses,
+                customRule,
+                allowanceType,
+                allowance
+            );
+
+            subdelegateAssertions(subdelegationRulesSet, subdelegationRules);
+        }
+    }
+
+    function testSubdelegateBatchedAlt() public virtual {
+        address[] memory targets = new address[](2);
+        targets[0] = address(bob);
+        targets[1] = address(alice);
+
+        IAlligatorOP.SubdelegationRules[] memory subRules = new IAlligatorOP.SubdelegationRules[](targets.length);
+        for (uint256 i = 0; i < targets.length; i++) {
+            subRules[i] = IAlligatorOP.SubdelegationRules(
+                uint8(i + 1),
+                subdelegationRules.blocksBeforeVoteCloses,
+                subdelegationRules.notValidBefore,
+                subdelegationRules.notValidAfter,
+                subdelegationRules.customRule,
+                subdelegationRules.allowanceType,
+                subdelegationRules.allowance
+            );
+        }
+
+        AlligatorOPMock(alligator).subdelegateBatched(targets, subRules);
+
+        for (uint256 i = 0; i < targets.length; i++) {
+            (
+                uint8 maxRedelegations,
+                uint16 blocksBeforeVoteCloses,
+                uint32 notValidBefore,
+                uint32 notValidAfter,
+                address customRule,
+                IAlligatorOP.AllowanceType allowanceType,
+                uint256 allowance
+            ) = AlligatorOPMock(alligator).subdelegations(address(this), targets[i]);
+
+            IAlligatorOP.SubdelegationRules memory subdelegationRulesSet = IAlligatorOP.SubdelegationRules(
+                maxRedelegations,
+                uint16(notValidBefore),
+                uint16(notValidAfter),
+                blocksBeforeVoteCloses,
+                customRule,
+                allowanceType,
+                allowance
+            );
+
+            assertEq(subdelegationRulesSet.maxRedelegations, subRules[i].maxRedelegations);
+            assertEq(subdelegationRulesSet.notValidBefore, subRules[i].notValidBefore);
+            assertEq(subdelegationRulesSet.notValidAfter, subRules[i].notValidAfter);
+            assertEq(subdelegationRulesSet.blocksBeforeVoteCloses, subRules[i].blocksBeforeVoteCloses);
+            assertEq(subdelegationRulesSet.customRule, subRules[i].customRule);
+            assertEq(uint8(subdelegationRulesSet.allowanceType), uint8(subRules[i].allowanceType));
+            assertEq(subdelegationRulesSet.allowance, subRules[i].allowance);
+        }
+    }
+
+    function testValidate() public {
+        IAlligatorOP.SubdelegationRules memory subRules = subdelegationRules;
+        address[] memory authority = new address[](1);
+        authority[0] = address(this);
+
+        address proxy = _proxyAddress(authority[0]);
+        uint256 proxyTotalVotes = op.getPastVotes(proxy, governor.proposalSnapshot(proposalId));
+
+        (uint256 votesToCast) = AlligatorOPMock(alligator)._validate(
+            proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes
+        );
+
+        assertEq(votesToCast, proxyTotalVotes);
+
+        authority = new address[](2);
+        authority[0] = address(alice);
+        authority[1] = address(this);
+
+        subRules.allowance = 2e4;
+        vm.prank(alice);
+        AlligatorOPMock(alligator).subdelegate(address(this), subRules);
+
+        (votesToCast) = AlligatorOPMock(alligator)._validate(
+            proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes
+        );
+
+        assertEq(votesToCast, proxyTotalVotes * subRules.allowance / 1e5);
+
+        subRules.allowance = 1e5;
+        vm.prank(alice);
+        AlligatorOPMock(alligator).subdelegate(address(this), subRules);
+
+        (votesToCast) = AlligatorOPMock(alligator)._validate(
+            proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes
+        );
+
+        assertEq(votesToCast, proxyTotalVotes * subRules.allowance / 1e5);
+
+        subRules.allowanceType = IAlligatorOP.AllowanceType.Absolute;
+        vm.prank(alice);
+        AlligatorOPMock(alligator).subdelegate(address(this), subRules);
+
+        (votesToCast) = AlligatorOPMock(alligator)._validate(
+            proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes
+        );
+
+        assertEq(votesToCast, subRules.allowance);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                REVERTS
+    //////////////////////////////////////////////////////////////*/
+
+    function testRevert_castVoteBatched_ZeroVotesToCast() public virtual {
+        (address[][] memory authorities, address[] memory proxies,) = _formatBatchData();
+
+        standardCastVoteWithReasonAndParamsBatched(authorities, proxies, "reason", "params");
+
+        vm.expectRevert(ZeroVotesToCast.selector);
+        vm.prank(carol);
+        AlligatorOP(alligator).castVoteWithReasonAndParamsBatched(authorities, proposalId, 1, "reason", "params");
+
+        vm.expectRevert(ZeroVotesToCast.selector);
+        vm.prank(carol);
+        AlligatorOPMock(alligator).limitedCastVoteWithReasonAndParamsBatched(
+            200, authorities, proposalId, 1, "reason", "params"
+        );
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                HELPERS
+    //////////////////////////////////////////////////////////////*/
+
+    function standardCastVote(address[] memory authority) public virtual {
+        address voterAddress = authority[authority.length - 1];
+        (, uint256 initForVotes,) = governor.proposalVotes(proposalId);
+        (address proxy, uint256 votesToCast, uint256 initWeightCast, uint256[] memory initWeights) =
+            _getInitParams(authority);
+
+        bool isStandardVote = !governor.hasVoted(proposalId, voterAddress);
+
+        vm.expectEmit();
+        emit VoteCastWithParams(
+            voterAddress, proposalId, 1, isStandardVote ? votesToCast + op.getVotes(voterAddress) : votesToCast, "", ""
+        );
+        vm.expectEmit();
+        emit VoteCast(_proxyAddress(authority[0]), authority[authority.length - 1], authority, proposalId, 1);
+        AlligatorOPMock(alligator).castVote(authority, proposalId, 1);
+
+        _castVoteAssertions(authority, proxy, votesToCast, initWeightCast, initForVotes, initWeights, isStandardVote);
+    }
+
+    function standardCastVoteWithReason(address[] memory authority, string memory reason) public virtual {
+        address voterAddress = authority[authority.length - 1];
+        (, uint256 initForVotes,) = governor.proposalVotes(proposalId);
+        (address proxy, uint256 votesToCast, uint256 initWeightCast, uint256[] memory initWeights) =
+            _getInitParams(authority);
+
+        bool isStandardVote = !governor.hasVoted(proposalId, voterAddress);
+
+        vm.expectEmit();
+        emit VoteCastWithParams(
+            voterAddress,
+            proposalId,
+            1,
+            isStandardVote ? votesToCast + op.getVotes(voterAddress) : votesToCast,
+            reason,
+            ""
+        );
+        vm.expectEmit();
+        emit VoteCast(_proxyAddress(authority[0]), address(this), authority, proposalId, 1);
+        AlligatorOPMock(alligator).castVoteWithReason(authority, proposalId, 1, reason);
+
+        _castVoteAssertions(authority, proxy, votesToCast, initWeightCast, initForVotes, initWeights, true);
+    }
+
+    function standardCastVoteWithReasonAndParams(address[] memory authority, string memory reason, bytes memory params)
+        public
+        virtual
+    {
+        address voterAddress = authority[authority.length - 1];
+        (, uint256 initForVotes,) = governor.proposalVotes(proposalId);
+        (address proxy, uint256 votesToCast, uint256 initWeightCast, uint256[] memory initWeights) =
+            _getInitParams(authority);
+
+        bool isStandardVote = !governor.hasVoted(proposalId, voterAddress);
+
+        vm.expectEmit();
+        emit VoteCastWithParams(
+            authority[authority.length - 1],
+            proposalId,
+            1,
+            isStandardVote ? votesToCast + op.getVotes(voterAddress) : votesToCast,
+            reason,
+            params
+        );
+        vm.expectEmit();
+        emit VoteCast(_proxyAddress(authority[0]), address(this), authority, proposalId, 1);
+        AlligatorOPMock(alligator).castVoteWithReasonAndParams(authority, proposalId, 1, reason, params);
+
+        _castVoteAssertions(authority, proxy, votesToCast, initWeightCast, initForVotes, initWeights, true);
+    }
+
+    mapping(address proxy => uint256) public votesToCast_;
+
+    function standardCastVoteWithReasonAndParamsBatched(
+        address[][] memory authorities,
+        address[] memory proxies,
+        string memory reason,
+        bytes memory params
+    ) public virtual {
+        uint256[] memory votesToCast = new uint256[](authorities.length);
+        uint256[] memory initWeightCast = new uint256[](authorities.length);
+        uint256[][] memory initWeights = new uint256[][](authorities.length);
+        (, uint256 initForVotes,) = governor.proposalVotes(proposalId);
+        uint256 totalVotesToCast = op.getVotes(authorities[0][authorities[0].length - 1]);
+
+        for (uint256 i = 0; i < authorities.length; i++) {
+            address[] memory authority = authorities[i];
+            (, votesToCast[i], initWeightCast[i], initWeights[i]) = _getInitParams(authority);
+            totalVotesToCast += votesToCast[i];
+        }
+
+        vm.expectEmit();
+        emit VoteCastWithParams(
+            authorities[0][authorities[0].length - 1], proposalId, 1, totalVotesToCast, reason, params
+        );
+        vm.prank(carol);
+
+        vm.expectEmit();
+        emit VotesCast(proxies, carol, authorities, proposalId, 1);
+        AlligatorOPMock(alligator).castVoteWithReasonAndParamsBatched(authorities, proposalId, 1, reason, params);
+
+        _castVoteBatchedAssertions(
+            authorities, proxies, votesToCast, totalVotesToCast, initWeightCast, initForVotes, initWeights
+        );
+    }
+
+    function standardLimitedCastVoteWithReasonAndParamsBatched(
+        uint256 maxVotingPower,
+        address[][] memory authorities,
+        string memory reason,
+        bytes memory params
+    ) public virtual {
+        address[] memory proxies = new address[](authorities.length);
+        uint256[] memory votesToCast = new uint256[](authorities.length);
+        uint256[] memory initWeightCast = new uint256[](authorities.length);
+        uint256[][] memory initWeights = new uint256[][](authorities.length);
+        (, uint256 initForVotes,) = governor.proposalVotes(proposalId);
+        uint256 totalVotesToCast = op.getVotes(authorities[0][authorities[0].length - 1]);
+
+        for (uint256 i = 0; i < authorities.length; i++) {
+            address[] memory authority = authorities[i];
+            (proxies[i], votesToCast[i], initWeightCast[i], initWeights[i]) = _getInitParams(authority);
+            totalVotesToCast += votesToCast[i];
+
+            if (totalVotesToCast > maxVotingPower) {
+                votesToCast_[proxies[i]] -= votesToCast[i];
+                votesToCast[i] = maxVotingPower - (totalVotesToCast - votesToCast[i]);
+                votesToCast_[proxies[i]] += votesToCast[i];
+                totalVotesToCast = maxVotingPower;
+                break;
+            }
+        }
+
+        vm.expectEmit();
+        emit VoteCastWithParams(
+            authorities[0][authorities[0].length - 1], proposalId, 1, totalVotesToCast, reason, params
+        );
+        vm.expectEmit();
+        emit VotesCast(proxies, carol, authorities, proposalId, 1);
+
+        vm.prank(carol);
+        AlligatorOPMock(alligator).limitedCastVoteWithReasonAndParamsBatched(
+            maxVotingPower, authorities, proposalId, 1, reason, params
+        );
+
+        _castVoteBatchedAssertions(
+            authorities, proxies, votesToCast, totalVotesToCast, initWeightCast, initForVotes, initWeights
+        );
+    }
+
+    function standardCastVoteBySig(address[] memory authority) public virtual {
+        bytes32 domainSeparator =
+            keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, alligator));
+        bytes32 structHash = keccak256(abi.encode(BALLOT_TYPEHASH_V5, proposalId, 1, authority));
+        (uint8 v, bytes32 r, bytes32 s) =
+            vm.sign(123, keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash)));
+
+        vm.expectEmit();
+        emit VoteCast(_proxyAddress(authority[0]), signer, authority, proposalId, 1);
+        AlligatorOPMock(alligator).castVoteBySig(authority, proposalId, 1, v, r, s);
+    }
+
+    function standardCastVoteWithReasonAndParamsBySig(address[] memory authority) public virtual {
+        bytes32 domainSeparator =
+            keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, alligator));
+        bytes32 structHash = keccak256(
+            abi.encode(
+                BALLOT_WITHPARAMS_TYPEHASH, proposalId, 1, authority, keccak256(bytes("reason")), keccak256("params")
+            )
+        );
+        (uint8 v, bytes32 r, bytes32 s) =
+            vm.sign(123, keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash)));
+
+        vm.expectEmit();
+        emit VoteCast(_proxyAddress(authority[0]), signer, authority, proposalId, 1);
+        AlligatorOPMock(alligator).castVoteWithReasonAndParamsBySig(
+            authority, proposalId, 1, "reason", "params", v, r, s
+        );
+    }
+
+    function standardLimitedCastVoteWithReasonAndParamsBatchedBySig(
+        uint256 maxVotingPower,
+        address[][] memory authorities
+    ) public virtual {
+        address[] memory proxies = new address[](authorities.length);
+        uint256[] memory votesToCast = new uint256[](authorities.length);
+        uint256[] memory initWeightCast = new uint256[](authorities.length);
+        uint256[][] memory initWeights = new uint256[][](authorities.length);
+        (, uint256 initForVotes,) = governor.proposalVotes(proposalId);
+        uint256 totalVotesToCast = op.getVotes(authorities[0][authorities[0].length - 1]);
+
+        for (uint256 i = 0; i < authorities.length; i++) {
+            address[] memory authority = authorities[i];
+            (proxies[i], votesToCast[i], initWeightCast[i], initWeights[i]) = _getInitParams(authority);
+            totalVotesToCast += votesToCast[i];
+
+            if (totalVotesToCast > maxVotingPower) {
+                votesToCast_[proxies[i]] -= votesToCast[i];
+                votesToCast[i] = maxVotingPower - (totalVotesToCast - votesToCast[i]);
+                votesToCast_[proxies[i]] += votesToCast[i];
+                totalVotesToCast = maxVotingPower;
+                break;
+            }
+        }
+
+        vm.expectEmit();
+        emit VoteCastWithParams(
+            authorities[0][authorities[0].length - 1], proposalId, 1, totalVotesToCast, "reason", "params"
+        );
+        vm.expectEmit();
+        emit VotesCast(proxies, signer, authorities, proposalId, 1);
+
+        _limitedCastVoteWithReasonAndParamsBatchedBySig(maxVotingPower, authorities, proposalId, 1, "reason", "params");
+
+        _castVoteBatchedAssertions(
+            authorities, proxies, votesToCast, totalVotesToCast, initWeightCast, initForVotes, initWeights
+        );
+    }
+
+    function _getInitParams(address[] memory authority)
+        internal
+        returns (address proxy, uint256 votesToCast, uint256 initWeightCast, uint256[] memory initWeights)
+    {
+        proxy = _proxyAddress(authority[0]);
+        uint256 proxyTotalVotes = op.getPastVotes(proxy, governor.proposalSnapshot(proposalId));
+        (votesToCast) = AlligatorOPMock(alligator)._validate(
+            proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes
+        );
+        votesToCast_[proxy] += votesToCast;
+        initWeightCast = governor.weightCast(proposalId, proxy);
+        initWeights = new uint256[](authority.length);
+        for (uint256 i = 1; i < authority.length; ++i) {
+            initWeights[i] = AlligatorOPMock(alligator).votesCast(proxy, proposalId, authority[i - 1], authority[i]);
+        }
+    }
+
+    function _castVoteAssertions(
+        address[] memory authority,
+        address proxy,
+        uint256 votesToCast,
+        uint256 initWeightCast,
+        uint256 initForVotes,
+        uint256[] memory initWeights,
+        bool isStandardVote
+    ) internal {
+        (, uint256 finalForVotes,) = governor.proposalVotes(proposalId);
+
+        assertTrue(governor.hasVoted(proposalId, proxy));
+        assertEq(governor.weightCast(proposalId, proxy), initWeightCast + votesToCast);
+        assertEq(
+            finalForVotes,
+            initForVotes + votesToCast + (isStandardVote ? op.getVotes(authority[authority.length - 1]) : 0)
+        );
+
+        if (authority.length > 1) {
+            uint256 recordedVotes = AlligatorOPMock(alligator).votesCast(
+                proxy, proposalId, authority[authority.length - 2], authority[authority.length - 1]
+            );
+            assertEq(recordedVotes, initWeights[authority.length - 1] + votesToCast);
+        }
+    }
+
+    function _castVoteBatchedAssertions(
+        address[][] memory authorities,
+        address[] memory proxies,
+        uint256[] memory votesToCast,
+        uint256 totalVotesToCast,
+        uint256[] memory initWeightCast,
+        uint256 initForVotes,
+        uint256[][] memory initWeights
+    ) internal {
+        (, uint256 finalForVotes,) = governor.proposalVotes(proposalId);
+
+        assertEq(finalForVotes, initForVotes + totalVotesToCast);
+
+        for (uint256 i = 0; i < authorities.length; i++) {
+            address[] memory authority = authorities[i];
+            address proxy = proxies[i];
+
+            if (proxy != address(0)) {
+                assertTrue(governor.hasVoted(proposalId, proxy));
+                assertEq(governor.weightCast(proposalId, proxy), initWeightCast[i] + votesToCast_[proxy]);
+
+                if (authority.length > 1) {
+                    uint256 recordedVotes = AlligatorOPMock(alligator).votesCast(
+                        proxy, proposalId, authority[authority.length - 2], authority[authority.length - 1]
+                    );
+                    assertEq(recordedVotes, initWeights[i][authority.length - 1] + votesToCast[i]);
+                }
+            }
+        }
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                INTERNAL
+    //////////////////////////////////////////////////////////////*/
+
+    function _proxyAddress(address proxyOwner, bytes32) internal view returns (address computedAddress) {
+        return AlligatorOPMock(alligator).proxyAddress(proxyOwner);
+    }
+
+    function _create(address proxyOwner) internal view returns (address computedAddress) {
+        return _proxyAddress(proxyOwner);
+    }
+
+    function _limitedCastVoteWithReasonAndParamsBatchedBySig(
+        uint256 maxVotingPower,
+        address[][] memory authorities,
+        uint256 propId,
+        uint8 support,
+        string memory reason,
+        bytes memory params
+    ) internal virtual {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+            123,
+            keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("Alligator"), block.chainid, alligator)),
+                    keccak256(
+                        abi.encode(
+                            BALLOT_WITHPARAMS_BATCHED_TYPEHASH,
+                            proposalId,
+                            1,
+                            maxVotingPower,
+                            authorities,
+                            keccak256(bytes("reason")),
+                            keccak256("params")
+                        )
+                    )
+                )
+            )
+        );
+
+        AlligatorOPMock(alligator).limitedCastVoteWithReasonAndParamsBatchedBySig(
+            maxVotingPower, authorities, propId, support, reason, params, v, r, s
+        );
+    }
+
+    function createBasicAuthorities(address[][1] memory initAuthorities)
+        internal
+        virtual
+        returns (
+            address[][] memory authorities,
+            address[] memory proxies,
+            IAlligatorOP.SubdelegationRules[] memory proxyRules,
+            uint256 totalVotesToCast
+        )
+    {
+        authorities = new address[][](initAuthorities.length);
+        proxies = new address[](initAuthorities.length);
+        proxyRules = new IAlligatorOP.SubdelegationRules[](initAuthorities.length);
+
+        uint256[] memory votesToCast = new uint256[](authorities.length);
+
+        for (uint256 i = 0; i < initAuthorities.length; i++) {
+            authorities[i] = initAuthorities[i];
+            proxies[i] = _proxyAddress(authorities[i][0]);
+            proxyRules[i] = subdelegationRules;
+
+            (, votesToCast[i],,) = _getInitParams(authorities[i]);
+            totalVotesToCast += votesToCast[i];
+        }
+    }
+
+    function createBasicAuthorities(address[][2] memory initAuthorities)
+        internal
+        virtual
+        returns (
+            address[][] memory authorities,
+            address[] memory proxies,
+            IAlligatorOP.SubdelegationRules[] memory proxyRules,
+            uint256 totalVotesToCast
+        )
+    {
+        authorities = new address[][](initAuthorities.length);
+        proxies = new address[](initAuthorities.length);
+        proxyRules = new IAlligatorOP.SubdelegationRules[](initAuthorities.length);
+
+        uint256[] memory votesToCast = new uint256[](authorities.length);
+
+        for (uint256 i = 0; i < initAuthorities.length; i++) {
+            authorities[i] = initAuthorities[i];
+            proxies[i] = _proxyAddress(authorities[i][0]);
+            proxyRules[i] = subdelegationRules;
+
+            (, votesToCast[i],,) = _getInitParams(authorities[i]);
+            totalVotesToCast += votesToCast[i];
+        }
+    }
+
+    function createBasicAuthorities(address[][3] memory initAuthorities)
+        internal
+        virtual
+        returns (
+            address[][] memory authorities,
+            address[] memory proxies,
+            IAlligatorOP.SubdelegationRules[] memory proxyRules,
+            uint256 totalVotesToCast
+        )
+    {
+        authorities = new address[][](initAuthorities.length);
+        proxies = new address[](initAuthorities.length);
+        proxyRules = new IAlligatorOP.SubdelegationRules[](initAuthorities.length);
+
+        uint256[] memory votesToCast = new uint256[](authorities.length);
+
+        for (uint256 i = 0; i < initAuthorities.length; i++) {
+            authorities[i] = initAuthorities[i];
+            proxies[i] = _proxyAddress(authorities[i][0]);
+            proxyRules[i] = subdelegationRules;
+
+            (, votesToCast[i],,) = _getInitParams(authorities[i]);
+            totalVotesToCast += votesToCast[i];
+        }
+    }
 }

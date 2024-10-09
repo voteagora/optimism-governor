@@ -71,7 +71,7 @@ Main implementation
 
 ### V6
 
-- [`Governor`](/src/OptimismGovernorV6.sol)
+- [`Governor`](/src/OptimismGovernor.sol)
   - Added support for external voting modules
   - Added support for partial voting via Alligator
   - Added votable supply oracle
@@ -80,7 +80,7 @@ Main implementation
   - [`VotingModule`](/src/modules/VotingModule.sol)
   - [`ApprovalVotingModule`](/src/modules/ApprovalVotingModule.sol)
   - [`OptimisticModule`](/src/modules/OptimisticModule.sol)
-- Liquid delegation protocol [`Alligator`](/src/alligator/AlligatorOP_V5.sol)
+- Liquid delegation protocol [`Alligator`](/src/alligator/AlligatorOP)
   - Added support for partial voting and advanced delegations
 - [`ProposalTypesConfigurator`](/src/ProposalTypesConfigurator.sol)
   - Allows Governor manager to add, remove and update proposal types
@@ -139,7 +139,7 @@ See the [modules section](#modules) for more details.
 
 `Alligator` introduced partial delegations, or `subdelegations`, as an alternative way to delegate fractional amounts of voting power to multiple delegates.
 
-Each partial delegation emits a [`Subdelegation` or `Subdelegations`](./alligator/AlligatorOP_V5.sol#L47) event, respectively for single and batched operations. Clients should use these events to reconstruct the allowances of each address.
+Each partial delegation emits a [`Subdelegation` or `Subdelegations`](./alligator/AlligatorOP#L47) event, respectively for single and batched operations. Clients should use these events to reconstruct the allowances of each address.
 
 Each `Subdelegation` contains a `delegator`, `delegate` and [`rules`](./src/structs/RulesV3.sol).
 

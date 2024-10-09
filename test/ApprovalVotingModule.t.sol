@@ -6,16 +6,12 @@ import {console2} from "forge-std/console2.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {OptimismGovernorV2} from "../src/OptimismGovernorV2.sol";
 import {ApprovalVotingModule} from "../src/modules/ApprovalVotingModule.sol";
 import {VotingModule} from "../src/modules/VotingModule.sol";
 import {ProposalOption, ProposalSettings, PassingCriteria, Proposal} from "../src/modules/ApprovalVotingModule.sol";
 import {GovernanceToken as OptimismToken} from "../src/lib/OptimismToken.sol";
 import {ApprovalVotingModuleMock} from "./mocks/ApprovalVotingModuleMock.sol";
-import {OptimismGovernorV5Mock} from "./mocks/OptimismGovernorV5Mock.sol";
-import {OptimismGovernorV4UpgradeMock} from "./mocks/OptimismGovernorV4UpgradeMock.sol";
-import {OptimismGovernorV5UpgradeMock} from "./mocks/OptimismGovernorV5UpgradeMock.sol";
-import {OptimismGovernorV5ExecuteMock} from "./mocks/OptimismGovernorV5ExecuteMock.sol";
+import {OptimismGovernorMock} from "./mocks/OptimismGovernorMock.sol";
 
 enum ProposalState {
     Pending,
@@ -571,7 +567,7 @@ contract ApprovalVotingModuleTest is Test {
     }
 
     function testRevert_afterExecute_budgetExceeded() public {
-        OptimismGovernorV5ExecuteMock governor_ = new OptimismGovernorV5ExecuteMock();
+        OptimismGovernorMock governor_ = new OptimismGovernorMock();
 
         vm.deal(address(governor_), 1e20);
         OptimismToken(op).mint(address(governor_), 1e20);
@@ -613,7 +609,7 @@ contract ApprovalVotingModuleTest is Test {
         (targets, values, calldatas) = module._formatExecuteParams(proposalId, proposalData);
 
         vm.expectRevert(ApprovalVotingModule.BudgetExceeded.selector);
-        governor_.execute(proposalId, targets, values, calldatas, "");
+        governor_.execute(targets, values, calldatas, "");
 
         vm.stopPrank();
     }
