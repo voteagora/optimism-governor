@@ -13,6 +13,6 @@ contract AlligatorOPMock is AlligatorOP {
         uint256 support,
         uint256 voterAllowance
     ) public view returns (uint256 votesToCast) {
-        return AlligatorOPV5.validate(proxy, sender, authority, proposalId, support, voterAllowance);
+        return AlligatorOP.validate(proxy, sender, authority, proposalId, support, voterAllowance);
     }
 }

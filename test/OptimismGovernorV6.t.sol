@@ -7,7 +7,6 @@ import {UpgradeScripts} from "upgrade-scripts/UpgradeScripts.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {OptimismGovernorV2} from "../src/OptimismGovernorV2.sol";
 import {IOptimismGovernor} from "../src/interfaces/IOptimismGovernor.sol";
 import {VotingModule} from "../src/modules/VotingModule.sol";
 import {
@@ -17,7 +16,6 @@ import {
 } from "../src/modules/OptimisticModule.sol";
 import {GovernanceToken as OptimismToken} from "../src/lib/OptimismToken.sol";
 import {OptimismGovernorV6Mock} from "./mocks/OptimismGovernorV6Mock.sol";
-import {OptimismGovernorV4UpgradeMock} from "./mocks/OptimismGovernorV4UpgradeMock.sol";
 import {OptimismGovernorV6UpgradeMock} from "./mocks/OptimismGovernorV6UpgradeMock.sol";
 import {ApprovalVotingModuleMock} from "./mocks/ApprovalVotingModuleMock.sol";
 import {OptimismGovernorV5Test} from "./OptimismGovernorV5.t.sol";

@@ -16,7 +16,6 @@ import {
 } from "../src/modules/ApprovalVotingModule.sol";
 import {GovernanceToken as OptimismToken} from "../src/lib/OptimismToken.sol";
 import {OptimismGovernorV5Mock} from "./mocks/OptimismGovernorV5Mock.sol";
-import {OptimismGovernorV4UpgradeMock} from "./mocks/OptimismGovernorV4UpgradeMock.sol";
 import {OptimismGovernorV5UpgradeMock} from "./mocks/OptimismGovernorV5UpgradeMock.sol";
 import {ApprovalVotingModuleMock} from "./mocks/ApprovalVotingModuleMock.sol";
 import {IGovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/IGovernorUpgradeable.sol";
@@ -122,12 +121,6 @@ contract OptimismGovernorV5Test is Test, UpgradeScripts {
     /*//////////////////////////////////////////////////////////////
                                  TESTS
     //////////////////////////////////////////////////////////////*/
-
-    function testUpgrade() public virtual {
-        address implementationV4 = setUpContract("OptimismGovernorV4UpgradeMock");
-        address implementationV5 = setUpContract("OptimismGovernorV5UpgradeMock");
-        upgradeSafetyChecks("OptimismGovernorV5UpgradeMock", implementationV4, implementationV5);
-    }
 
     function testUpdateSettings() public virtual {
         vm.startPrank(manager);

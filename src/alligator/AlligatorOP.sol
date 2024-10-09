@@ -1,9 +1,8 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
 
 import {AlligatorProxy} from "./AlligatorProxy.sol";
-import {SubdelegationRules, AllowanceType} from "../structs/RulesV3.sol";
-import {IAlligatorOPV5} from "../interfaces/IAlligatorOPV5.sol";
+import {IAlligatorOP} from "../interfaces/IAlligatorOP.sol";
 import {IRule} from "../interfaces/IRule.sol";
 import {IOptimismGovernor} from "../interfaces/IOptimismGovernor.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
@@ -25,7 +24,7 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
  * - Upgradeable version of the contract
  * - Add castVoteBySigBatched
  */
-contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable {
+contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable {
     // =============================================================
     //                             ERRORS
     // =============================================================
@@ -44,9 +43,9 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     //                             EVENTS
     // =============================================================
 
-    event SubDelegation(address indexed from, address indexed to, SubdelegationRules subdelegationRules);
-    event SubDelegations(address indexed from, address[] to, SubdelegationRules subdelegationRules);
-    event SubDelegations(address indexed from, address[] to, SubdelegationRules[] subdelegationRules);
+    event SubDelegation(address indexed from, address indexed to, IAlligatorOP.SubdelegationRules subdelegationRules);
+    event SubDelegations(address indexed from, address[] to, IAlligatorOP.SubdelegationRules subdelegationRules);
+    event SubDelegations(address indexed from, address[] to, IAlligatorOP.SubdelegationRules[] subdelegationRules);
     event VoteCast(
         address indexed proxy, address indexed voter, address[] authority, uint256 proposalId, uint8 support
     );
@@ -63,7 +62,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     // =============================================================
 
     address public constant GOVERNOR = 0xcDF27F107725988f2261Ce2256bDfCdE8B382B10;
-    address public constant OP_TOKEN = 0x4200000000000000000000000000000000000042;
+    address public opToken;
     bytes32 public constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
     bytes32 public constant BALLOT_TYPEHASH = keccak256("Ballot(uint256 proposalId,uint8 support,address[] authority)");
@@ -78,7 +77,8 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     // =============================================================
 
     // Subdelegation rules `from` => `to`
-    mapping(address from => mapping(address to => SubdelegationRules subdelegationRules)) public subdelegations;
+    mapping(address from => mapping(address to => IAlligatorOP.SubdelegationRules subdelegationRules)) public
+        subdelegations;
 
     mapping(address proxy => mapping(uint256 proposalId => mapping(address voter => uint256))) private UNUSED_SLOT;
 
@@ -106,11 +106,12 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         _disableInitializers();
     }
 
-    function initialize(address _initOwner) external initializer {
+    function initialize(address _initOwner, address _op) external initializer {
         PausableUpgradeable.__Pausable_init();
         OwnableUpgradeable.__Ownable_init();
         UUPSUpgradeable.__UUPSUpgradeable_init();
         _transferOwnership(_initOwner);
+        opToken = _op;
     }
 
     // =============================================================
@@ -335,7 +336,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         bytes memory params
     ) internal {
         address proxy = proxyAddress(authority[0]);
-        uint256 proxyTotalVotes = IVotes(OP_TOKEN).getPastVotes(proxy, _proposalSnapshot(proposalId));
+        uint256 proxyTotalVotes = IVotes(opToken).getPastVotes(proxy, _proposalSnapshot(proposalId));
 
         (uint256 votesToCast) = validate(proxy, voter, authority, proposalId, support, proxyTotalVotes);
 
@@ -377,7 +378,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         uint256 proxyTotalVotes;
         for (uint256 i; i < authorities.length;) {
             proxies[i] = proxyAddress(authorities[i][0]);
-            proxyTotalVotes = IVotes(OP_TOKEN).getPastVotes(proxies[i], snapshotBlock);
+            proxyTotalVotes = IVotes(opToken).getPastVotes(proxies[i], snapshotBlock);
 
             (votesToCast) = validate(proxies[i], voter, authorities[i], proposalId, support, proxyTotalVotes);
 
@@ -470,7 +471,11 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
      * @param to The address to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegation.
      */
-    function subdelegate(address to, SubdelegationRules calldata subdelegationRules) public override whenNotPaused {
+    function subdelegate(address to, IAlligatorOP.SubdelegationRules calldata subdelegationRules)
+        public
+        override
+        whenNotPaused
+    {
         subdelegations[msg.sender][to] = subdelegationRules;
         emit SubDelegation(msg.sender, to, subdelegationRules);
     }
@@ -481,7 +486,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
      * @param targets The addresses to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegations.
      */
-    function subdelegateBatched(address[] calldata targets, SubdelegationRules calldata subdelegationRules)
+    function subdelegateBatched(address[] calldata targets, IAlligatorOP.SubdelegationRules calldata subdelegationRules)
         public
         override
         whenNotPaused
@@ -504,11 +509,10 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
      * @param targets The addresses to subdelegate to.
      * @param subdelegationRules The rules to apply to the subdelegations.
      */
-    function subdelegateBatched(address[] calldata targets, SubdelegationRules[] calldata subdelegationRules)
-        public
-        override
-        whenNotPaused
-    {
+    function subdelegateBatched(
+        address[] calldata targets,
+        IAlligatorOP.SubdelegationRules[] calldata subdelegationRules
+    ) public override whenNotPaused {
         uint256 targetsLength = targets.length;
         if (targetsLength != subdelegationRules.length) revert LengthMismatch();
 
@@ -561,7 +565,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
         }
 
         address to;
-        SubdelegationRules memory subdelegationRules;
+        IAlligatorOP.SubdelegationRules memory subdelegationRules;
         uint256 votesCastFactor;
         for (uint256 i = 1; i < authority.length;) {
             to = authority[i];
@@ -573,7 +577,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
             }
 
             // Prevent double spending of votes already cast by previous delegators by adjusting `subdelegationRules.allowance`.
-            if (subdelegationRules.allowanceType == AllowanceType.Relative) {
+            if (subdelegationRules.allowanceType == IAlligatorOP.AllowanceType.Relative) {
                 // `votesCastFactor`: remaining votes to cast by the delegate
                 // Get `votesCastFactor` by subtracting `votesCastByAuthorityChain` to given allowance amount
                 // Reverts for underflow when `votesCastByAuthorityChain > votesCastFactor`, when delegate has exceeded the allowance.
@@ -719,7 +723,7 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     }
 
     function _validateRules(
-        SubdelegationRules memory rules,
+        IAlligatorOP.SubdelegationRules memory rules,
         address sender,
         uint256 authorityLength,
         uint256 proposalId,
@@ -759,17 +763,17 @@ contract AlligatorOPV5 is IAlligatorOPV5, UUPSUpgradeable, OwnableUpgradeable, P
     /**
      * Return the allowance of a voter, used in `validate`.
      */
-    function _getVoterAllowance(AllowanceType allowanceType, uint256 subdelegationAllowance, uint256 delegatorAllowance)
-        private
-        pure
-        returns (uint256)
-    {
-        if (allowanceType == AllowanceType.Relative) {
+    function _getVoterAllowance(
+        IAlligatorOP.AllowanceType allowanceType,
+        uint256 subdelegationAllowance,
+        uint256 delegatorAllowance
+    ) private pure returns (uint256) {
+        if (allowanceType == IAlligatorOP.AllowanceType.Relative) {
             return
                 subdelegationAllowance >= 1e5 ? delegatorAllowance : delegatorAllowance * subdelegationAllowance / 1e5;
         }
 
-        // else if (allowanceType == AllowanceType.Absolute)
+        // else if (allowanceType == IAlligatorOP.AllowanceType.Absolute)
         return delegatorAllowance > subdelegationAllowance ? subdelegationAllowance : delegatorAllowance;
     }
 }

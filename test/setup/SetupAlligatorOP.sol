@@ -3,24 +3,26 @@ pragma solidity ^0.8.13;
 
 import "lib/forge-std/src/Test.sol";
 import {IERC721} from "lib/openzeppelin-contracts/contracts/interfaces/IERC721.sol";
-import {AllowanceType, BaseRules, SubdelegationRules} from "src/structs/RulesV2.sol";
-import {OptimismGovernorV6} from "src/OptimismGovernorV6.sol";
-import {OptimismGovernorV2} from "src/OptimismGovernorV2.sol";
 import {VotableSupplyOracle} from "src/VotableSupplyOracle.sol";
-import {ProposalTypesConfigurator} from "src/ProposalTypesConfigurator.sol";
+import {IProposalTypesConfigurator, ProposalTypesConfigurator} from "src/ProposalTypesConfigurator.sol";
 import {IOptimismGovernor} from "src/interfaces/IOptimismGovernor.sol";
 import {OptimismGovernorV6Mock} from "../mocks/OptimismGovernorV6Mock.sol";
-import "../utils/Addresses.sol";
-import {GovernanceToken as OptimismToken} from "src/lib/OptimismToken.sol";
+import {IVotableSupplyOracle} from "src/interfaces/IVotableSupplyOracle.sol";
+import {TokenMock} from "test/mocks/TokenMock.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
+import {TimelockControllerUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
+import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
+import {IAlligatorOP} from "src/interfaces/IAlligatorOP.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {AlligatorOPMock} from "../mocks/AlligatorOPMock.sol";
 
 abstract contract SetupAlligatorOP is Test {
     // =============================================================
     //                             ERRORS
     // =============================================================
 
-    error BadSignature();
     error ZeroVotesToCast();
     error NotDelegated(address from, address to);
     error TooManyRedelegations(address from, address to);
@@ -33,15 +35,8 @@ abstract contract SetupAlligatorOP is Test {
     //                             EVENTS
     // =============================================================
 
-    event ProxyDeployed(address indexed owner, BaseRules proxyRules, address proxy);
-    event SubDelegation(address indexed from, address indexed to, SubdelegationRules subdelegationRules);
-    event SubDelegations(address indexed from, address[] to, SubdelegationRules subdelegationRules);
-    event ProxySubdelegation(
-        address indexed proxy, address indexed from, address indexed to, SubdelegationRules subdelegationRules
-    );
-    event ProxySubdelegations(
-        address indexed proxy, address indexed from, address[] to, SubdelegationRules subdelegationRules
-    );
+    event SubDelegation(address indexed from, address indexed to, IAlligatorOP.SubdelegationRules subdelegationRules);
+    event SubDelegations(address indexed from, address[] to, IAlligatorOP.SubdelegationRules subdelegationRules);
     event VoteCast(
         address indexed proxy, address indexed voter, address[] authority, uint256 proposalId, uint8 support
     );
@@ -65,32 +60,26 @@ abstract contract SetupAlligatorOP is Test {
     //                            STORAGE
     // =============================================================
 
-    OptimismToken internal op = OptimismToken(0x4200000000000000000000000000000000000042);
-    OptimismGovernorV6Mock internal governor =
-        OptimismGovernorV6Mock(payable(0xcDF27F107725988f2261Ce2256bDfCdE8B382B10));
+    TokenMock internal op;
+    OptimismGovernorV6Mock internal governor = OptimismGovernorV6Mock(payable(0xcDF27F107725988f2261Ce2256bDfCdE8B382B10));
 
     VotableSupplyOracle internal votableSupplyOracle;
     ProposalTypesConfigurator internal proposalTypesConfigurator;
 
-    address internal alligator = 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9;
+    address internal alligator;
     address internal alligatorAlt;
     address internal proxy1;
     address internal proxy2;
     address internal proxy3;
-    BaseRules internal baseRules = BaseRules(
-        255, // Max redelegations
-        0,
-        0,
-        0,
-        address(0)
-    );
-    bytes32 baseRulesHash = keccak256(abi.encode(baseRules));
-    SubdelegationRules internal subdelegationRules = SubdelegationRules({
-        baseRules: baseRules,
-        allowanceType: AllowanceType.Relative,
-        allowance: 5e4 // 50%
-            // allowance: 1e5 // 100%
-    });
+    IAlligatorOP.SubdelegationRules internal subdelegationRules =
+        IAlligatorOP.SubdelegationRules(255, 0, 0, 0, address(0), IAlligatorOP.AllowanceType.Relative, 5e4);
+
+    address internal constant alice = 0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa;
+    address internal constant bob = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
+    address internal constant carol = 0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC;
+    address internal constant dave = 0xDDdDddDdDdddDDddDDddDDDDdDdDDdDDdDDDDDDd;
+    address internal constant erin = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    address internal constant frank = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
 
     address deployer = makeAddr("deployer");
     address admin = makeAddr("admin");
@@ -100,10 +89,10 @@ abstract contract SetupAlligatorOP is Test {
     address altVoter = makeAddr("altVoter");
     address altVoter2 = makeAddr("altVoter2");
     uint256 proposalId;
-    address signer = vm.rememberKey(vm.envUint("SIGNER_KEY"));
+    address signer = vm.rememberKey(123);
 
     struct ReducedSubdelegationRules {
-        AllowanceType allowanceType;
+        IAlligatorOP.AllowanceType allowanceType;
         uint256 allowance;
     }
 
@@ -112,7 +101,15 @@ abstract contract SetupAlligatorOP is Test {
     // =============================================================
 
     function setUp() public virtual {
-        vm.etch(address(op), address(new OptimismToken()).code);
+        op = new TokenMock(address(0x123));
+
+        alligator = address(
+            new ERC1967Proxy(
+                address(new AlligatorOPMock()),
+                abi.encodeWithSelector(AlligatorOPMock(alligator).initialize.selector, address(this), address(op))
+            )
+        );
+
         vm.etch(address(governor), address(new OptimismGovernorV6Mock()).code);
 
         vm.startPrank(address(deployer));
