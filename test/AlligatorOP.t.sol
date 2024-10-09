@@ -1342,7 +1342,7 @@ contract AlligatorOPTest is SetupAlligatorOP {
         uint256 initForVotes,
         uint256[] memory initWeights,
         bool isStandardVote
-    ) internal {
+    ) internal view {
         (, uint256 finalForVotes,) = governor.proposalVotes(proposalId);
 
         assertTrue(governor.hasVoted(proposalId, proxy));
@@ -1368,7 +1368,7 @@ contract AlligatorOPTest is SetupAlligatorOP {
         uint256[] memory initWeightCast,
         uint256 initForVotes,
         uint256[][] memory initWeights
-    ) internal {
+    ) internal view {
         (, uint256 finalForVotes,) = governor.proposalVotes(proposalId);
 
         assertEq(finalForVotes, initForVotes + totalVotesToCast);

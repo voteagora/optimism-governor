@@ -41,52 +41,6 @@ The contracts in this repo are designed to be used by the following roles:
   - Vote on proposals
   - Delegate votes to another address (via OP token contract)
 
-## Versions
-
-6 versions of the OP governor implementation have been deployed.
-
-### V1
-
-Main implementation
-
-### V2
-
-- Set `quorumDenominator` to 100_000
-
-### V3
-
-- Added manager role: `cancel` proposal
-
-### V4
-
-- Fixes incorrect quorum for a past block
-
-### V5
-
-- Added support for voting modules
-  - Update OZ `Governor` storage to add `moduleAddress` in `ProposalCore` struct
-  - Updated / added new functions and events in [`OptimismGovernorV5`](/src/OptimismGovernorV5.sol) to interact with external modules
-  - Updated `COUNTING_MODE` to also include `params=modules`
-- Added [`ApprovalVotingModule`](/src/modules/ApprovalVotingModule.sol)
-
-### V6
-
-- [`Governor`](/src/OptimismGovernor.sol)
-  - Added support for external voting modules
-  - Added support for partial voting via Alligator
-  - Added votable supply oracle
-  - Added support for proposal types
-- Voting modules with partial voting support
-  - [`VotingModule`](/src/modules/VotingModule.sol)
-  - [`ApprovalVotingModule`](/src/modules/ApprovalVotingModule.sol)
-  - [`OptimisticModule`](/src/modules/OptimisticModule.sol)
-- Liquid delegation protocol [`Alligator`](/src/alligator/AlligatorOP)
-  - Added support for partial voting and advanced delegations
-- [`ProposalTypesConfigurator`](/src/ProposalTypesConfigurator.sol)
-  - Allows Governor manager to add, remove and update proposal types
-- [`VotableSupplyOracle`](/src/VotableSupplyOracle.sol)
-  - Allows contract owner to update votable supply used by the governor
-
 ## Deployment
 
 - [`0xcDF27F107725988f2261Ce2256bDfCdE8B382B10`](https://optimistic.etherscan.io/address/0xcdf27f107725988f2261ce2256bdfcde8b382b10) - Optimism Governor Proxy
@@ -112,7 +66,7 @@ The latest versions of the governor introduced changes that may affect how clien
 
 `GovernorV5` introduced the `proposeWithModule` function, allowing to attach voting modules to proposals.
 
-When a proposal with module is created, a new [`ProposalCreated`](./OptimismGovernorV5.sol#L42) event is emitted which includes the `votingModule` address and `proposalData`.
+When a proposal with module is created, a new [`ProposalCreated`](./OptimismGovernor.sol#L42) event is emitted which includes the `votingModule` address and `proposalData`.
 
 Clients are able to determine if a proposal is standard, approval voting, optimistic or else by checking the module emitted in the event, as well as use the `PROPOSAL_DATA_ENCODING` function in the module to decode `proposalData` ([see modules section for more details](#modules)).
 
@@ -139,9 +93,9 @@ See the [modules section](#modules) for more details.
 
 `Alligator` introduced partial delegations, or `subdelegations`, as an alternative way to delegate fractional amounts of voting power to multiple delegates.
 
-Each partial delegation emits a [`Subdelegation` or `Subdelegations`](./alligator/AlligatorOP#L47) event, respectively for single and batched operations. Clients should use these events to reconstruct the allowances of each address.
+Each partial delegation emits a [`Subdelegation` or `Subdelegations`](./alligator/AlligatorOP.sol#L47) event, respectively for single and batched operations. Clients should use these events to reconstruct the allowances of each address.
 
-Each `Subdelegation` contains a `delegator`, `delegate` and [`rules`](./src/structs/RulesV3.sol).
+Each `Subdelegation` contains a `delegator`, `delegate` and [`rules`](./interfaces/IAlligatorOP.sol).
 
 Specifically with respect to partial delegations, `rules` contain `allowances`, which represent the maximum amount of voting power a `delegate` can use over the `delegator`'s proxy. They can be defined either in absolute or relative amounts (when relative, a value of 1e5 or higher represents 100%).
 

@@ -1,11 +1,13 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
 
-import {ApprovalVotingModule} from "../../src/modules/ApprovalVotingModule.sol";
-import {Proposal, ProposalOption, ProposalSettings} from "../../src/modules/ApprovalVotingModule.sol";
+import {ApprovalVotingModule} from "src/modules/ApprovalVotingModule.sol";
+import {Proposal, ProposalOption, ProposalSettings} from "src/modules/ApprovalVotingModule.sol";
 
 // Expose internal functions for testing
 contract ApprovalVotingModuleMock is ApprovalVotingModule {
+    constructor(address _governor) ApprovalVotingModule(_governor) {}
+
     function _proposals(uint256 proposalId) public view returns (Proposal memory) {
         return proposals[proposalId];
     }
