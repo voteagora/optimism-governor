@@ -13,18 +13,8 @@ import {TimersUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/Timer
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {VotingModule} from "./modules/VotingModule.sol";
-
-// import {OptimismGovernorV5} from "./OptimismGovernorV5.sol";
 import {IVotableSupplyOracle} from "./interfaces/IVotableSupplyOracle.sol";
 import {IProposalTypesConfigurator} from "./interfaces/IProposalTypesConfigurator.sol";
-// import {VotingModule} from "./modules/VotingModule.sol";
-// import {GovernorVotesQuorumFractionUpgradeableV2} from
-//     "./lib/openzeppelin/v2/GovernorVotesQuorumFractionUpgradeableV2.sol";
-// import {GovernorCountingSimpleUpgradeableV2} from "./lib/openzeppelin/v2/GovernorCountingSimpleUpgradeableV2.sol";
-// import {IGovernorUpgradeable} from "./lib/openzeppelin/v2/GovernorUpgradeableV2.sol";
-// import {IApprovalVotingModuleOld} from "./lib/internal/IApprovalVotingModuleOld.sol";
-// import {TimersUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/TimersUpgradeable.sol";
-// import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 /**
  * Introduces support for voting modules.
