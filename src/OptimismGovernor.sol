@@ -542,22 +542,16 @@ contract OptimismGovernor is
      * @param values Array of ETH values for proposal calls
      * @param calldatas Array of calldata for proposal calls
      * @param descriptionHash Hash of proposal description
-     * @return The id of the canceled proposal
+     * @return proposalId The id of the canceled proposal
      */
     function cancel(
         address[] memory targets,
         uint256[] memory values,
         bytes[] memory calldatas,
         bytes32 descriptionHash
-    ) public returns (uint256) {
-        uint256 proposalId = hashProposal(targets, values, calldatas, descriptionHash);
-        address sender = _msgSender();
-        require(
-            sender == manager || sender == timelock() || sender == _proposals[proposalId].proposer,
-            "Governor: only manager, governor timelock, or proposer can cancel"
-        );
-
-        return _cancel(targets, values, calldatas, descriptionHash);
+    ) public returns (uint256 proposalId) {
+        proposalId = hashProposal(targets, values, calldatas, descriptionHash);
+        _cancel(proposalId);
     }
 
     /**
@@ -565,20 +559,30 @@ contract OptimismGovernor is
      * @param module The address of the voting module to use for this proposal.
      * @param proposalData The proposal data to pass to the voting module.
      * @param descriptionHash The hash of the proposal description.
-     * @return The id of the proposal.
+     * @return proposalId The id of the proposal.
      */
     function cancelWithModule(VotingModule module, bytes memory proposalData, bytes32 descriptionHash)
         public
         virtual
-        returns (uint256)
+        returns (uint256 proposalId)
     {
-        uint256 proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
+        proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
+        _cancel(proposalId);
+    }
+
+    /**
+     * @notice Internal function to cancel a proposal based on a proposal ID.
+     * @dev This function is called by both `cancel` and `cancelWithModule`
+     * @param proposalId The id of the proposal to cancel
+     */
+    function _cancel(uint256 proposalId) internal {
         address sender = _msgSender();
         require(
             sender == manager || sender == timelock() || sender == _proposals[proposalId].proposer,
             "Governor: only manager, governor timelock, or proposer can cancel"
         );
 
+        // GovernorUpgradeableV2._cancel
         ProposalState status = state(proposalId);
 
         require(
@@ -589,13 +593,11 @@ contract OptimismGovernor is
 
         emit ProposalCanceled(proposalId);
 
-        // Code from GovernorTimelockControlUpgradeableV2._cancel
+        // GovernorTimelockControlUpgradeableV2._cancel
         if (_timelockIds[proposalId] != 0) {
             _timelock.cancel(_timelockIds[proposalId]);
             delete _timelockIds[proposalId];
         }
-
-        return proposalId;
     }
 
     function setProposalDeadline(uint256 proposalId, uint64 deadline) public onlyManagerOrTimelock {
