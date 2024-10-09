@@ -71,7 +71,7 @@ Main implementation
 
 ### V6
 
-- [`Governor`](/src/OptimismGovernorV6.sol)
+- [`Governor`](/src/OptimismGovernor.sol)
   - Added support for external voting modules
   - Added support for partial voting via Alligator
   - Added votable supply oracle

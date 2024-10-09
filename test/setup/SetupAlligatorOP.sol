@@ -6,11 +6,10 @@ import {IERC721} from "lib/openzeppelin-contracts/contracts/interfaces/IERC721.s
 import {VotableSupplyOracle} from "src/VotableSupplyOracle.sol";
 import {IProposalTypesConfigurator, ProposalTypesConfigurator} from "src/ProposalTypesConfigurator.sol";
 import {IOptimismGovernor} from "src/interfaces/IOptimismGovernor.sol";
-import {OptimismGovernorV6Mock} from "../mocks/OptimismGovernorV6Mock.sol";
+import {OptimismGovernorMock} from "../mocks/OptimismGovernorMock.sol";
 import {IVotableSupplyOracle} from "src/interfaces/IVotableSupplyOracle.sol";
 import {TokenMock} from "test/mocks/TokenMock.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 import {TimelockControllerUpgradeable} from
     "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
@@ -61,7 +60,7 @@ abstract contract SetupAlligatorOP is Test {
     // =============================================================
 
     TokenMock internal op;
-    OptimismGovernorV6Mock internal governor = OptimismGovernorV6Mock(payable(0xcDF27F107725988f2261Ce2256bDfCdE8B382B10));
+    OptimismGovernorMock internal governor = OptimismGovernorMock(payable(0xcDF27F107725988f2261Ce2256bDfCdE8B382B10));
 
     VotableSupplyOracle internal votableSupplyOracle;
     ProposalTypesConfigurator internal proposalTypesConfigurator;
@@ -110,7 +109,7 @@ abstract contract SetupAlligatorOP is Test {
             )
         );
 
-        vm.etch(address(governor), address(new OptimismGovernorV6Mock()).code);
+        vm.etch(address(governor), address(new OptimismGovernorMock()).code);
 
         vm.startPrank(address(deployer));
         votableSupplyOracle = new VotableSupplyOracle(address(this), 0);
