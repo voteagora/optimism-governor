@@ -782,7 +782,7 @@ contract OptimismGovernor is
         uint256[] memory values,
         bytes[] memory calldatas,
         bytes32 descriptionHash
-    ) internal onlyManagerOrTimelock override(GovernorUpgradeableV2) {
+    ) internal override(GovernorUpgradeableV2) onlyManagerOrTimelock {
         _timelock.executeBatch{value: msg.value}(targets, values, calldatas, 0, descriptionHash);
     }
 
