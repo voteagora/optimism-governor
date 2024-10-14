@@ -1113,7 +1113,7 @@ contract Execute is OptimismGovernorTest {
         assertEq(targetFake.number(), _proposalTargetCalldata);
     }
 
-    function testFuzz_RevertIf_ExecutesAProposalAsAnyUser(
+    function testFuzz_ExecutesAProposalAsAnyUser(
         address _actor,
         uint256 _proposalTargetCalldata,
         uint256 _elapsedAfterQueuing
@@ -1148,11 +1148,11 @@ contract Execute is OptimismGovernorTest {
         governor.queue(targets, values, calldatas, keccak256("Test"));
         vm.warp(block.timestamp + _elapsedAfterQueuing);
 
-        vm.expectRevert(NotManagerOrTimelock.selector);
         vm.prank(_actor);
         governor.execute(targets, values, calldatas, keccak256("Test"));
 
-        assertEq(uint256(governor.state(proposalId)), uint256(IGovernorUpgradeable.ProposalState.Queued));
+        assertEq(uint256(governor.state(proposalId)), uint256(IGovernorUpgradeable.ProposalState.Executed));
+        assertEq(targetFake.number(), _proposalTargetCalldata);
     }
 
     function testFuzz_RevertIf_ProposalNotQueued(uint256 _proposalTargetCalldata) public {
