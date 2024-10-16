@@ -8,6 +8,7 @@ import {GovernorVotesQuorumFractionUpgradeableV2} from
 import {GovernorVotesUpgradeableV2} from "./lib/openzeppelin/v2/GovernorVotesUpgradeableV2.sol";
 import {GovernorSettingsUpgradeableV2} from "./lib/openzeppelin/v2/GovernorSettingsUpgradeableV2.sol";
 import {GovernorTimelockControlUpgradeableV2} from "./lib/openzeppelin/v2/GovernorTimelockControlUpgradeableV2.sol";
+import {AddressUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import {IGovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/IGovernorUpgradeable.sol";
 import {TimersUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/TimersUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -74,6 +75,7 @@ contract OptimismGovernor is
 
     error InvalidProposalType(uint8 proposalType);
     error InvalidProposalId();
+    error InvalidRelayTarget(address target);
     error InvalidProposalLength();
     error InvalidEmptyProposal();
     error InvalidVotesBelowThreshold();
@@ -305,6 +307,21 @@ contract OptimismGovernor is
     function updateTimelock(TimelockControllerUpgradeable newTimelock) external virtual onlyGovernance {
         emit TimelockChange(address(_timelock), address(newTimelock));
         _timelock = newTimelock;
+    }
+
+    /**
+     * @inheritdoc GovernorUpgradeableV2
+     */
+    function relay(address target, uint256 value, bytes calldata data)
+        external
+        payable
+        virtual
+        override(GovernorUpgradeableV2)
+        onlyGovernance
+    {
+        if (approvedModules[target]) revert InvalidRelayTarget(target);
+        (bool success, bytes memory returndata) = target.call{value: value}(data);
+        AddressUpgradeable.verifyCallResult(success, returndata, "Governor: relay reverted without message");
     }
 
     /**
