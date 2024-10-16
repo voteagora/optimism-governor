@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import "lib/forge-std/src/Test.sol";
 import {IERC721} from "lib/openzeppelin-contracts/contracts/interfaces/IERC721.sol";
+import {OptimismGovernor} from "src/OptimismGovernor.sol";
 import {VotableSupplyOracle} from "src/VotableSupplyOracle.sol";
 import {IProposalTypesConfigurator, ProposalTypesConfigurator} from "src/ProposalTypesConfigurator.sol";
 import {IOptimismGovernor} from "src/interfaces/IOptimismGovernor.sol";
@@ -13,6 +14,9 @@ import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transpa
 import {TimelockControllerUpgradeable} from
     "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
+import {TimelockControllerUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
+import {IVotingToken} from "src/interfaces/IVotingToken.sol";
 import {IAlligatorOP} from "src/interfaces/IAlligatorOP.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {AlligatorOPMock} from "../mocks/AlligatorOPMock.sol";
@@ -113,10 +117,18 @@ abstract contract SetupAlligatorOP is Test {
 
         vm.startPrank(address(deployer));
         votableSupplyOracle = new VotableSupplyOracle(address(this), 0);
-        proposalTypesConfigurator = new ProposalTypesConfigurator(IOptimismGovernor(address(governor)));
+        proposalTypesConfigurator = new ProposalTypesConfigurator();
         vm.stopPrank();
 
-        governor.initialize(IVotesUpgradeable(address(op)), manager);
+        governor.initialize(
+            IVotingToken(address(op)),
+            IVotableSupplyOracle(address(votableSupplyOracle)),
+            manager,
+            alligator,
+            TimelockControllerUpgradeable(payable(address(0))),
+            proposalTypesConfigurator,
+            new IProposalTypesConfigurator.ProposalType[](0)
+        );
     }
 
     function _postSetup() internal virtual {
@@ -138,7 +150,7 @@ abstract contract SetupAlligatorOP is Test {
 
         votableSupplyOracle._updateVotableSupply(op.totalSupply());
         vm.prank(manager);
-        proposalTypesConfigurator.setProposalType(0, 1_000, 5_000, "Test");
+        proposalTypesConfigurator.setProposalType(0, 1_000, 5_000, "Test", "Test", address(0));
 
         proposalId = _propose("Test");
     }
@@ -150,7 +162,7 @@ abstract contract SetupAlligatorOP is Test {
         bytes[] memory calldatas = new bytes[](1);
         vm.prank(manager);
         propId = governor.propose(targets, values, calldatas, propDescription);
-        vm.roll(block.number + 10);
+        vm.roll(governor.proposalSnapshot(propId) + 10);
     }
 
     string private checkpointLabel;

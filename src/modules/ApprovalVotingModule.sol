@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity ^0.8.19;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {VotingModule} from "./VotingModule.sol";
-import {SafeCastLib} from "@solady/utils/SafeCastLib.sol";
 import {EnumerableSetUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeCastLib} from "@solady/utils/SafeCastLib.sol";
+import {VotingModule} from "src/modules/VotingModule.sol";
+import {IOptimismGovernor} from "src/interfaces/IOptimismGovernor.sol";
 
 enum VoteType {
     Against,
@@ -74,6 +75,12 @@ contract ApprovalVotingModule is VotingModule {
         accountVotesSet;
 
     /*//////////////////////////////////////////////////////////////
+                               CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
+
+    constructor(address _governor) VotingModule(_governor) {}
+
+    /*//////////////////////////////////////////////////////////////
                             WRITE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
@@ -84,19 +91,26 @@ contract ApprovalVotingModule is VotingModule {
      * @param proposalData The proposal data encoded as `PROPOSAL_DATA_ENCODING`.
      */
     function propose(uint256 proposalId, bytes memory proposalData, bytes32 descriptionHash) external override {
+        _onlyGovernor();
         if (proposalId != uint256(keccak256(abi.encode(msg.sender, address(this), proposalData, descriptionHash)))) {
             revert WrongProposalId();
         }
 
-        if (proposals[proposalId].governor != address(0)) revert ExistingProposal();
+        if (proposals[proposalId].governor != address(0)) {
+            revert ExistingProposal();
+        }
 
         (ProposalOption[] memory proposalOptions, ProposalSettings memory proposalSettings) =
             abi.decode(proposalData, (ProposalOption[], ProposalSettings));
 
         uint256 optionsLength = proposalOptions.length;
-        if (optionsLength == 0 || optionsLength > type(uint8).max) revert InvalidParams();
+        if (optionsLength == 0 || optionsLength > type(uint8).max) {
+            revert InvalidParams();
+        }
         if (proposalSettings.criteria == uint8(PassingCriteria.TopChoices)) {
-            if (proposalSettings.criteriaValue > optionsLength) revert MaxChoicesExceeded();
+            if (proposalSettings.criteriaValue > optionsLength) {
+                revert MaxChoicesExceeded();
+            }
         }
 
         unchecked {
@@ -131,8 +145,8 @@ contract ApprovalVotingModule is VotingModule {
         virtual
         override
     {
+        _onlyGovernor();
         Proposal memory proposal = proposals[proposalId];
-        _onlyGovernor(proposal.governor);
 
         if (support == uint8(VoteType.For)) {
             if (weight != 0) {
@@ -161,17 +175,17 @@ contract ApprovalVotingModule is VotingModule {
         override
         returns (address[] memory targets, uint256[] memory values, bytes[] memory calldatas)
     {
+        _onlyGovernor();
         (ProposalOption[] memory options, ProposalSettings memory settings) =
             abi.decode(proposalData, (ProposalOption[], ProposalSettings));
 
         {
-            address governor = proposals[proposalId].governor;
-            _onlyGovernor(governor);
+            IOptimismGovernor governor = IOptimismGovernor(proposals[proposalId].governor);
 
             // If budgetToken is not ETH
             if (settings.budgetToken != address(0)) {
                 // Save initBalance to be used as comparison in `_afterExecute`
-                proposals[proposalId].initBalance = IERC20(settings.budgetToken).balanceOf(governor);
+                proposals[proposalId].initBalance = IERC20(settings.budgetToken).balanceOf(governor.timelock());
             }
         }
 
@@ -187,43 +201,47 @@ contract ApprovalVotingModule is VotingModule {
         uint256 totalValue;
         ProposalOption memory option;
 
-        // Flatten `options` by filling `executeParams` until budgetAmount is exceeded
-        for (uint256 i; i < succeededOptionsLength;) {
-            option = sortedOptions[i];
+        {
+            bool budgetExceeded = false;
 
-            for (n = 0; n < option.targets.length;) {
-                if (settings.budgetAmount != 0) {
+            // Flatten `options` by filling `executeParams` until budgetAmount is exceeded
+            for (uint256 i; i < succeededOptionsLength;) {
+                option = sortedOptions[i];
+
+                for (n = 0; n < option.targets.length;) {
                     // If `budgetToken` is ETH and value is not zero, add transaction value to `totalValue`
-                    if (settings.budgetToken == address(0)) {
-                        if (option.values[n] != 0) totalValue += option.values[n];
+                    if (settings.budgetToken == address(0) && option.values[n] != 0) {
+                        if (totalValue + option.values[n] > settings.budgetAmount) {
+                            budgetExceeded = true;
+                            break; // break inner loop
+                        }
+                        totalValue += option.values[n];
                     }
 
-                    // If `budgetAmount` is exceeded, break inner loop
-                    if (totalValue > settings.budgetAmount) break;
+                    unchecked {
+                        executeParams[executeParamsLength + n] =
+                            ExecuteParams(option.targets[n], option.values[n], option.calldatas[n]);
+
+                        ++n;
+                    }
+                }
+
+                // If `budgetAmount` for ETH is exceeded, skip option.
+                if (budgetExceeded) break;
+
+                // Check if budgetAmount is exceeded for non-ETH tokens
+                if (settings.budgetToken != address(0) && settings.budgetAmount != 0) {
+                    if (option.budgetTokensSpent != 0) {
+                        if (totalValue + option.budgetTokensSpent > settings.budgetAmount) break; // break outer loop for non-ETH tokens
+                        totalValue += option.budgetTokensSpent;
+                    }
                 }
 
                 unchecked {
-                    executeParams[executeParamsLength + n] =
-                        ExecuteParams(option.targets[n], option.values[n], option.calldatas[n]);
+                    executeParamsLength += n;
 
-                    ++n;
+                    ++i;
                 }
-            }
-
-            if (settings.budgetAmount != 0) {
-                // If `budgetToken` is not ETH and `option.budgetAmount` is not zero, add `option.budgetTokensSpent` to `totalValue`
-                if (settings.budgetToken != address(0)) {
-                    if (option.budgetTokensSpent != 0) totalValue += option.budgetTokensSpent;
-                }
-
-                // If `budgetAmount` is exceeded, break outer loop. Executed for both ETH and non-ETH tokens
-                if (totalValue > settings.budgetAmount) break;
-            }
-
-            unchecked {
-                executeParamsLength += n;
-
-                ++i;
             }
         }
 
@@ -251,7 +269,8 @@ contract ApprovalVotingModule is VotingModule {
         // Set `_afterExecute` as last call
         targets[executeParamsLength] = address(this);
         values[executeParamsLength] = 0;
-        calldatas[executeParamsLength] = abi.encodeWithSelector(0x041e1e96, proposalId, proposalData);
+        calldatas[executeParamsLength] =
+            abi.encodeWithSelector(this._afterExecute.selector, proposalId, proposalData, totalValue);
     }
 
     /**
@@ -260,21 +279,24 @@ contract ApprovalVotingModule is VotingModule {
      *
      * @param proposalId The id of the proposal.
      * @param proposalData The proposal data encoded as `(ProposalOption[], ProposalSettings)`.
+     * @param budgetTokensSpent The total amount of tokens that can be spent.
      */
-    function _afterExecute(uint256 proposalId, bytes memory proposalData) public view {
+    function _afterExecute(uint256 proposalId, bytes memory proposalData, uint256 budgetTokensSpent) public view {
         (, ProposalSettings memory settings) = abi.decode(proposalData, (ProposalOption[], ProposalSettings));
 
-        if (settings.budgetToken != address(0)) {
-            address governor = proposals[proposalId].governor;
+        if (settings.budgetToken != address(0) && settings.budgetAmount > 0) {
+            IOptimismGovernor governor = IOptimismGovernor(proposals[proposalId].governor);
 
             uint256 initBalance = proposals[proposalId].initBalance;
-            uint256 finalBalance = IERC20(settings.budgetToken).balanceOf(governor);
+            uint256 finalBalance = IERC20(settings.budgetToken).balanceOf(governor.timelock());
 
             // If `finalBalance` is higher than `initBalance`, ignore the budget check
             if (finalBalance < initBalance) {
                 /// @dev Cannot underflow as `finalBalance` is less than `initBalance`
                 unchecked {
-                    if (initBalance - finalBalance > settings.budgetAmount) revert BudgetExceeded();
+                    if (initBalance - finalBalance > budgetTokensSpent) {
+                        revert BudgetExceeded();
+                    }
                 }
             }
         }
@@ -462,7 +484,11 @@ contract ApprovalVotingModule is VotingModule {
             } else if (settings.criteria == uint8(PassingCriteria.TopChoices)) {
                 // if criteria is `TopChoices`, loop through options until the top choices are filled
                 for (i; i < settings.criteriaValue; ++i) {
-                    executeParamsLength += options[i].targets.length;
+                    if (optionVotes[i] > 0) {
+                        executeParamsLength += options[i].targets.length;
+                    } else {
+                        break;
+                    }
                 }
             }
             succeededOptionsLength = i;
