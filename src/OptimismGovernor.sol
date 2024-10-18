@@ -180,15 +180,19 @@ contract OptimismGovernor is
      * @param _alligator The new address of the alligator contract.
      * @param _votableSupplyOracle The new address of the votable supply oracle.
      * @param _proposalTypesConfigurator The new address of the proposal types configurator.
+     * @param _timelockAddress The address of the timelock.
      */
-    function reinitialize(address _alligator, address _votableSupplyOracle, address _proposalTypesConfigurator)
-        public
-        reinitializer(uint8(VERSION()))
-    {
+    function reinitialize(
+        address _alligator,
+        address _votableSupplyOracle,
+        address _proposalTypesConfigurator,
+        TimelockControllerUpgradeable _timelockAddress
+    ) public reinitializer(uint8(VERSION())) {
         alligator = _alligator;
         VOTABLE_SUPPLY_ORACLE = IVotableSupplyOracle(_votableSupplyOracle);
         PROPOSAL_TYPES_CONFIGURATOR = IProposalTypesConfigurator(_proposalTypesConfigurator);
         _upgradeBlock = block.number;
+        _timelock = _timelockAddress;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -687,7 +691,7 @@ contract OptimismGovernor is
 
         if (status != ProposalState.Succeeded) {
             return status;
-        } else if (_upgradeBlock != 0 && block.number >= _upgradeBlock) {
+        } else if (_upgradeBlock != 0 && _proposals[proposalId].voteStart.getDeadline() < _upgradeBlock) {
             // Mark successful proposals before upgrade as executed to prevent them from being queued and executed.
             return ProposalState.Executed;
         }

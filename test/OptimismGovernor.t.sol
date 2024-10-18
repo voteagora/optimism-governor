@@ -2376,4 +2376,57 @@ contract UpgradeToLive is OptimismGovernorTest {
         vm.expectRevert(bytes(""));
         TransparentUpgradeableProxy(payable(address(governorProxyOP))).upgradeTo(_newImplementation);
     }
+
+    function test_ProposeAfterReinitialization() public virtual {
+        IProposalTypesConfigurator.ProposalType[] memory proposalTypes =
+            new IProposalTypesConfigurator.ProposalType[](1);
+
+        // 1. Set the quorum and approval threshold to 0, allowing any proposal to pass.
+        proposalTypes[0] = IProposalTypesConfigurator.ProposalType(0, 0, "Default", "Lorem Ipsum", address(0));
+
+        address _newImplementation = address(new OptimismGovernor());
+        ProposalTypesConfigurator _newProposalTypesConfigurator = new ProposalTypesConfigurator();
+        _newProposalTypesConfigurator.initialize(address(governorProxyOP), proposalTypes);
+        Timelock timelock = new Timelock();
+        timelock.initialize(14, address(governorProxyOP), address(0));
+
+        vm.prank(proxyAdminOP);
+        TransparentUpgradeableProxy(payable(address(governorProxyOP))).upgradeToAndCall(
+            _newImplementation,
+            abi.encodeWithSelector(
+                OptimismGovernor.reinitialize.selector,
+                0x7f08F3095530B67CdF8466B7a923607944136Df0,
+                0x1b7CA7437748375302bAA8954A2447fC3FBE44CC,
+                _newProposalTypesConfigurator,
+                TimelockControllerUpgradeable(payable(address(timelock)))
+            )
+        );
+
+        assertEq(governorProxyOP.VERSION(), 4);
+        address managerOfGovernor = governorProxyOP.manager();
+        address[] memory targets = new address[](1);
+        targets[0] = address(targetFake);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSelector(ExecutionTargetFake.setNumber.selector, 0);
+        vm.startPrank(managerOfGovernor);
+        governorProxyOP.setVotingDelay(0);
+        governorProxyOP.setVotingPeriod(14);
+        vm.stopPrank();
+        vm.prank(managerOfGovernor);
+
+        uint256 proposalId = governorProxyOP.propose(targets, values, calldatas, "Test", 0);
+        vm.roll(block.number + 1);
+
+        governorProxyOP.castVote(proposalId, 1);
+
+        vm.roll(block.number + 14);
+
+        assertEq(uint256(governorProxyOP.state(proposalId)), uint256(IGovernorUpgradeable.ProposalState.Succeeded));
+        vm.prank(managerOfGovernor);
+
+        governorProxyOP.queue(targets, values, calldatas, keccak256("Test"));
+
+        assertEq(uint256(governorProxyOP.state(proposalId)), uint256(IGovernorUpgradeable.ProposalState.Queued));
+    }
 }
