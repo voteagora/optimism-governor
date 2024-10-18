@@ -2416,17 +2416,25 @@ contract UpgradeToLive is OptimismGovernorTest {
         vm.prank(managerOfGovernor);
 
         uint256 proposalId = governorProxyOP.propose(targets, values, calldatas, "Test", 0);
+
+        // pass voting delay
         vm.roll(block.number + 1);
 
         governorProxyOP.castVote(proposalId, 1);
 
+        // pass voting period
         vm.roll(block.number + 14);
 
         assertEq(uint256(governorProxyOP.state(proposalId)), uint256(IGovernorUpgradeable.ProposalState.Succeeded));
         vm.prank(managerOfGovernor);
 
         governorProxyOP.queue(targets, values, calldatas, keccak256("Test"));
-
         assertEq(uint256(governorProxyOP.state(proposalId)), uint256(IGovernorUpgradeable.ProposalState.Queued));
+
+        // pass timelock delay
+        vm.warp(block.timestamp + 14);
+
+        governorProxyOP.execute(targets, values, calldatas, keccak256("Test"));
+        assertEq(uint256(governorProxyOP.state(proposalId)), uint256(IGovernorUpgradeable.ProposalState.Executed));
     }
 }
