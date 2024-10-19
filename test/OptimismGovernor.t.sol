@@ -2385,6 +2385,8 @@ contract UpgradeToLive is OptimismGovernorTest {
         address _newImplementation = address(new OptimismGovernor());
         ProposalTypesConfigurator _newProposalTypesConfigurator = new ProposalTypesConfigurator();
         _newProposalTypesConfigurator.initialize(address(governorProxyOP), proposalTypes);
+        Timelock timelock = new Timelock();
+        timelock.initialize(14, address(governorProxyOP), address(0));
 
         vm.startPrank(proxyAdminOP);
         TransparentUpgradeableProxy(payable(address(governorProxyOP))).upgradeToAndCall(
@@ -2393,7 +2395,8 @@ contract UpgradeToLive is OptimismGovernorTest {
                 OptimismGovernor.reinitialize.selector,
                 0x7f08F3095530B67CdF8466B7a923607944136Df0,
                 0x1b7CA7437748375302bAA8954A2447fC3FBE44CC,
-                _newProposalTypesConfigurator
+                _newProposalTypesConfigurator,
+                TimelockControllerUpgradeable(payable(address(timelock)))
             )
         );
         assertEq(TransparentUpgradeableProxy(payable(address(governorProxyOP))).implementation(), _newImplementation);
