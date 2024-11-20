@@ -19,7 +19,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 /**
  * Modifications:
  * - Added `votingModule` and `proposalType` to `ProposalCore` struct
- * - Removed checks for Queued and Expired proposal state
+ * - Removed checks for Queued and Expired proposal state **(undid this modification)**
  */
 abstract contract GovernorUpgradeableV2 is
     Initializable,
@@ -45,6 +45,7 @@ abstract contract GovernorUpgradeableV2 is
         bool canceled;
         address votingModule;
         uint8 proposalType;
+        address proposer;
     }
 
     string private _name;
@@ -304,7 +305,9 @@ abstract contract GovernorUpgradeableV2 is
         uint256 proposalId = hashProposal(targets, values, calldatas, descriptionHash);
 
         ProposalState status = state(proposalId);
-        require(status == ProposalState.Succeeded, "Governor: proposal not successful");
+        require(
+            status == ProposalState.Succeeded || status == ProposalState.Queued, "Governor: proposal not successful"
+        );
         _proposals[proposalId].executed = true;
 
         emit ProposalExecuted(proposalId);
@@ -384,7 +387,10 @@ abstract contract GovernorUpgradeableV2 is
         uint256 proposalId = hashProposal(targets, values, calldatas, descriptionHash);
         ProposalState status = state(proposalId);
 
-        require(status != ProposalState.Canceled && status != ProposalState.Executed, "Governor: proposal not active");
+        require(
+            status != ProposalState.Canceled && status != ProposalState.Expired && status != ProposalState.Executed,
+            "Governor: proposal not active"
+        );
         _proposals[proposalId].canceled = true;
 
         emit ProposalCanceled(proposalId);

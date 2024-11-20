@@ -1,11 +1,32 @@
 [profile.default]
-src = 'src'
-out = 'out'
-libs = ['lib']
-fs_permissions = [
-  { access = "read-write", path = "./deployments/31337/data" }, 
-  { access = "read", path = "./out" }
-]
+src             = 'src'                                 # The source directory
+out             = 'out'                                 # The output directory
+libs            = ['lib']                               # A list of library directories
+optimizer       = true                                  # Enable or disable the solc optimizer
+optimizer_runs  = 200                                   # The number of optimizer runs
+fs_permissions  = [{ access = "read", path = "./"}]     # Gives permission to read files for enviroment files.
+fail_on_revert = false                                  # Not fail the test if the contract reverts
 
-[rpc_endpoints]
-op = "${OPTIMISM_RPC_URL}"
+[fuzz]
+runs           = 2000       # The number of times to run the fuzzing tests
+
+[invariant]
+runs           = 8          # The number of calls to make in the invariant tests
+depth          = 8          # The number of times to run the invariant tests
+
+[profile.shallow.fuzz]
+runs           = 1000       # The number of times to run the fuzzing tests
+
+[profile.deep.fuzz]
+runs           = 5000       # The number of times to run the fuzzing tests
+
+[profile.deep.invariant]
+runs           = 12         # The number of times to run the invariant tests
+depth          = 12         # The number of calls to make in the invariant tests
+
+[profile.super_deep.fuzz]
+runs           = 10000      # The number of times to run the fuzzing tests
+
+[profile.super_deep.invariant]
+runs           = 16         # The number of calls to make in the invariant tests
+depth          = 16         # The number of times to run the invariant tests

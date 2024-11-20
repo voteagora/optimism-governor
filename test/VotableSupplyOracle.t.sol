@@ -1,8 +1,7 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
+import "forge-std/Test.sol";
 import {VotableSupplyOracle} from "../src/VotableSupplyOracle.sol";
 
 contract VotableSupplyOracleTest is Test {

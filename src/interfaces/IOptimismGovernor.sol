@@ -1,12 +1,16 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
 
 import {IGovernor} from "@openzeppelin/contracts/governance/IGovernor.sol";
+import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 
 abstract contract IOptimismGovernor is IGovernor {
     function manager() external view virtual returns (address);
+    function timelock() external view virtual returns (address);
 
     function PROPOSAL_TYPES_CONFIGURATOR() external view virtual returns (address);
+
+    function token() external view virtual returns (IVotesUpgradeable);
 
     function increaseWeightCast(uint256 proposalId, address account, uint256 votes, uint256 proxyVotes)
         external
