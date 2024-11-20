@@ -364,11 +364,12 @@ contract OptimismGovernor is
         bytes[] memory calldatas,
         string memory description,
         uint8 proposalType
-    ) public virtual returns (uint256 proposalId) {
-        address proposer = _msgSender();
-        if (proposer != manager && getVotes(proposer, block.number - 1) < proposalThreshold()) {
-            revert InvalidVotesBelowThreshold();
-        }
+    ) public virtual onlyManagerOrTimelock returns (uint256 proposalId) {
+        // Only manager or timelock can propose, so this check can be skipped (otherwise stack too deep issues)
+        // address proposer = _msgSender();
+        // if (proposer != manager && getVotes(proposer, block.number - 1) < proposalThreshold()) {
+        //     revert InvalidVotesBelowThreshold();
+        // }
 
         if (targets.length != values.length) revert InvalidProposalLength();
         if (targets.length != calldatas.length) revert InvalidProposalLength();
@@ -393,11 +394,11 @@ contract OptimismGovernor is
         proposal.voteStart.setDeadline(snapshot);
         proposal.voteEnd.setDeadline(deadline);
         proposal.proposalType = proposalType;
-        proposal.proposer = proposer;
+        proposal.proposer = _msgSender();
 
         emit ProposalCreated(
             proposalId,
-            proposer,
+            _msgSender(),
             targets,
             values,
             new string[](targets.length),
@@ -424,7 +425,7 @@ contract OptimismGovernor is
         bytes memory proposalData,
         string memory description,
         uint8 proposalType
-    ) public virtual returns (uint256 proposalId) {
+    ) public virtual onlyManagerOrTimelock returns (uint256 proposalId) {
         address proposer = _msgSender();
         if (proposer != manager) {
             if (getVotes(proposer, block.number - 1) < proposalThreshold()) revert InvalidVotesBelowThreshold();

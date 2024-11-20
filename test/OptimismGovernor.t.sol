@@ -264,9 +264,9 @@ contract OptimismGovernorTest is Test {
         vm.startPrank(manager);
         governor.setVotingDelay(0);
         governor.setVotingPeriod(14);
-        vm.stopPrank();
         // ProposalThreshold is not set, so it defaults to 0.
         uint256 proposalId = governor.propose(targets, values, calldatas, "Test");
+        vm.stopPrank();
         return proposalId;
     }
 }
@@ -326,7 +326,7 @@ contract Propose is OptimismGovernorTest {
         uint256 _proposalThreshold,
         uint256 _actorBalance
     ) public virtual {
-        vm.assume(_actor != manager && _actor != address(0) && _actor != proxyAdmin);
+        _actor = manager;
         _proposalThreshold = bound(_proposalThreshold, 0, type(uint208).max);
         _actorBalance = bound(_actorBalance, _proposalThreshold, type(uint208).max);
         address[] memory targets = new address[](1);
@@ -381,40 +381,6 @@ contract Propose is OptimismGovernorTest {
         governor.propose(targets, values, calldatas, "Test", invalidPropType);
     }
 
-    function testFuzz_RevertIf_ThresholdNotMet(
-        address _actor,
-        uint256 _proposalThreshold,
-        uint256 _actorBalance,
-        uint8 _proposalType
-    ) public virtual {
-        vm.assume(_actor != manager && _actor != address(0) && _actor != proxyAdmin);
-        _assumeZeroBalance(_actor);
-        _proposalThreshold = bound(_proposalThreshold, 1, type(uint208).max);
-        _actorBalance = bound(_actorBalance, 0, _proposalThreshold - 1);
-        _proposalType = uint8(bound(_proposalType, 0, proposalTypesIndex));
-        address[] memory targets = new address[](1);
-        targets[0] = address(this);
-        uint256[] memory values = new uint256[](1);
-        bytes[] memory calldatas = new bytes[](1);
-        calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
-
-        vm.prank(manager);
-        governor.setProposalThreshold(_proposalThreshold);
-
-        // Give actor some tokens, but not enough to meet proposal threshold
-        vm.prank(minter);
-        govToken.mint(_actor, _actorBalance);
-        vm.startPrank(_actor);
-        govToken.delegate(_actor);
-        vm.roll(vm.getBlockNumber() + 1);
-        vm.expectRevert(InvalidVotesBelowThreshold.selector);
-        if (_proposalType > 0) {
-            governor.propose(targets, values, calldatas, "Test");
-        } else {
-            governor.propose(targets, values, calldatas, "Test", _proposalType);
-        }
-    }
-
     function testRevert_proposalAlreadyCreated() public virtual {
         address[] memory targets = new address[](1);
         targets[0] = address(this);
@@ -437,7 +403,7 @@ contract ProposeWithModule is OptimismGovernorTest {
         uint256 _proposalThreshold,
         uint256 _actorBalance
     ) public virtual {
-        vm.assume(_actor != manager && _actor != address(0) && _actor != proxyAdmin);
+        _actor = manager;
         _proposalThreshold = bound(_proposalThreshold, 0, type(uint208).max);
         _actorBalance = bound(_actorBalance, _proposalThreshold, type(uint208).max);
         uint8 _proposalType = 1;
@@ -531,36 +497,6 @@ contract ProposeWithModule is OptimismGovernorTest {
         vm.stopPrank();
     }
 
-    function testFuzz_RevertIf_ThresholdNotMet(
-        address _actor,
-        uint256 _proposalThreshold,
-        uint256 _actorBalance,
-        uint8 _proposalType
-    ) public virtual {
-        vm.assume(_actor != manager && _actor != address(0) && _actor != proxyAdmin);
-        _assumeZeroBalance(_actor);
-        _proposalThreshold = bound(_proposalThreshold, 1, type(uint208).max);
-        _actorBalance = bound(_actorBalance, 0, _proposalThreshold - 1);
-        _proposalType = uint8(bound(_proposalType, 0, proposalTypesIndex));
-        bytes memory proposalData = _formatProposalData(0);
-
-        vm.prank(manager);
-        governor.setProposalThreshold(_proposalThreshold);
-
-        // Give actor some tokens, but not enough to meet proposal threshold
-        vm.prank(minter);
-        govToken.mint(_actor, _actorBalance);
-        vm.startPrank(_actor);
-        govToken.delegate(_actor);
-        vm.roll(vm.getBlockNumber() + 1);
-        vm.expectRevert(InvalidVotesBelowThreshold.selector);
-        if (_proposalType > 0) {
-            governor.proposeWithModule(VotingModule(module), proposalData, "", _proposalType);
-        } else {
-            governor.proposeWithModule(VotingModule(module), proposalData, "", 0);
-        }
-    }
-
     function test_RevertIf_ProposalAlreadyCreated() public virtual {
         bytes memory proposalData = _formatProposalData(0);
 
@@ -584,7 +520,7 @@ contract ProposeWithModule is OptimismGovernorTest {
 
 contract ProposeWithOptimisticModule is OptimismGovernorTest {
     function testFuzz_CreatesAProposalSuccessfully(address _actor) public {
-        vm.assume(_actor != proxyAdmin);
+        _actor = manager;
         bytes memory proposalData = abi.encode(OptimisticProposalSettings(1200, false));
         uint256 snapshot = block.number + governor.votingDelay();
         uint256 deadline = snapshot + governor.votingPeriod();
@@ -605,7 +541,7 @@ contract ProposeWithOptimisticModule is OptimismGovernorTest {
     }
 
     function testFuzz_ProposalSucceedsWithoutAbsoluteVotes(address _actor, uint256 _elapsedAfterQueuing) public {
-        vm.assume(_actor != proxyAdmin);
+        _actor = manager;
         _elapsedAfterQueuing = bound(_elapsedAfterQueuing, 1, type(uint16).max);
 
         bytes memory proposalData = abi.encode(OptimisticProposalSettings(1200, false));
@@ -634,7 +570,8 @@ contract ProposeWithOptimisticModule is OptimismGovernorTest {
         uint256 _forAmount,
         uint256 _againstAmount
     ) public {
-        vm.assume(_actor != proxyAdmin && _actorFor != proxyAdmin && _actorAgainst != proxyAdmin);
+        _actor = manager;
+        vm.assume(_actorFor != proxyAdmin && _actorAgainst != proxyAdmin);
         vm.assume(_actorFor != address(0) && _actorAgainst != address(0));
         vm.assume(_actorFor != _actorAgainst);
         _againstThreshold = bound(_againstThreshold, 1, type(uint208).max);
@@ -686,7 +623,8 @@ contract ProposeWithOptimisticModule is OptimismGovernorTest {
         uint256 _forAmount,
         uint256 _againstAmount
     ) public {
-        vm.assume(_actor != proxyAdmin && _actorFor != proxyAdmin && _actorAgainst != proxyAdmin);
+        _actor = manager;
+        vm.assume(_actorFor != proxyAdmin && _actorAgainst != proxyAdmin);
         vm.assume(_actorFor != address(0) && _actorAgainst != address(0));
         vm.assume(_actorFor != _actorAgainst);
         _totalMintAmount = bound(_totalMintAmount, 1, type(uint208).max);
@@ -729,7 +667,7 @@ contract ProposeWithOptimisticModule is OptimismGovernorTest {
         uint256 _elapsedAfterQueuing,
         uint256 _againstThresholdPercentage
     ) public {
-        vm.assume(_actor != proxyAdmin && _actor != address(0));
+        _actor = manager;
         _elapsedAfterQueuing = bound(_elapsedAfterQueuing, 1, type(uint16).max);
         _againstThresholdPercentage = bound(_againstThresholdPercentage, 1, optimisticModule.PERCENT_DIVISOR());
         bytes memory proposalData = abi.encode(OptimisticProposalSettings(uint248(_againstThresholdPercentage), true));
@@ -762,7 +700,8 @@ contract ProposeWithOptimisticModule is OptimismGovernorTest {
         uint256 _againstAmount,
         uint256 _elapsedAfterQueuing
     ) public {
-        vm.assume(_actor != proxyAdmin && _actorFor != proxyAdmin && _actorAgainst != proxyAdmin);
+        _actor = manager;
+        vm.assume(_actorFor != proxyAdmin && _actorAgainst != proxyAdmin);
         vm.assume(_actor != address(0) && _actorFor != address(0) && _actorAgainst != address(0));
         vm.assume(_actor != _actorFor && _actorFor != _actorAgainst && _actorAgainst != _actor);
         _totalMintAmount = bound(_totalMintAmount, 1e4, type(uint208).max);
@@ -811,7 +750,8 @@ contract ProposeWithOptimisticModule is OptimismGovernorTest {
         uint256 _againstAmount,
         uint256 _elapsedAfterQueuing
     ) public {
-        vm.assume(_actor != proxyAdmin && _actorFor != proxyAdmin && _actorAgainst != proxyAdmin);
+        _actor = manager;
+        vm.assume(_actorFor != proxyAdmin && _actorAgainst != proxyAdmin);
         vm.assume(_actor != address(0) && _actorFor != address(0) && _actorAgainst != address(0));
         vm.assume(_actorFor != _actorAgainst);
         _totalMintAmount = bound(_totalMintAmount, 1e4, type(uint208).max);
@@ -1119,14 +1059,14 @@ contract QueueWithModule is OptimismGovernorTest {
 
 contract QueueWithOptimisticModule is OptimismGovernorTest {
     function testFuzz_RevertIf_QueuesAProposalSuccessfully(address _actor) public {
-        vm.assume(_actor != proxyAdmin);
+        _actor = manager;
         uint256 snapshot = block.number + governor.votingDelay();
         uint256 deadline = snapshot + governor.votingPeriod();
         bytes memory proposalData = abi.encode(OptimisticProposalSettings(1200, false));
 
+        vm.startPrank(_actor);
         uint256 proposalId = governor.proposeWithModule(optimisticModule, proposalData, description, 2);
         vm.roll(deadline + 1);
-        vm.prank(_actor);
         vm.expectRevert(OptimisticModule.OptimisticModuleOnlySignal.selector);
         governor.queueWithModule(optimisticModule, proposalData, keccak256(bytes(description)));
     }
@@ -1293,14 +1233,11 @@ contract Execute is OptimismGovernorTest {
         governor.setVotingDelay(0);
         governor.setVotingPeriod(14);
 
-        vm.stopPrank();
-
         uint256 proposalId = governor.propose(targets, values, calldatas, "Test");
         vm.roll(block.number + 15);
 
         assertEq(uint8(governor.state(proposalId)), uint8(ProposalState.Defeated));
 
-        vm.prank(manager);
         vm.expectRevert("Governor: proposal not queued");
         governor.execute(targets, values, calldatas, keccak256("Test"));
     }
@@ -1559,6 +1496,7 @@ contract ExecuteWithOptimisticModule is OptimismGovernorTest {
         uint256 deadline = snapshot + governor.votingPeriod();
         bytes memory proposalData = abi.encode(OptimisticProposalSettings(1200, false));
 
+        vm.startPrank(manager);
         uint256 proposalId = governor.proposeWithModule(optimisticModule, proposalData, description, 2);
         vm.roll(deadline + 1);
         vm.expectRevert();
@@ -1890,6 +1828,7 @@ contract CancelWithOptimisticModule is OptimismGovernorTest {
         uint256 snapshot = block.number + governor.votingDelay();
         uint256 deadline = snapshot + governor.votingPeriod();
         bytes memory proposalData = abi.encode(OptimisticProposalSettings(1200, false));
+        vm.prank(_managerOrTimelock(_actorSeed));
         uint256 proposalId = governor.proposeWithModule(optimisticModule, proposalData, description, 2);
         vm.roll(deadline + 1);
 
@@ -2480,17 +2419,24 @@ contract UpgradeToLive is OptimismGovernorTest {
         vm.prank(managerOfGovernor);
 
         uint256 proposalId = governorProxyOP.propose(targets, values, calldatas, "Test", 0);
+        // pass voting delay
         vm.roll(block.number + 1);
 
         governorProxyOP.castVote(proposalId, 1);
 
+        // pass voting period
         vm.roll(block.number + 14);
 
         assertEq(uint256(governorProxyOP.state(proposalId)), uint256(IGovernorUpgradeable.ProposalState.Succeeded));
         vm.prank(managerOfGovernor);
 
         governorProxyOP.queue(targets, values, calldatas, keccak256("Test"));
-
         assertEq(uint256(governorProxyOP.state(proposalId)), uint256(IGovernorUpgradeable.ProposalState.Queued));
+
+        // pass timelock delay
+        vm.warp(block.timestamp + 14);
+
+        governorProxyOP.execute(targets, values, calldatas, keccak256("Test"));
+        assertEq(uint256(governorProxyOP.state(proposalId)), uint256(IGovernorUpgradeable.ProposalState.Executed));
     }
 }
