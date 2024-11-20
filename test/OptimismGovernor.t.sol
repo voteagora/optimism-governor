@@ -2419,7 +2419,6 @@ contract UpgradeToLive is OptimismGovernorTest {
         vm.prank(managerOfGovernor);
 
         uint256 proposalId = governorProxyOP.propose(targets, values, calldatas, "Test", 0);
-
         // pass voting delay
         vm.roll(block.number + 1);
 
