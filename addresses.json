@@ -12,7 +12,7 @@
     "governor": "0x6E17cdef2F7c1598AD9DfA9A8acCF84B1303f43f",
     "governorImplementation": "0xa18b7cdb2bEb009E7798A3e3F10A41D15f901738",
     "alligator": "0xfD6be5F4253Aa9fBB46B2BFacf9aa6F89822f4a6",
-    "proposalTypesConfigurator": "0x011EE4D990219F5ee8718005fc3484890E170042",
+    "proposalTypesConfigurator": "0x2e0C197f1fca7628ADfa2bdaabd1df4670186C06",
     "votableSupplyOracle": "0x73b07b799Abfb7965f2C1014120019CbffaAcae7",
     "approvalVoting": "0xdd0229D72a414DC821DEc66f3Cc4eF6dB2C7b7df",
     "optimistic": "0x4ab438e093647fC5eC7B773D1A5f6d3C2C7F0593",
