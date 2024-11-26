@@ -5,7 +5,7 @@
     "alligator": "0x7f08F3095530B67CdF8466B7a923607944136Df0",
     "proposalTypesConfigurator": "0xCE52b7cc490523B3e81C3076D5ae5Cca9a3e2D6F",
     "votableSupplyOracle": "0x1b7CA7437748375302bAA8954A2447fC3FBE44CC",
-    "approvalVoting": "0xdd0229D72a414DC821DEc66f3Cc4eF6dB2C7b7df",
+    "approvalVoting": "0x8060B18290F48fc0bF2149EEb2F3c280bDe7674f",
     "optimistic": "0x8980C97f0e8a3A69831139e51003E65238F1F343",
     "timelock": "0x0eDd4B2cCCf41453D8B5443FBB96cc577d1d06bF"
   },
