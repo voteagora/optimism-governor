@@ -1,7 +1,7 @@
 {
   "production": {
     "governor": "0xcDF27F107725988f2261Ce2256bDfCdE8B382B10",
-    "governorImplementation": "0x0c01693a1A4C46cf9A5F56c99304EBB35C4E817a",
+    "governorImplementation": "0xecBf4ed9F47302f00F0F039a691E7dB83BdD2624",
     "alligator": "0x7f08F3095530B67CdF8466B7a923607944136Df0",
     "proposalTypesConfigurator": "0xCE52b7cc490523B3e81C3076D5ae5Cca9a3e2D6F",
     "votableSupplyOracle": "0x1b7CA7437748375302bAA8954A2447fC3FBE44CC",
