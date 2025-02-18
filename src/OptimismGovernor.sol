@@ -759,6 +759,7 @@ contract OptimismGovernor is
      * @dev See {IGovernor-COUNTING_MODE}.
      * Params encoding:
      * - modules = custom external params depending on module used
+     * - abstain = abstain votes
      */
     function COUNTING_MODE()
         public
@@ -767,7 +768,7 @@ contract OptimismGovernor is
         override(GovernorCountingSimpleUpgradeableV2, IGovernorUpgradeable)
         returns (string memory)
     {
-        return "support=bravo&quorum=against,for,abstain&params=modules";
+        return "support=bravo&quorum=against,for&params=modules";
     }
 
     /**
@@ -842,6 +843,7 @@ contract OptimismGovernor is
 
     /**
      * @dev Updated version in which quorum is based on `proposalId` instead of snapshot block.
+     * @dev Removed abstain votes from quorum calculation. -> Feb 18, 2025
      */
     function _quorumReached(uint256 proposalId)
         internal
@@ -850,9 +852,8 @@ contract OptimismGovernor is
         override(GovernorCountingSimpleUpgradeableV2, GovernorUpgradeableV2)
         returns (bool)
     {
-        (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes) = proposalVotes(proposalId);
-
-        return quorum(proposalId) <= againstVotes + forVotes + abstainVotes;
+        (uint256 againstVotes, uint256 forVotes,) = proposalVotes(proposalId);
+        return quorum(proposalId) <= againstVotes + forVotes;
     }
 
     /**
