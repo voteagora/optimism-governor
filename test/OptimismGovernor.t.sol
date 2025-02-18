@@ -2126,7 +2126,10 @@ contract EditProposalType is OptimismGovernorTest {
 
 contract VoteSucceeded is OptimismGovernorTest {
     function test_QuorumReachedAndVoteSucceeded(address _voter) public virtual {
-        _mintAndDelegate(_voter, 100e18);
+        // Mint and delegate tokens
+        uint256 requiredVotes = 100e18; // Get around 30% of token supply
+        _mintAndDelegate(_voter, requiredVotes);
+
         bytes memory proposalData = _formatProposalData(0);
         uint256 snapshot = block.number + governor.votingDelay();
         string memory reason = "a nice reason";
@@ -2143,9 +2146,11 @@ contract VoteSucceeded is OptimismGovernorTest {
         vm.prank(_voter);
         governor.castVoteWithReasonAndParams(proposalId, uint8(VoteType.For), reason, params);
 
-        assertTrue(governor.quorum(proposalId) != 0);
-        assertTrue(governor.quorumReached(proposalId));
-        assertTrue(governor.voteSucceeded(proposalId));
+        // Verify quorum is reached with only For votes (no Abstain)
+        uint256 quorum = governor.quorum(proposalId);
+        assertTrue(quorum > 0, "Quorum should be non-zero");
+        assertTrue(governor.quorumReached(proposalId), "Quorum should be reached with For votes");
+        assertTrue(governor.voteSucceeded(proposalId), "Proposal should succeed");
     }
 
     function test_VoteNotSucceeded(address _voter, address _voter2) public virtual {
@@ -2173,6 +2178,37 @@ contract VoteSucceeded is OptimismGovernorTest {
 
         assertTrue(governor.quorum(proposalId) != 0);
         assertFalse(governor.voteSucceeded(proposalId));
+    }
+
+    function test_QuorumNotReachedWithMostlyAbstainVotes(address _voter, address _abstainer) public virtual {
+        vm.assume(_voter != _abstainer);
+
+        // Give abstainer many votes, but for / against voter few votes
+        _mintAndDelegate(_abstainer, 90e18); // Give 90% of supply for abstain
+        _mintAndDelegate(_voter, 10e18); // Give 10% of supply for "for" votes
+
+        bytes memory proposalData = _formatProposalData(0);
+        uint256 snapshot = block.number + governor.votingDelay();
+        string memory reason = "a good reason";
+
+        vm.prank(manager);
+        uint256 proposalId = governor.proposeWithModule(VotingModule(module), proposalData, description, 1);
+
+        vm.roll(snapshot + 1);
+
+        // Cast a small "for" vote
+        uint256[] memory optionVotes = new uint256[](1);
+        bytes memory params = abi.encode(optionVotes);
+        vm.prank(_voter);
+        governor.castVoteWithReasonAndParams(proposalId, uint8(VoteType.For), reason, params);
+
+        // Cast a large abstain vote
+        // in the past this would have passed, not now
+        vm.prank(_abstainer);
+        governor.castVoteWithReasonAndParams(proposalId, uint8(VoteType.Abstain), reason, params);
+
+        // Verify quorum is not reached despite large abstain vote
+        assertFalse(governor.quorumReached(proposalId), "Quorum should not be reached with mostly abstain votes");
     }
 }
 
