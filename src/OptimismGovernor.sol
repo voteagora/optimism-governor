@@ -759,7 +759,6 @@ contract OptimismGovernor is
      * @dev See {IGovernor-COUNTING_MODE}.
      * Params encoding:
      * - modules = custom external params depending on module used
-     * - abstain = abstain votes
      */
     function COUNTING_MODE()
         public

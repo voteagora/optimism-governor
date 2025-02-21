@@ -2337,7 +2337,7 @@ contract UpgradeToLive is OptimismGovernorTest {
     address proxyAdminOP = 0x2501c477D0A35545a387Aa4A3EEe4292A9a8B3F0;
 
     function setUp() public override {
-        vm.createSelectFork(vm.rpcUrl("https://mainnet.optimism.io"));
+        vm.createSelectFork(vm.rpcUrl("https://mainnet.optimism.io"), 126844298);
     }
 
     function test_UpgradesToNewImplementationAddress() public {
