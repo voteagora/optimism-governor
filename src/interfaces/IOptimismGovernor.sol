@@ -7,6 +7,7 @@ import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/
 abstract contract IOptimismGovernor is IGovernor {
     function manager() external view virtual returns (address);
     function timelock() external view virtual returns (address);
+    function proposalCanceller() external view virtual returns (address);
 
     function PROPOSAL_TYPES_CONFIGURATOR() external view virtual returns (address);
 

@@ -68,6 +68,7 @@ contract OptimismGovernor is
     event ProposalDeadlineUpdated(uint256 proposalId, uint64 deadline);
     event TimelockChange(address oldTimelock, address newTimelock);
     event ProposalQueued(uint256 proposalId, uint256 eta);
+    event ProposalCancellerUpdated(address newCanceller);
 
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -83,6 +84,7 @@ contract OptimismGovernor is
     error InvalidVoteType();
     error NotManagerOrTimelock();
     error NotAlligator();
+    error NotCancellerOrTimelock();
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -119,6 +121,9 @@ contract OptimismGovernor is
     /// @notice Block number to check if proposal is previous or after upgrade
     uint256 internal _upgradeBlock;
 
+    /// @notice Address with exclusive rights to cancel proposals
+    address public proposalCanceller;
+
     /*//////////////////////////////////////////////////////////////
                                MODIFIERS
     //////////////////////////////////////////////////////////////*/
@@ -131,6 +136,12 @@ contract OptimismGovernor is
 
     modifier onlyAlligator() {
         if (_msgSender() != alligator) revert NotAlligator();
+        _;
+    }
+
+    modifier onlyCanceller() {
+        address sender = _msgSender();
+        if (sender != proposalCanceller && sender != timelock()) revert NotCancellerOrTimelock();
         _;
     }
 
@@ -151,6 +162,7 @@ contract OptimismGovernor is
      * @param _timelockAddress The governance timelock.
      * @param _proposalTypesConfigurator Proposal types configurator contract.
      * @param _proposalTypes Initial proposal types to set.
+     * @param _proposalCanceller The address with exclusive rights to cancel proposals.
      */
     function initialize(
         IVotingToken _votingToken,
@@ -159,7 +171,8 @@ contract OptimismGovernor is
         address _alligator,
         TimelockControllerUpgradeable _timelockAddress,
         IProposalTypesConfigurator _proposalTypesConfigurator,
-        IProposalTypesConfigurator.ProposalType[] calldata _proposalTypes
+        IProposalTypesConfigurator.ProposalType[] calldata _proposalTypes,
+        address _proposalCanceller
     ) public initializer {
         __Governor_init("Optimism");
         __GovernorCountingSimple_init();
@@ -171,6 +184,7 @@ contract OptimismGovernor is
         manager = _manager;
         alligator = _alligator;
         _timelock = _timelockAddress;
+        proposalCanceller = _proposalCanceller;
 
         PROPOSAL_TYPES_CONFIGURATOR.initialize(address(this), _proposalTypes);
     }
@@ -181,18 +195,21 @@ contract OptimismGovernor is
      * @param _votableSupplyOracle The new address of the votable supply oracle.
      * @param _proposalTypesConfigurator The new address of the proposal types configurator.
      * @param _timelockAddress The address of the timelock.
+     * @param _proposalCanceller The new address with exclusive rights to cancel proposals.
      */
     function reinitialize(
         address _alligator,
         address _votableSupplyOracle,
         address _proposalTypesConfigurator,
-        TimelockControllerUpgradeable _timelockAddress
+        TimelockControllerUpgradeable _timelockAddress,
+        address _proposalCanceller
     ) public reinitializer(uint8(VERSION())) {
         alligator = _alligator;
         VOTABLE_SUPPLY_ORACLE = IVotableSupplyOracle(_votableSupplyOracle);
         PROPOSAL_TYPES_CONFIGURATOR = IProposalTypesConfigurator(_proposalTypesConfigurator);
         _upgradeBlock = block.number;
         _timelock = _timelockAddress;
+        proposalCanceller = _proposalCanceller;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -300,6 +317,15 @@ contract OptimismGovernor is
     function setManager(address _newManager) external onlyManagerOrTimelock {
         emit ManagerSet(manager, _newManager);
         manager = _newManager;
+    }
+
+    /**
+     * @notice Set the proposal canceller address. Only governance can call this function.
+     * @param _newCanceller The new proposal canceller address.
+     */
+    function setProposalCanceller(address _newCanceller) external onlyGovernance {
+        proposalCanceller = _newCanceller;
+        emit ProposalCancellerUpdated(_newCanceller);
     }
 
     /**
@@ -559,7 +585,7 @@ contract OptimismGovernor is
     }
 
     /**
-     * @notice Cancels a proposal. Only the manager, governor timelock, or proposer can cancel.
+     * @notice Cancels a proposal. Only the proposal canceller or timelock can cancel.
      * @param targets Array of target addresses for proposal calls
      * @param values Array of ETH values for proposal calls
      * @param calldatas Array of calldata for proposal calls
@@ -571,7 +597,7 @@ contract OptimismGovernor is
         uint256[] memory values,
         bytes[] memory calldatas,
         bytes32 descriptionHash
-    ) public returns (uint256 proposalId) {
+    ) public onlyCanceller returns (uint256 proposalId) {
         proposalId = hashProposal(targets, values, calldatas, descriptionHash);
         _cancel(proposalId);
     }
@@ -586,6 +612,7 @@ contract OptimismGovernor is
     function cancelWithModule(VotingModule module, bytes memory proposalData, bytes32 descriptionHash)
         public
         virtual
+        onlyCanceller
         returns (uint256 proposalId)
     {
         proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
@@ -598,12 +625,6 @@ contract OptimismGovernor is
      * @param proposalId The id of the proposal to cancel
      */
     function _cancel(uint256 proposalId) internal {
-        address sender = _msgSender();
-        require(
-            sender == manager || sender == timelock() || sender == _proposals[proposalId].proposer,
-            "Governor: only manager, governor timelock, or proposer can cancel"
-        );
-
         // GovernorUpgradeableV2._cancel
         ProposalState status = state(proposalId);
 
