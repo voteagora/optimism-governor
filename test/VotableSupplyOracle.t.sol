@@ -41,7 +41,7 @@ contract VotableSupplyOracleTest is Test {
                                  TESTS
     //////////////////////////////////////////////////////////////*/
 
-    function testDeploy() public {
+    function testDeploy() public view {
         assertEq(votableSupplyOracle.owner(), address(this));
         assertEq(votableSupplyOracle.votableSupply(), 100);
     }
@@ -63,7 +63,7 @@ contract VotableSupplyOracleTest is Test {
         assertEq(votableSupplyOracle.nextIndex(), 1);
     }
 
-    function testVotableSupply() public {
+    function testVotableSupply() public view {
         assertEq(votableSupplyOracle.votableSupply(1), 0);
         assertEq(votableSupplyOracle.votableSupply(99), 0);
         assertEq(votableSupplyOracle.votableSupply(100), 100);
