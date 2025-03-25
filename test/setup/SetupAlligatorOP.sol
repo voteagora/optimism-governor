@@ -127,7 +127,8 @@ abstract contract SetupAlligatorOP is Test {
             alligator,
             TimelockControllerUpgradeable(payable(address(0))),
             proposalTypesConfigurator,
-            new IProposalTypesConfigurator.ProposalType[](0)
+            new IProposalTypesConfigurator.ProposalType[](0),
+            address(this)
         );
     }
 
