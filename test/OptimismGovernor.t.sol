@@ -98,7 +98,7 @@ contract OptimismGovernorTest is Test {
     error InvalidVotesBelowThreshold();
     error InvalidProposalExists();
     error NotManagerOrTimelock();
-    error NotCancellerOrTimelock();
+    error NotAuthorizedForProposalCancellation();
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -277,8 +277,17 @@ contract OptimismGovernorTest is Test {
 
     // New test for proposal canceller functionality
     function test_ProposalCancellerRole() public {
-        // Create a proposal first
+        // Create a proposal from a different account, not the manager
+        address differentCreator = makeAddr("differentCreator");
+
+        // Make the different creator a manager temporarily
+        address originalManager = manager;
         vm.startPrank(manager);
+        governor.setManager(differentCreator);
+        vm.stopPrank();
+
+        // Now create a proposal as the different creator
+        vm.startPrank(differentCreator);
         address[] memory targets = new address[](1);
         uint256[] memory values = new uint256[](1);
         bytes[] memory calldatas = new bytes[](1);
@@ -290,9 +299,14 @@ contract OptimismGovernorTest is Test {
         uint256 proposalId = governor.propose(targets, values, calldatas, description);
         vm.stopPrank();
 
-        // Verify that manager can't cancel anymore
-        vm.startPrank(manager);
-        vm.expectRevert(NotCancellerOrTimelock.selector);
+        // Reset the manager
+        vm.startPrank(differentCreator);
+        governor.setManager(originalManager);
+        vm.stopPrank();
+
+        // Verify that original manager can't cancel the proposal made by differentCreator
+        vm.startPrank(originalManager);
+        vm.expectRevert(NotAuthorizedForProposalCancellation.selector);
         governor.cancel(targets, values, calldatas, keccak256(bytes(description)));
         vm.stopPrank();
 
@@ -330,16 +344,30 @@ contract OptimismGovernorTest is Test {
     }
 
     function test_CancelWithModuleOnlyCanceller() public {
-        // Create a proposal with module
+        // Create a proposal from a different account, not the manager
+        address differentCreator = makeAddr("differentCreator");
+
+        // Make the different creator a manager temporarily
+        address originalManager = manager;
         vm.startPrank(manager);
+        governor.setManager(differentCreator);
+        vm.stopPrank();
+
+        // Now create a proposal as the different creator
+        vm.startPrank(differentCreator);
         uint256 proposalId = governor.proposeWithModule(module, _formatProposalData(123), description, 1);
+        vm.stopPrank();
+
+        // Reset the manager
+        vm.startPrank(differentCreator);
+        governor.setManager(originalManager);
         vm.stopPrank();
 
         bytes32 descriptionHash = keccak256(bytes(description));
 
-        // Verify that manager can't cancel anymore
-        vm.startPrank(manager);
-        vm.expectRevert(NotCancellerOrTimelock.selector);
+        // Verify that original manager can't cancel someone else's proposal
+        vm.startPrank(originalManager);
+        vm.expectRevert(NotAuthorizedForProposalCancellation.selector);
         governor.cancelWithModule(module, _formatProposalData(123), descriptionHash);
         vm.stopPrank();
 
@@ -378,5 +406,79 @@ contract OptimismGovernorTest is Test {
     function test_ProposalCancellerValue() public view {
         // Simply check that proposalCanceller is properly initialized and accessible
         assertEq(governor.proposalCanceller(), proposalCanceller);
+    }
+
+    function test_ManagerCanCancelOwnProposals() public {
+        // Create a proposal as the manager
+        vm.startPrank(manager);
+        address[] memory targets = new address[](1);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+
+        targets[0] = address(targetFake);
+        values[0] = 0;
+        calldatas[0] = abi.encodeWithSelector(ExecutionTargetFake.setNumber.selector, 123);
+
+        // Save the proposer for later checks
+        uint256 proposalId = governor.propose(targets, values, calldatas, description);
+        vm.stopPrank();
+
+        // Verify the initial state
+        assertEq(uint256(governor.state(proposalId)), uint256(ProposalState.Pending));
+
+        // Verify that the manager who created the proposal can now cancel it
+        vm.startPrank(manager);
+        governor.cancel(targets, values, calldatas, keccak256(bytes(description)));
+        vm.stopPrank();
+
+        // Verify proposal is canceled
+        assertEq(uint256(governor.state(proposalId)), uint256(ProposalState.Canceled));
+    }
+
+    function test_OnlyProposingManagerCanCancelOwnProposals() public {
+        // Create a proposal as the manager
+        vm.startPrank(manager);
+        address[] memory targets = new address[](1);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+
+        targets[0] = address(targetFake);
+        values[0] = 0;
+        calldatas[0] = abi.encodeWithSelector(ExecutionTargetFake.setNumber.selector, 123);
+
+        uint256 proposalId = governor.propose(targets, values, calldatas, description);
+        vm.stopPrank();
+
+        // Create a different manager address
+        address otherManager = makeAddr("otherManager");
+
+        // Verify that a different manager cannot cancel another manager's proposal
+        vm.startPrank(otherManager);
+        vm.expectRevert(NotAuthorizedForProposalCancellation.selector);
+        governor.cancel(targets, values, calldatas, keccak256(bytes(description)));
+        vm.stopPrank();
+
+        // Verify proposal is still active
+        assertEq(uint256(governor.state(proposalId)), uint256(ProposalState.Pending));
+    }
+
+    function test_ManagerCanCancelOwnModuleProposals() public {
+        // Create a proposal with module as the manager
+        vm.startPrank(manager);
+        uint256 proposalId = governor.proposeWithModule(module, _formatProposalData(123), description, 1);
+        vm.stopPrank();
+
+        bytes32 descriptionHash = keccak256(bytes(description));
+
+        // Verify the initial state
+        assertEq(uint256(governor.state(proposalId)), uint256(ProposalState.Pending));
+
+        // Verify that the manager who created the proposal can now cancel it
+        vm.startPrank(manager);
+        governor.cancelWithModule(module, _formatProposalData(123), descriptionHash);
+        vm.stopPrank();
+
+        // Verify proposal is canceled
+        assertEq(uint256(governor.state(proposalId)), uint256(ProposalState.Canceled));
     }
 }

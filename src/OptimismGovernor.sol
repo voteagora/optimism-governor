@@ -84,7 +84,7 @@ contract OptimismGovernor is
     error InvalidVoteType();
     error NotManagerOrTimelock();
     error NotAlligator();
-    error NotCancellerOrTimelock();
+    error NotAuthorizedForProposalCancellation();
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -141,7 +141,7 @@ contract OptimismGovernor is
 
     modifier onlyCanceller() {
         address sender = _msgSender();
-        if (sender != proposalCanceller && sender != timelock()) revert NotCancellerOrTimelock();
+        if (sender != proposalCanceller && sender != timelock()) revert NotAuthorizedForProposalCancellation();
         _;
     }
 
@@ -597,8 +597,15 @@ contract OptimismGovernor is
         uint256[] memory values,
         bytes[] memory calldatas,
         bytes32 descriptionHash
-    ) public onlyCanceller returns (uint256 proposalId) {
+    ) public returns (uint256 proposalId) {
         proposalId = hashProposal(targets, values, calldatas, descriptionHash);
+
+        // Check if caller is canceller, timelock, or the proposer
+        address sender = _msgSender();
+        if (sender != proposalCanceller && sender != timelock() && sender != _proposals[proposalId].proposer) {
+            revert NotAuthorizedForProposalCancellation();
+        }
+
         _cancel(proposalId);
     }
 
@@ -612,10 +619,16 @@ contract OptimismGovernor is
     function cancelWithModule(VotingModule module, bytes memory proposalData, bytes32 descriptionHash)
         public
         virtual
-        onlyCanceller
         returns (uint256 proposalId)
     {
         proposalId = hashProposalWithModule(address(module), proposalData, descriptionHash);
+
+        // Check if caller is canceller, timelock, or the proposer
+        address sender = _msgSender();
+        if (sender != proposalCanceller && sender != timelock() && sender != _proposals[proposalId].proposer) {
+            revert NotAuthorizedForProposalCancellation();
+        }
+
         _cancel(proposalId);
     }
 
