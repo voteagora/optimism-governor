@@ -1,0 +1,15 @@
+{
+  "name": "optimism-governor-tools",
+  "version": "1.0.0",
+  "description": "CLI tools for Optimism Governor",
+  "main": "CancelProposalCLI.js",
+  "bin": {
+    "cancel-proposal": "./CancelProposalCLI.js"
+  },
+  "scripts": {
+    "start": "node CancelProposalCLI.js"
+  },
+  "dependencies": {
+    "ethers": "^5.7.2"
+  }
+}
