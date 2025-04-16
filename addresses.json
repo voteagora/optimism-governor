@@ -18,5 +18,17 @@
     "approvalVoting": "0xdd0229D72a414DC821DEc66f3Cc4eF6dB2C7b7df",
     "optimistic": "0x4ab438e093647fC5eC7B773D1A5f6d3C2C7F0593",
     "timelock": "0x85c118971C058677DC502854d56A483BF5548042"
+  },
+  "test": {
+    "proxyAdmin": "0x7d377a66c4A803bbB457b4541e5ec62b1dCe2Ad3",
+    "governanceToken": "0xd828b681F717E5a03C41540Bc6A31b146b5C1Ac6",
+    "governor": "0x368723068b6C762b416e5A7d506a605E8b816C22",
+    "governorImplementation": "0x05a9C4a400cfA64C9639cc2f00B2CF95710f9af1",
+    "alligator": "0x5d729d4c0BF5d0a2Fa0F801c6e0023BD450c4fd6",
+    "proposalTypesConfigurator": "0xb88131610ff4D7D46050c9d1DEE413f8b6b8A5bd",
+    "votableSupplyOracle": "0x2451dAF2153B1293Da2abF19C36c450321835C55",
+    "approvalVoting": "0x4E2e3509F4C77Df377FeE48e3969BB7000B9FAF1",
+    "optimistic": "0xd88b3D2DFf4ACF38CBD6C425F40Cd1A687E1ee4B",
+    "timelock": "0xf8D15c3132eFA557989A1C9331B6667Ca8Caa3a9"
   }
 }
