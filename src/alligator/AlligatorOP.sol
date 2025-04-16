@@ -61,7 +61,7 @@ contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, Pausa
     //                       IMMUTABLE STORAGE
     // =============================================================
 
-    address public constant GOVERNOR = 0xcDF27F107725988f2261Ce2256bDfCdE8B382B10;
+    address public GOVERNOR;
     address public opToken;
     bytes32 public constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
@@ -106,12 +106,13 @@ contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, Pausa
         _disableInitializers();
     }
 
-    function initialize(address _initOwner, address _op) external initializer {
+    function initialize(address _initOwner, address _op, address _governor) external initializer {
         PausableUpgradeable.__Pausable_init();
         OwnableUpgradeable.__Ownable_init();
         UUPSUpgradeable.__UUPSUpgradeable_init();
         _transferOwnership(_initOwner);
         opToken = _op;
+        GOVERNOR = _governor;
     }
 
     // =============================================================
