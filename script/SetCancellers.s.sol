@@ -30,9 +30,8 @@ contract SetCancellers is Script {
     bytes32 constant TIMELOCK_ADMIN_ROLE = keccak256("TIMELOCK_ADMIN_ROLE");
 
     function run() external {
-        // Boot deployer private key
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
+        (, address deployer,) = vm.readCallers();
 
         // Get the governor contract
         OptimismGovernor governor = OptimismGovernor(payable(GOVERNOR_ADDRESS));
@@ -47,9 +46,7 @@ contract SetCancellers is Script {
         // Get the access control contract
         AccessControlEnumerableUpgradeable accessControl = AccessControlEnumerableUpgradeable(payable(timelockAddress));
 
-        // Make sure caller has admin role as we're about to modify the timelock
-        address caller = vm.addr(deployerPrivateKey);
-        require(timelock.hasRole(TIMELOCK_ADMIN_ROLE, caller), "Caller does not have admin role on timelock");
+        require(timelock.hasRole(TIMELOCK_ADMIN_ROLE, deployer), "Deployer does not have admin role on timelock");
 
         // Step 1: Grant CANCELLER_ROLE to the three L2 Safes (if they don't already have it)
         if (!timelock.hasRole(CANCELLER_ROLE, L2_SAFE_1)) {
@@ -73,35 +70,11 @@ contract SetCancellers is Script {
             console.log("L2 Safe 3 already has CANCELLER_ROLE:", L2_SAFE_3);
         }
 
-        // Step 2: Ensure all proposers have CANCELLER_ROLE (which is the default in OpenZeppelin's TimelockController)
-        uint256 proposerCount = accessControl.getRoleMemberCount(PROPOSER_ROLE);
-        console.log("Found", proposerCount, "proposers");
-
-        for (uint256 i = 0; i < proposerCount; i++) {
-            address proposer = accessControl.getRoleMember(PROPOSER_ROLE, i);
-            if (!timelock.hasRole(CANCELLER_ROLE, proposer)) {
-                console.log("Granting CANCELLER_ROLE to proposer:", proposer);
-                timelock.grantRole(CANCELLER_ROLE, proposer);
-            } else {
-                console.log("Proposer already has CANCELLER_ROLE:", proposer);
-            }
-        }
-
         // Verify the results
         console.log("Verification:");
         console.log("L2 Safe 1 has CANCELLER_ROLE:", timelock.hasRole(CANCELLER_ROLE, L2_SAFE_1));
         console.log("L2 Safe 2 has CANCELLER_ROLE:", timelock.hasRole(CANCELLER_ROLE, L2_SAFE_2));
         console.log("L2 Safe 3 has CANCELLER_ROLE:", timelock.hasRole(CANCELLER_ROLE, L2_SAFE_3));
-
-        // Verify all proposers have the CANCELLER_ROLE
-        uint256 proposersWithCancellerRole = 0;
-        for (uint256 i = 0; i < proposerCount; i++) {
-            address proposer = accessControl.getRoleMember(PROPOSER_ROLE, i);
-            if (timelock.hasRole(CANCELLER_ROLE, proposer)) {
-                proposersWithCancellerRole++;
-            }
-        }
-        console.log("Proposers with CANCELLER_ROLE:", proposersWithCancellerRole, "/", proposerCount);
 
         vm.stopBroadcast();
     }
