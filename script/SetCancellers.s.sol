@@ -6,9 +6,6 @@ import {console} from "forge-std/console.sol";
 import {OptimismGovernor} from "../src/OptimismGovernor.sol";
 import {TimelockControllerUpgradeable} from
     "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
-import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import {AccessControlEnumerableUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 
 /**
  * @title SetCancellers
@@ -42,9 +39,6 @@ contract SetCancellers is Script {
 
         // Get the timelock contract
         TimelockControllerUpgradeable timelock = TimelockControllerUpgradeable(payable(timelockAddress));
-
-        // Get the access control contract
-        AccessControlEnumerableUpgradeable accessControl = AccessControlEnumerableUpgradeable(payable(timelockAddress));
 
         require(timelock.hasRole(TIMELOCK_ADMIN_ROLE, deployer), "Deployer does not have admin role on timelock");
 
