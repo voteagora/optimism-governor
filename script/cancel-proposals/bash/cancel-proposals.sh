@@ -7,7 +7,7 @@ DEFAULT_CHAIN_ID="10" # Optimism mainnet
 TIMELOCK_ADDRESS=$DEFAULT_TIMELOCK
 RPC_ARGS="--rpc-url $DEFAULT_RPC"
 PROPOSAL_ID=""
-PRIVATE_KEY=""
+ACCOUNT_NAME=""
 GENERATE_JSON=false
 OUTPUT_DIR="./safe-txs"
 CHAIN_ID=$DEFAULT_CHAIN_ID
@@ -23,8 +23,8 @@ while [[ $# -gt 0 ]]; do
       RPC_ARGS="--rpc-url $2"
       shift 2
       ;;
-    --private-key)
-      PRIVATE_KEY="$2"
+    --account-name)
+      ACCOUNT_NAME="$2"
       shift 2
       ;;
     --json)
@@ -49,7 +49,7 @@ while [[ $# -gt 0 ]]; do
       echo "                        This parameter is required"
       echo "  --rpc-url <url>: The RPC endpoint URL to use"
       echo "                   (defaults to $DEFAULT_RPC)"
-      echo "  --private-key <key>: Private key starting with 0x to sign and send transaction"
+      echo "  --account-name <name>: The account name set with the cast wallet keystore to sign and send transaction"
       echo "                      If not provided, will only output the ABI-encoded calldata"
       echo "  --json: Generate Gnosis Safe transaction JSON files"
       echo "  --output-dir <dir>: Directory to save JSON files (defaults to ./safe-txs)"
@@ -78,7 +78,7 @@ fi
 
 echo "Using timelock address: $TIMELOCK_ADDRESS"
 echo "Using RPC URL: $(echo $RPC_ARGS | sed 's/--rpc-url //')"
-[ -n "$PRIVATE_KEY" ] && echo "Using private key: [redacted]"
+[ -n "$ACCOUNT_NAME" ] && echo "Using account name: $ACCOUNT_NAME"
 [ "$GENERATE_JSON" = true ] && echo "Will generate Gnosis Safe transaction JSON files in $OUTPUT_DIR"
 
 # Create output directory if it doesn't exist
@@ -139,7 +139,7 @@ process_proposal() {
   if [ -n "$PRIVATE_KEY" ]; then
     # If private key is provided, send the transaction
     echo "Sending transaction..."
-    cast send $RPC_ARGS $TIMELOCK_ADDRESS "cancel(bytes32)" "$proposal_id" --private-key "$PRIVATE_KEY"
+    cast send $RPC_ARGS $TIMELOCK_ADDRESS "cancel(bytes32)" "$proposal_id" --account "$ACCOUNT_NAME"
   fi
 }
 
