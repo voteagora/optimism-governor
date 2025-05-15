@@ -74,8 +74,8 @@ contract TimelockRoleManager is Script {
      * @dev This will broadcast transactions that modify the chain
      */
     function addL2SafesCancellers() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
+        (, address deployer,) = vm.readCallers();
 
         console.log("\n=== BEFORE CHANGES ===");
         _verifyRoles(false);
@@ -85,7 +85,6 @@ contract TimelockRoleManager is Script {
         TimelockControllerUpgradeable timelock = TimelockControllerUpgradeable(payable(governor.timelock()));
 
         // Check admin permission
-        address deployer = vm.addr(deployerPrivateKey);
         require(timelock.hasRole(TIMELOCK_ADMIN_ROLE, deployer), "Not admin");
 
         // Grant canceller role to L2 Safes
