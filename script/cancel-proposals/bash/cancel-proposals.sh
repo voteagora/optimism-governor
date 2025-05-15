@@ -2,7 +2,7 @@
 
 # Default values
 DEFAULT_TIMELOCK="0x0eDd4B2cCCf41453D8B5443FBB96cc577d1d06bF"
-DEFAULT_RPC="https://rpc.ankr.com/optimism"
+DEFAULT_RPC="https://mainnet.optimism.io"
 DEFAULT_CHAIN_ID="10" # Optimism mainnet
 TIMELOCK_ADDRESS=$DEFAULT_TIMELOCK
 RPC_ARGS="--rpc-url $DEFAULT_RPC"
@@ -40,7 +40,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --help)
-      echo "Usage: $0 [timelock_address] [--proposal <id_or_all>] [--rpc-url <rpc_url>] [--private-key <key>] [--json] [--output-dir <dir>] [--chain-id <id>]"
+      echo "Usage: $0 [timelock_address] [--proposal <id_or_all>] [--rpc-url <rpc_url>] [--account-name <name>] [--json] [--output-dir <dir>] [--chain-id <id>]"
       echo ""
       echo "Parameters:"
       echo "  timelock_address: The address of the TimelockController contract"

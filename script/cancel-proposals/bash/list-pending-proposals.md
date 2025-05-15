@@ -37,7 +37,7 @@ cd op-governance-ops/procedures/timelock-admin
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `timelock_address` | The address of the `TimelockController` contract | 0x0eDd4B2cCCf41453D8B5443FBB96cc577d1d06bF |
-| `--rpc-url <url>` | The RPC endpoint URL to use | https://rpc.ankr.com/optimism |
+| `--rpc-url <url>` | The RPC endpoint URL to use | https://mainnet.optimism.io |
 | `--type <type>` | Type of proposals to display: pending, cancelled, or executed | pending |
 | `--help` | Display help information | - |
 
@@ -57,7 +57,7 @@ The script:
 ```
 > ./list-timelock-proposals.sh
 Using timelock address: 0x0eDd4B2cCCf41453D8B5443FBB96cc577d1d06bF
-Using RPC URL: https://rpc.ankr.com/optimism
+Using RPC URL: https://mainnet.optimism.io
 Showing executed proposals
 Fetching CallScheduled events...
 Fetching Cancelled events...

@@ -36,7 +36,7 @@ For Foundation's L2 Safe (recommended):
 
 Full usage with all options:
 ```bash
-./cancel-proposals.sh [timelock_address] [--proposal <id_or_all>] [--rpc-url <rpc_url>] [--json] [--output-dir <dir>] [--chain-id <id>] [--private-key <key>] [--help]
+./cancel-proposals.sh [timelock_address] [--proposal <id_or_all>] [--rpc-url <rpc_url>] [--json] [--output-dir <dir>] [--chain-id <id>] [--account-name <name>] [--help]
 ```
 
 ### Parameters
@@ -47,9 +47,9 @@ Full usage with all options:
 | `--proposal <id_or_all>` | The proposal ID to cancel (32-byte hex starting with 0x) or 'all' for all pending proposals | Required parameter, no default |
 | `--json` | Generate Gnosis Safe transaction JSON files **(recommended for L2 Safe use)** | False |
 | `--output-dir <dir>` | Directory to save JSON files | ./safe-txs |
-| `--rpc-url <url>` | The RPC endpoint URL to use | https://rpc.ankr.com/optimism |
+| `--rpc-url <url>` | The RPC endpoint URL to use | https://mainnet.optimism.io |
 | `--chain-id <id>` | Chain ID for the Safe transaction | 10 (Optimism) |
-| `--private-key <key>` | Private key to sign and send transaction directly **(not recommended for multisig operations)** | None |
+| `--account-name <name>` | Name of the account to sign and send transaction directly **(not recommended for multisig operations)** | None |
 | `--help` | Display help information | - |
 
 ## How It Works
@@ -75,7 +75,7 @@ The script:
 ```
 > ./cancel-proposals.sh --proposal all --json
 Using timelock address: 0x0eDd4B2cCCf41453D8B5443FBB96cc577d1d06bF
-Using RPC URL: https://rpc.ankr.com/optimism
+Using RPC URL: https://mainnet.optimism.io
 Will generate Gnosis Safe transaction JSON files in ./safe-txs
 Starting cancellation process...
 ------------------------
@@ -114,7 +114,7 @@ You can import these files directly into the Gnosis Safe transaction builder UI
 
 ### Direct cancellation (not recommended for multisig operations)
 ```bash
-./cancel-proposals.sh --proposal 0x15a9d5347cda8ddfbef031137bfbcb3e5d8dbf885b030516ff4456d715255bc5 --private-key 0x...
+./cancel-proposals.sh --proposal 0x15a9d5347cda8ddfbef031137bfbcb3e5d8dbf885b030516ff4456d715255bc5 --account-name canceller
 ```
 
 ## Using with Gnosis Safe (Recommended Workflow)
