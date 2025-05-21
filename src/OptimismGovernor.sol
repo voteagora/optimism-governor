@@ -123,7 +123,7 @@ contract OptimismGovernor is
 
     /// @notice The address of an authorized proposer
     /// @dev Initially this will be the same address as the manager
-    /// @dev When the ProposalValidator is intoduced the authorized proposer will change to that address.
+    /// @dev When the ProposalValidator is introduced the authorized proposer will change to that address.
     address public authorizedProposer;
 
     /*//////////////////////////////////////////////////////////////

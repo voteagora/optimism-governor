@@ -37,7 +37,7 @@ The contracts in this repo are designed to be used by the following roles:
   - Update quorum (number of votes required to pass a proposal, snapshotted at the time of proposal creation)
   - Transfer authorized proposer role to a new address
 
-- **authorized proposer** is an address that can submit proposals. This will initialy be set to be the same as the manager address however it is planned to change to the address of the ProposalValidator contract. The address has the following permissions:
+- **authorized proposer** is an address that can submit proposals. This will initially be set to be the same as the manager address however it is planned to change to the address of the ProposalValidator contract. The address has the following permissions:
   - Create proposals
 
 - **voter** is any address that has OP tokens delegated to it
