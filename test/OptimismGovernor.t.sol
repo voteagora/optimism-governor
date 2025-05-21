@@ -1187,7 +1187,7 @@ contract QueueWithOptimisticModule is OptimismGovernorTest {
         bytes memory proposalData = abi.encode(OptimisticProposalSettings(1200, false));
 
         vm.startPrank(_actor);
-        uint256 proposalId = governor.proposeWithModule(optimisticModule, proposalData, description, 2);
+        governor.proposeWithModule(optimisticModule, proposalData, description, 2);
         vm.roll(deadline + 1);
         vm.expectRevert(OptimisticModule.OptimisticModuleOnlySignal.selector);
         governor.queueWithModule(optimisticModule, proposalData, keccak256(bytes(description)));
@@ -1619,7 +1619,7 @@ contract ExecuteWithOptimisticModule is OptimismGovernorTest {
         bytes memory proposalData = abi.encode(OptimisticProposalSettings(1200, false));
 
         vm.startPrank(manager);
-        uint256 proposalId = governor.proposeWithModule(optimisticModule, proposalData, description, 2);
+        governor.proposeWithModule(optimisticModule, proposalData, description, 2);
         vm.roll(deadline + 1);
         vm.expectRevert();
         governor.executeWithModule(optimisticModule, proposalData, keccak256(bytes(description)));
