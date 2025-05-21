@@ -386,10 +386,11 @@ contract Propose is OptimismGovernorTest {
     {
         _proposalThreshold = bound(_proposalThreshold, 0, type(uint208).max);
         // Set the authorized proposer to a random address and the proposal threshold
-        vm.startPrank(manager);
+        vm.prank(manager);
         governor.setAuthorizedProposer(_authorizedProposer);
+
+        vm.prank(manager);
         governor.setProposalThreshold(_proposalThreshold);
-        vm.stopPrank();
 
         // Set dummy proposal data
         address[] memory targets = new address[](1);
@@ -539,9 +540,10 @@ contract ProposeWithModule is OptimismGovernorTest {
         virtual
     {
         _proposalThreshold = bound(_proposalThreshold, 0, type(uint208).max);
-        vm.startPrank(manager);
         // Set the authorized proposer to a random address and the proposal threshold
+        vm.prank(manager);
         governor.setAuthorizedProposer(_authorizedProposer);
+        vm.prank(manager);
         governor.setProposalThreshold(_proposalThreshold);
 
         uint8 _proposalType = 1;
@@ -551,7 +553,6 @@ contract ProposeWithModule is OptimismGovernorTest {
         // Calculate the proposal id
         uint256 proposalId =
             governor.hashProposalWithModule(address(module), proposalData, keccak256(bytes(description)));
-        vm.stopPrank();
         vm.expectEmit();
         emit ProposalCreated(
             proposalId,
@@ -2439,7 +2440,7 @@ contract UpgradeToLive is OptimismGovernorTest {
     address proxyAdminOP = 0x2501c477D0A35545a387Aa4A3EEe4292A9a8B3F0;
 
     function setUp() public override {
-        vm.createSelectFork(vm.rpcUrl("https://mainnet.optimism.io"));
+        vm.createSelectFork(vm.rpcUrl("https://mainnet.optimism.io"), 126844298);
     }
 
     function test_UpgradesToNewImplementationAddress() public {
@@ -2465,6 +2466,7 @@ contract UpgradeToLive is OptimismGovernorTest {
         Timelock timelock = new Timelock();
         timelock.initialize(14, address(governorProxyOP), address(0));
 
+        address _manager = governorProxyOP.manager();
         vm.startPrank(proxyAdminOP);
         TransparentUpgradeableProxy(payable(address(governorProxyOP))).upgradeToAndCall(
             _newImplementation,
@@ -2473,11 +2475,13 @@ contract UpgradeToLive is OptimismGovernorTest {
                 0x7f08F3095530B67CdF8466B7a923607944136Df0,
                 0x1b7CA7437748375302bAA8954A2447fC3FBE44CC,
                 _newProposalTypesConfigurator,
-                TimelockControllerUpgradeable(payable(address(timelock)))
+                TimelockControllerUpgradeable(payable(address(timelock))),
+                _manager
             )
         );
         assertEq(TransparentUpgradeableProxy(payable(address(governorProxyOP))).implementation(), _newImplementation);
         vm.stopPrank();
+        assertEq(governorProxyOP.authorizedProposer(), governorProxyOP.manager());
         assertEq(governorProxyOP.VERSION(), 4);
         assertEq(address(governorProxyOP.alligator()), 0x7f08F3095530B67CdF8466B7a923607944136Df0);
         assertEq(address(governorProxyOP.VOTABLE_SUPPLY_ORACLE()), 0x1b7CA7437748375302bAA8954A2447fC3FBE44CC);
@@ -2531,6 +2535,7 @@ contract UpgradeToLive is OptimismGovernorTest {
         Timelock timelock = new Timelock();
         timelock.initialize(14, address(governorProxyOP), address(0));
 
+        address _manager = governorProxyOP.manager();
         vm.prank(proxyAdminOP);
         TransparentUpgradeableProxy(payable(address(governorProxyOP))).upgradeToAndCall(
             _newImplementation,
@@ -2539,10 +2544,12 @@ contract UpgradeToLive is OptimismGovernorTest {
                 0x7f08F3095530B67CdF8466B7a923607944136Df0,
                 0x1b7CA7437748375302bAA8954A2447fC3FBE44CC,
                 _newProposalTypesConfigurator,
-                TimelockControllerUpgradeable(payable(address(timelock)))
+                TimelockControllerUpgradeable(payable(address(timelock))),
+                _manager
             )
         );
 
+        assertEq(governorProxyOP.authorizedProposer(), governorProxyOP.manager());
         assertEq(governorProxyOP.VERSION(), 4);
         address managerOfGovernor = governorProxyOP.manager();
         address[] memory targets = new address[](1);
