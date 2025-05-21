@@ -380,7 +380,7 @@ contract Propose is OptimismGovernorTest {
         assertGt(governor.proposalSnapshot(proposalId), 0);
     }
 
-    function testFuzz_CreatesProposalWhenAuthorizedProposer(address _authorizedProposer, uint256 _proposalThreshold)
+    function testFuzz_CreatesProposalAsAuthorizedProposer(address _authorizedProposer, uint256 _proposalThreshold)
         public
         virtual
     {
@@ -535,7 +535,7 @@ contract ProposeWithModule is OptimismGovernorTest {
         assertEq(uint8(governor.state(proposalId)), uint8(IGovernorUpgradeable.ProposalState.Pending));
     }
 
-    function testFuzz_CreatesProposalWhenAuthorizedProposer(address _authorizedProposer, uint256 _proposalThreshold)
+    function testFuzz_CreatesProposalAsAuthorizedProposer(address _authorizedProposer, uint256 _proposalThreshold)
         public
         virtual
     {
