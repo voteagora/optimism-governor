@@ -68,6 +68,7 @@ contract OptimismGovernor is
     event ProposalDeadlineUpdated(uint256 proposalId, uint64 deadline);
     event TimelockChange(address oldTimelock, address newTimelock);
     event ProposalQueued(uint256 proposalId, uint256 eta);
+    event AuthorizedProposerSet(address indexed oldAuthorizedProposer, address indexed newAuthorizedProposer);
 
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -83,6 +84,7 @@ contract OptimismGovernor is
     error InvalidVoteType();
     error NotManagerOrTimelock();
     error NotAlligator();
+    error NotValidProposer();
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -119,6 +121,11 @@ contract OptimismGovernor is
     /// @notice Block number to check if proposal is previous or after upgrade
     uint256 internal _upgradeBlock;
 
+    /// @notice The address of an authorized proposer
+    /// @dev Initially this will be the same address as the manager
+    /// @dev When the ProposalValidator is introduced the authorized proposer will change to that address.
+    address public authorizedProposer;
+
     /*//////////////////////////////////////////////////////////////
                                MODIFIERS
     //////////////////////////////////////////////////////////////*/
@@ -131,6 +138,12 @@ contract OptimismGovernor is
 
     modifier onlyAlligator() {
         if (_msgSender() != alligator) revert NotAlligator();
+        _;
+    }
+
+    modifier onlyValidProposer() {
+        address sender = _msgSender();
+        if (sender != authorizedProposer && sender != manager && sender != timelock()) revert NotValidProposer();
         _;
     }
 
@@ -181,18 +194,21 @@ contract OptimismGovernor is
      * @param _votableSupplyOracle The new address of the votable supply oracle.
      * @param _proposalTypesConfigurator The new address of the proposal types configurator.
      * @param _timelockAddress The address of the timelock.
+     * @param _authorizedProposer The address of the authorized proposer.
      */
     function reinitialize(
         address _alligator,
         address _votableSupplyOracle,
         address _proposalTypesConfigurator,
-        TimelockControllerUpgradeable _timelockAddress
+        TimelockControllerUpgradeable _timelockAddress,
+        address _authorizedProposer
     ) public reinitializer(uint8(VERSION())) {
         alligator = _alligator;
         VOTABLE_SUPPLY_ORACLE = IVotableSupplyOracle(_votableSupplyOracle);
         PROPOSAL_TYPES_CONFIGURATOR = IProposalTypesConfigurator(_proposalTypesConfigurator);
         _upgradeBlock = block.number;
         _timelock = _timelockAddress;
+        authorizedProposer = _authorizedProposer;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -303,6 +319,15 @@ contract OptimismGovernor is
     }
 
     /**
+     * @notice Set the authorized proposer address. Only the manager or timelock can call this function.
+     * @param _newAuthorizedProposer The new authorized proposer address.
+     */
+    function setAuthorizedProposer(address _newAuthorizedProposer) external onlyManagerOrTimelock {
+        emit AuthorizedProposerSet(authorizedProposer, _newAuthorizedProposer);
+        authorizedProposer = _newAuthorizedProposer;
+    }
+
+    /**
      * @dev Public endpoint to update the underlying timelock instance. Restricted to the timelock itself, so updates
      * must be proposed, scheduled, and executed through governance proposals.
      *
@@ -354,7 +379,7 @@ contract OptimismGovernor is
     }
 
     /**
-     * @notice Propose a new proposal. Only the manager or an address with votes above the proposal threshold can propose.
+     * @notice Propose a new proposal. Only the authorized proposer, manager or an address with votes above the proposal threshold can propose.
      * See {IGovernor-propose}.
      * @dev Updated version of `propose` in which `proposalType` is set and checked.
      */
@@ -364,7 +389,7 @@ contract OptimismGovernor is
         bytes[] memory calldatas,
         string memory description,
         uint8 proposalType
-    ) public virtual onlyManagerOrTimelock returns (uint256 proposalId) {
+    ) public virtual onlyValidProposer returns (uint256 proposalId) {
         // Only manager or timelock can propose, so this check can be skipped (otherwise stack too deep issues)
         // address proposer = _msgSender();
         // if (proposer != manager && getVotes(proposer, block.number - 1) < proposalThreshold()) {
@@ -411,7 +436,7 @@ contract OptimismGovernor is
     }
 
     /**
-     * @notice Propose a new proposal using a custom voting module. Only the manager or an address with votes above the
+     * @notice Propose a new proposal using a custom voting module. Only the authorized proposer, manager or an address with votes above the
      * proposal threshold can propose.
      * @param module The address of the voting module to use for this proposal.
      * @param proposalData The proposal data to pass to the voting module.
@@ -425,9 +450,9 @@ contract OptimismGovernor is
         bytes memory proposalData,
         string memory description,
         uint8 proposalType
-    ) public virtual onlyManagerOrTimelock returns (uint256 proposalId) {
+    ) public virtual onlyValidProposer returns (uint256 proposalId) {
         address proposer = _msgSender();
-        if (proposer != manager) {
+        if (proposer != manager && proposer != authorizedProposer) {
             if (getVotes(proposer, block.number - 1) < proposalThreshold()) revert InvalidVotesBelowThreshold();
         }
 
