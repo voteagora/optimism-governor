@@ -919,7 +919,7 @@ contract Queue is OptimismGovernorTest {
         uint256 _proposalTargetCalldata,
         uint256 _elapsedAfterQueuing
     ) public {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
         govToken.delegate(address(this));
@@ -953,7 +953,7 @@ contract Queue is OptimismGovernorTest {
         uint256 _proposalTargetCalldata,
         uint256 _elapsedAfterQueuing
     ) public {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.assume(_actor != proxyAdmin);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
@@ -987,7 +987,7 @@ contract Queue is OptimismGovernorTest {
         uint256 _proposalTargetCalldata,
         uint256 _elapsedAfterQueuing
     ) public {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
         govToken.delegate(address(this));
@@ -1015,7 +1015,7 @@ contract Queue is OptimismGovernorTest {
     function testFuzz_RevertIf_ProposalAlreadyQueued(uint256 _proposalTargetCalldata, uint256 _elapsedAfterQueuing)
         public
     {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
         govToken.delegate(address(this));
@@ -1058,7 +1058,7 @@ contract QueueWithModule is OptimismGovernorTest {
         uint256 _elapsedAfterQueuing
     ) public {
         _mintAndDelegate(_voter, 100e18);
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         uint256 snapshot = block.number + governor.votingDelay();
         uint256 deadline = snapshot + governor.votingPeriod();
@@ -1095,7 +1095,7 @@ contract QueueWithModule is OptimismGovernorTest {
     ) public {
         vm.assume(_actor != proxyAdmin);
         _mintAndDelegate(_voter, 100e18);
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         uint256 snapshot = block.number + governor.votingDelay();
         uint256 deadline = snapshot + governor.votingPeriod();
@@ -1128,7 +1128,7 @@ contract QueueWithModule is OptimismGovernorTest {
         uint256 _proposalTargetCalldata,
         uint256 _elapsedAfterQueuing
     ) public {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         vm.deal(address(manager), 100 ether);
 
@@ -1146,7 +1146,7 @@ contract QueueWithModule is OptimismGovernorTest {
         uint256 _proposalTargetCalldata,
         uint256 _elapsedAfterQueuing
     ) public {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         _mintAndDelegate(_voter, 100e18);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         uint256 snapshot = block.number + governor.votingDelay();
@@ -1199,7 +1199,7 @@ contract Execute is OptimismGovernorTest {
         public
         virtual
     {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
         govToken.delegate(address(this));
@@ -1240,7 +1240,7 @@ contract Execute is OptimismGovernorTest {
         uint256 _proposalTargetCalldata,
         uint256 _elapsedAfterQueuing
     ) public virtual {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.assume(_actor != proxyAdmin);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
@@ -1367,7 +1367,7 @@ contract Execute is OptimismGovernorTest {
     function testFuzz_RevertIf_ProposalAlreadyExecuted(uint256 _proposalTargetCalldata, uint256 _elapsedAfterQueuing)
         public
     {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
         govToken.delegate(address(this));
@@ -1411,7 +1411,7 @@ contract ExecuteWithModule is OptimismGovernorTest {
         uint256 _proposalTargetCalldata,
         uint256 _elapsedAfterQueuing
     ) public virtual {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         _mintAndDelegate(_voter, 100e18);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         uint256 snapshot = block.number + governor.votingDelay();
@@ -1453,7 +1453,7 @@ contract ExecuteWithModule is OptimismGovernorTest {
         uint256 _elapsedAfterQueuing
     ) public virtual {
         vm.assume(_actor != proxyAdmin);
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         _mintAndDelegate(_voter, 100e18);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         uint256 snapshot = block.number + governor.votingDelay();
@@ -1575,7 +1575,7 @@ contract ExecuteWithModule is OptimismGovernorTest {
         uint256 _proposalTargetCalldata,
         uint256 _elapsedAfterQueuing
     ) public {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         _mintAndDelegate(_voter, 100e18);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         uint256 snapshot = block.number + governor.votingDelay();
@@ -1613,7 +1613,7 @@ contract ExecuteWithModule is OptimismGovernorTest {
 
 contract ExecuteWithOptimisticModule is OptimismGovernorTest {
     function testFuzz_RevertIf_ExecutesAProposalSuccessfully(uint256 _elapsedAfterQueuing) public {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         uint256 snapshot = block.number + governor.votingDelay();
         uint256 deadline = snapshot + governor.votingPeriod();
         bytes memory proposalData = abi.encode(OptimisticProposalSettings(1200, false));
@@ -1632,7 +1632,7 @@ contract Cancel is OptimismGovernorTest {
         uint256 _elapsedAfterQueuing,
         uint256 _actorSeed
     ) public virtual {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
         govToken.delegate(address(this));
@@ -1670,7 +1670,7 @@ contract Cancel is OptimismGovernorTest {
         uint256 _elapsedAfterQueuing,
         uint256 _actorSeed
     ) public virtual {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
         govToken.delegate(address(this));
@@ -1736,7 +1736,7 @@ contract Cancel is OptimismGovernorTest {
         uint256 _elapsedAfterQueuing,
         uint256 _actorSeed
     ) public virtual {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
         govToken.delegate(address(this));
@@ -1792,7 +1792,7 @@ contract CancelWithModule is OptimismGovernorTest {
         uint256 _elapsedAfterQueuing,
         uint256 _actorSeed
     ) public virtual {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         _mintAndDelegate(_voter, 100e18);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         uint256 snapshot = block.number + governor.votingDelay();
@@ -1828,7 +1828,7 @@ contract CancelWithModule is OptimismGovernorTest {
         uint256 _elapsedAfterQueuing,
         uint256 _actorSeed
     ) public virtual {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         _mintAndDelegate(_voter, 100e18);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         uint256 snapshot = block.number + governor.votingDelay();
@@ -1883,7 +1883,7 @@ contract CancelWithModule is OptimismGovernorTest {
         uint256 _elapsedAfterQueuing,
         uint256 _actorSeed
     ) public virtual {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         _mintAndDelegate(_voter, 100e18);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         uint256 snapshot = block.number + governor.votingDelay();
@@ -1946,7 +1946,7 @@ contract CancelWithModule is OptimismGovernorTest {
 
 contract CancelWithOptimisticModule is OptimismGovernorTest {
     function testFuzz_CancelsAProposalSuccessfully(uint256 _elapsedAfterQueuing, uint256 _actorSeed) public {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         uint256 snapshot = block.number + governor.votingDelay();
         uint256 deadline = snapshot + governor.votingPeriod();
         bytes memory proposalData = abi.encode(OptimisticProposalSettings(1200, false));
@@ -1964,7 +1964,7 @@ contract CancelWithOptimisticModule is OptimismGovernorTest {
 
 contract UpdateTimelock is OptimismGovernorTest {
     function testFuzz_UpdateTimelock(uint256 _elapsedAfterQueuing, address _newTimelock) public {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
         govToken.delegate(address(this));
