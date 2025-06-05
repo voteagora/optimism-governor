@@ -249,7 +249,7 @@ contract OptimismGovernor is
         } else if (support == uint8(VoteType.For)) {
             proposalVote.forVotes += votes;
         } else if (support == uint8(VoteType.Abstain)) {
-            proposalVote.abstainVotes += votes;
+            revert("Abstaining is not allowed.");
         } else {
             revert InvalidVoteType();
         }
