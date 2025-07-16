@@ -6,7 +6,9 @@ import {console} from "forge-std/console.sol";
 import {OptimismGovernor} from "../src/OptimismGovernor.sol";
 import {TimelockControllerUpgradeable} from
     "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
+import {Timelock, TimelockControllerUpgradeable} from "test/mocks/TimelockMock.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 /**
  * @title RedeployTimelock
@@ -20,6 +22,7 @@ contract RedeployTimelock is Script {
     // Existing contracts
     address constant EXISTING_GOVERNOR = 0x0000000000000000000000000000000000000000; // TODO: Set existing governor
     address constant MANAGER_ADDRESS = 0x0000000000000000000000000000000000000000; // TODO: Set manager address
+    address constant PROXY_ADMIN = 0x0000000000000000000000000000000000000000;
 
     // L2 Safes to be added as cancellers
     address constant L2_SAFE_1 = 0x0000000000000000000000000000000000000000; // TODO: Set L2 Safe 1
@@ -35,9 +38,12 @@ contract RedeployTimelock is Script {
     bytes32 constant CANCELLER_ROLE = keccak256("CANCELLER_ROLE");
     bytes32 constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
 
+    Timelock timelock;
+
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address deployer = vm.addr(deployerPrivateKey);
+        vm.startBroadcast();
+
+        (, address deployer,) = vm.readCallers();
 
         console.log("========================================");
         console.log("Timelock Redeployment");
@@ -53,8 +59,6 @@ contract RedeployTimelock is Script {
         require(L2_SAFE_1 != address(0), "L2 Safe 1 not set");
         require(L2_SAFE_2 != address(0), "L2 Safe 2 not set");
         require(L2_SAFE_3 != address(0), "L2 Safe 3 not set");
-
-        vm.startBroadcast(deployerPrivateKey);
 
         // 1. Deploy new timelock
         TimelockControllerUpgradeable newTimelock = _deployTimelock(deployer);
@@ -79,25 +83,9 @@ contract RedeployTimelock is Script {
     function _deployTimelock(address deployer) internal returns (TimelockControllerUpgradeable) {
         console.log("========== DEPLOYING NEW TIMELOCK ==========");
 
-        // Deploy implementation
-        TimelockControllerUpgradeable timelockImpl = new TimelockControllerUpgradeable();
-
+        timelock = Timelock(payable(new TransparentUpgradeableProxy(address(new Timelock()), address(PROXY_ADMIN), "")));
         // Prepare initialization
-        address[] memory proposers = new address[](0);
-        address[] memory executors = new address[](1);
-        executors[0] = address(0); // Anyone can execute
-
-        bytes memory initData = abi.encodeWithSignature(
-            "__TimelockController_init(uint256,address[],address[],address)",
-            MIN_DELAY,
-            proposers,
-            executors,
-            deployer // deployer is initial admin
-        );
-
-        // Deploy proxy
-        ERC1967Proxy proxy = new ERC1967Proxy(address(timelockImpl), initData);
-        TimelockControllerUpgradeable timelock = TimelockControllerUpgradeable(payable(address(proxy)));
+        timelock.initialize(MIN_DELAY, EXISTING_GOVERNOR, deployer);
 
         console.log("New Timelock deployed:", address(timelock));
         console.log("");

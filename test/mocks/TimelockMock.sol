@@ -9,7 +9,7 @@ contract Timelock is TimelockControllerUpgradeable {
         address[] memory proposers = new address[](1);
         proposers[0] = governor;
         address[] memory executors = new address[](1);
-        executors[0] = governor;
+        executors[0] = address(0);
 
         __TimelockController_init(minDelay, proposers, executors, admin);
     }
