@@ -384,6 +384,7 @@ contract Propose is OptimismGovernorTest {
         public
         virtual
     {
+        vm.assume(_authorizedProposer != proxyAdmin);
         _proposalThreshold = bound(_proposalThreshold, 0, type(uint208).max);
         // Set the authorized proposer to a random address and the proposal threshold
         vm.prank(manager);
@@ -539,6 +540,7 @@ contract ProposeWithModule is OptimismGovernorTest {
         public
         virtual
     {
+        vm.assume(_authorizedProposer != proxyAdmin);
         _proposalThreshold = bound(_proposalThreshold, 0, type(uint208).max);
         // Set the authorized proposer to a random address and the proposal threshold
         vm.prank(manager);
