@@ -96,6 +96,7 @@ contract OptimismGovernorTest is Test {
     error InvalidEmptyProposal();
     error InvalidVotesBelowThreshold();
     error InvalidProposalExists();
+    error InvalidTimelock();
     error NotManagerOrTimelock();
     error NotValidProposer();
 
@@ -2002,6 +2003,12 @@ contract UpdateTimelock is OptimismGovernorTest {
         vm.prank(_actor);
         vm.expectRevert("Governor: onlyGovernance");
         governor.updateTimelock(TimelockControllerUpgradeable(payable(_newTimelock)));
+    }
+
+    function test_RevertIf_TimelockIsZero() public {
+        vm.prank(governor.timelock());
+        vm.expectRevert();
+        governor.updateTimelock(TimelockControllerUpgradeable(payable(address(0))));
     }
 }
 

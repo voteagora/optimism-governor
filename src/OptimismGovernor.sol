@@ -82,6 +82,7 @@ contract OptimismGovernor is
     error InvalidVotesBelowThreshold();
     error InvalidProposalExists();
     error InvalidVoteType();
+    error InvalidTimelock();
     error NotManagerOrTimelock();
     error NotAlligator();
     error NotValidProposer();
@@ -334,6 +335,7 @@ contract OptimismGovernor is
      * CAUTION: It is not recommended to change the timelock while there are other queued governance proposals.
      */
     function updateTimelock(TimelockControllerUpgradeable newTimelock) external virtual onlyGovernance {
+        //if (address(newTimelock) == address(0)) revert InvalidTimelock();
         emit TimelockChange(address(_timelock), address(newTimelock));
         _timelock = newTimelock;
     }
