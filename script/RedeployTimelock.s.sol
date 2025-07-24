@@ -83,9 +83,15 @@ contract RedeployTimelock is Script {
     function _deployTimelock(address deployer) internal returns (TimelockControllerUpgradeable) {
         console.log("========== DEPLOYING NEW TIMELOCK ==========");
 
-        timelock = Timelock(payable(new TransparentUpgradeableProxy(address(new Timelock()), address(PROXY_ADMIN), "")));
-        // Prepare initialization
-        timelock.initialize(MIN_DELAY, EXISTING_GOVERNOR, deployer);
+        timelock = Timelock(
+            payable(
+                new TransparentUpgradeableProxy(
+                    address(new Timelock()),
+                    address(PROXY_ADMIN),
+                    abi.encodeWithSelector(Timelock.initialize.selector, MIN_DELAY, EXISTING_GOVERNOR, deployer)
+                )
+            )
+        );
 
         console.log("New Timelock deployed:", address(timelock));
         console.log("");
