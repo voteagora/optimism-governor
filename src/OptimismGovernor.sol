@@ -799,7 +799,7 @@ contract OptimismGovernor is
      * @dev Returns the current version of the governor.
      */
     function VERSION() public pure virtual returns (uint256) {
-        return 4;
+        return 5;
     }
 
     /*//////////////////////////////////////////////////////////////
