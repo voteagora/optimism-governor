@@ -85,6 +85,7 @@ contract OptimismGovernor is
     error NotManagerOrTimelock();
     error NotAlligator();
     error NotValidProposer();
+    error ProposerAlreadySet();
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -323,6 +324,7 @@ contract OptimismGovernor is
      * @param _newAuthorizedProposer The new authorized proposer address.
      */
     function setAuthorizedProposer(address _newAuthorizedProposer) external onlyManagerOrTimelock {
+        if (authorizedProposer == _newAuthorizedProposer) revert ProposerAlreadySet();
         emit AuthorizedProposerSet(authorizedProposer, _newAuthorizedProposer);
         authorizedProposer = _newAuthorizedProposer;
     }

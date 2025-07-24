@@ -98,6 +98,7 @@ contract OptimismGovernorTest is Test {
     error InvalidProposalExists();
     error NotManagerOrTimelock();
     error NotValidProposer();
+    error ProposerAlreadySet();
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -2414,6 +2415,16 @@ contract SetAuthorizedProposer is OptimismGovernorTest {
         vm.prank(_actor);
         vm.expectRevert(NotManagerOrTimelock.selector);
         governor.setAuthorizedProposer(_newAuthorizedProposer);
+    }
+
+    function testFuzz_RevertIf_ProposerAlreadySet(address _newAuthorizedProposer, uint256 _actorSeed) public {
+        vm.startPrank(_managerOrTimelock(_actorSeed));
+
+        governor.setAuthorizedProposer(_newAuthorizedProposer);
+
+        vm.expectRevert(ProposerAlreadySet.selector);
+        governor.setAuthorizedProposer(_newAuthorizedProposer);
+        vm.stopPrank();
     }
 }
 
