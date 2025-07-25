@@ -79,7 +79,6 @@ contract OptimismGovernor is
     error InvalidRelayTarget(address target);
     error InvalidProposalLength();
     error InvalidEmptyProposal();
-    error InvalidVotesBelowThreshold();
     error InvalidProposalExists();
     error InvalidVoteType();
     error NotManagerOrTimelock();
@@ -143,7 +142,7 @@ contract OptimismGovernor is
 
     modifier onlyValidProposer() {
         address sender = _msgSender();
-        if (sender != authorizedProposer && sender != manager && sender != timelock()) revert NotValidProposer();
+        if (sender != authorizedProposer && sender != manager) revert NotValidProposer();
         _;
     }
 
@@ -379,7 +378,7 @@ contract OptimismGovernor is
     }
 
     /**
-     * @notice Propose a new proposal. Only the authorized proposer, manager or an address with votes above the proposal threshold can propose.
+     * @notice Propose a new proposal. Only the authorized proposer or manager can propose.
      * See {IGovernor-propose}.
      * @dev Updated version of `propose` in which `proposalType` is set and checked.
      */
@@ -390,12 +389,6 @@ contract OptimismGovernor is
         string memory description,
         uint8 proposalType
     ) public virtual onlyValidProposer returns (uint256 proposalId) {
-        // Only manager or timelock can propose, so this check can be skipped (otherwise stack too deep issues)
-        // address proposer = _msgSender();
-        // if (proposer != manager && getVotes(proposer, block.number - 1) < proposalThreshold()) {
-        //     revert InvalidVotesBelowThreshold();
-        // }
-
         if (targets.length != values.length) revert InvalidProposalLength();
         if (targets.length != calldatas.length) revert InvalidProposalLength();
         if (targets.length == 0) revert InvalidEmptyProposal();
@@ -436,8 +429,7 @@ contract OptimismGovernor is
     }
 
     /**
-     * @notice Propose a new proposal using a custom voting module. Only the authorized proposer, manager or an address with votes above the
-     * proposal threshold can propose.
+     * @notice Propose a new proposal using a custom voting module. Only the authorized proposer or manager can propose.
      * @param module The address of the voting module to use for this proposal.
      * @param proposalData The proposal data to pass to the voting module.
      * @param description The description of the proposal.
@@ -451,11 +443,6 @@ contract OptimismGovernor is
         string memory description,
         uint8 proposalType
     ) public virtual onlyValidProposer returns (uint256 proposalId) {
-        address proposer = _msgSender();
-        if (proposer != manager && proposer != authorizedProposer) {
-            if (getVotes(proposer, block.number - 1) < proposalThreshold()) revert InvalidVotesBelowThreshold();
-        }
-
         require(approvedModules[address(module)], "Governor: module not approved");
 
         // Revert if `proposalType` is unset or doesn't match module
@@ -480,12 +467,12 @@ contract OptimismGovernor is
         proposal.voteEnd.setDeadline(deadline);
         proposal.votingModule = address(module);
         proposal.proposalType = proposalType;
-        proposal.proposer = proposer;
+        proposal.proposer = _msgSender();
 
         module.propose(proposalId, proposalData, descriptionHash);
 
         emit ProposalCreated(
-            proposalId, proposer, address(module), proposalData, snapshot, deadline, description, proposalType
+            proposalId, _msgSender(), address(module), proposalData, snapshot, deadline, description, proposalType
         );
     }
 

@@ -94,7 +94,6 @@ contract OptimismGovernorTest is Test {
     error InvalidProposedTxForType();
     error InvalidProposalLength();
     error InvalidEmptyProposal();
-    error InvalidVotesBelowThreshold();
     error InvalidProposalExists();
     error NotManagerOrTimelock();
     error NotValidProposer();
@@ -108,7 +107,7 @@ contract OptimismGovernorTest is Test {
     VotableSupplyOracle internal votableSupplyOracle;
     Timelock public timelock;
     ExecutionTargetFake public targetFake;
-    address internal authorizedProposer;
+    address internal authorizedProposer = makeAddr("authorizedProposer");
     address internal proxyAdmin = makeAddr("proxyAdmin");
     address internal manager = makeAddr("manager");
     address internal minter = makeAddr("minter");
@@ -130,9 +129,6 @@ contract OptimismGovernorTest is Test {
 
     function setUp() public virtual {
         vm.startPrank(deployer);
-
-        // Set the authorized proposer as the manager
-        authorizedProposer = manager;
 
         // Deploy token
         govToken = new TokenMock(minter);
@@ -181,6 +177,7 @@ contract OptimismGovernorTest is Test {
 
         // do manager stuff
         vm.startPrank(manager);
+        governor.setAuthorizedProposer(authorizedProposer);
         governor.setModuleApproval(address(module), true);
         governor.setModuleApproval(address(optimisticModule), true);
         proposalTypesConfigurator.setProposalType(0, 3_000, 5_000, "Default", "Lorem Ipsum", address(0));
@@ -262,8 +259,7 @@ contract OptimismGovernorTest is Test {
     }
 
     function _validProposer(uint256 _actorSeed) internal view returns (address) {
-        if (_actorSeed % 3 == 1) return manager;
-        else if (_actorSeed % 3 == 2) return governor.timelock();
+        if (_actorSeed % 2 == 1) return manager;
         else return authorizedProposer;
     }
 
@@ -333,46 +329,12 @@ contract Initialize is OptimismGovernorTest {
 }
 
 contract Propose is OptimismGovernorTest {
-    function testFuzz_CreatesProposalWhenThresholdIsMet(
-        address _actor,
-        uint256 _proposalThreshold,
-        uint256 _actorBalance
-    ) public virtual {
-        _actor = manager;
-        _proposalThreshold = bound(_proposalThreshold, 0, type(uint208).max);
-        _actorBalance = bound(_actorBalance, _proposalThreshold, type(uint208).max);
+    function testFuzz_CreatesProposalAsManager() public virtual {
         address[] memory targets = new address[](1);
         targets[0] = address(this);
         uint256[] memory values = new uint256[](1);
         bytes[] memory calldatas = new bytes[](1);
         calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
-
-        vm.prank(manager);
-        governor.setProposalThreshold(_proposalThreshold);
-
-        // Give actor enough tokens to meet proposal threshold.
-        vm.prank(minter);
-        govToken.mint(_actor, _actorBalance);
-        vm.startPrank(_actor);
-        govToken.delegate(_actor);
-        vm.roll(vm.getBlockNumber() + 1);
-
-        uint256 proposalId;
-        proposalId = governor.propose(targets, values, calldatas, "Test", 0);
-        vm.stopPrank();
-        assertGt(governor.proposalSnapshot(proposalId), 0);
-    }
-
-    function testFuzz_CreatesProposalAsManager(uint256 _proposalThreshold) public virtual {
-        _proposalThreshold = bound(_proposalThreshold, 0, type(uint208).max);
-        address[] memory targets = new address[](1);
-        targets[0] = address(this);
-        uint256[] memory values = new uint256[](1);
-        bytes[] memory calldatas = new bytes[](1);
-        calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
-
-        vm.prank(manager);
-        governor.setProposalThreshold(_proposalThreshold);
 
         uint256 proposalId;
         vm.prank(manager);
@@ -380,17 +342,10 @@ contract Propose is OptimismGovernorTest {
         assertGt(governor.proposalSnapshot(proposalId), 0);
     }
 
-    function testFuzz_CreatesProposalAsAuthorizedProposer(address _authorizedProposer, uint256 _proposalThreshold)
-        public
-        virtual
-    {
-        _proposalThreshold = bound(_proposalThreshold, 0, type(uint208).max);
-        // Set the authorized proposer to a random address and the proposal threshold
+    function testFuzz_CreatesProposalAsAuthorizedProposer(address _authorizedProposer) public virtual {
+        // Set the authorized proposer to a random address
         vm.prank(manager);
         governor.setAuthorizedProposer(_authorizedProposer);
-
-        vm.prank(manager);
-        governor.setProposalThreshold(_proposalThreshold);
 
         // Set dummy proposal data
         address[] memory targets = new address[](1);
@@ -408,7 +363,7 @@ contract Propose is OptimismGovernorTest {
         assertGt(governor.proposalSnapshot(proposalId), 0);
     }
 
-    function testRevert_WithType_InvalidProposalType() public virtual {
+    function testRevert_WithType_InvalidProposalType(uint256 _actorSeed) public virtual {
         address[] memory targets = new address[](1);
         targets[0] = address(this);
         uint256[] memory values = new uint256[](1);
@@ -416,19 +371,19 @@ contract Propose is OptimismGovernorTest {
         calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
         uint8 invalidPropType = 3;
 
-        vm.prank(manager);
+        vm.prank(_validProposer(_actorSeed));
         vm.expectRevert(abi.encodeWithSelector(InvalidProposalType.selector, invalidPropType));
         governor.propose(targets, values, calldatas, "Test", invalidPropType);
     }
 
-    function testRevert_proposalAlreadyCreated() public virtual {
+    function testRevert_proposalAlreadyCreated(uint256 _actorSeed) public virtual {
         address[] memory targets = new address[](1);
         targets[0] = address(this);
         uint256[] memory values = new uint256[](1);
         bytes[] memory calldatas = new bytes[](1);
         calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
 
-        vm.startPrank(manager);
+        vm.startPrank(_validProposer(_actorSeed));
         governor.propose(targets, values, calldatas, "Test", 0);
 
         vm.expectRevert(InvalidProposalExists.selector);
@@ -436,16 +391,9 @@ contract Propose is OptimismGovernorTest {
         vm.stopPrank();
     }
 
-    function testFuzz_RevertIf_NotValidProposer(address _caller, address _authorizedProposer) public virtual {
-        // Assume the actor is not the authorized proposer, manager, timelock or proxy admin
-        vm.assume(
-            _caller != _authorizedProposer && _caller != manager && _caller != governor.timelock()
-                && _caller != proxyAdmin
-        );
-
-        // Set the authorized proposer to a random address
-        vm.prank(manager);
-        governor.setAuthorizedProposer(_authorizedProposer);
+    function testFuzz_RevertIf_NotValidProposer(address _caller) public virtual {
+        // Assume the actor is not the authorized proposer or manager
+        vm.assume(_caller != authorizedProposer && _caller != manager);
 
         // Create dummy proposal data
         address[] memory targets = new address[](1);
@@ -462,53 +410,7 @@ contract Propose is OptimismGovernorTest {
 }
 
 contract ProposeWithModule is OptimismGovernorTest {
-    function testFuzz_CreatesProposalWhenProposalThresholdMet(
-        address _actor,
-        uint256 _proposalThreshold,
-        uint256 _actorBalance
-    ) public virtual {
-        _actor = manager;
-        _proposalThreshold = bound(_proposalThreshold, 0, type(uint208).max);
-        _actorBalance = bound(_actorBalance, _proposalThreshold, type(uint208).max);
-        uint8 _proposalType = 1;
-
-        vm.prank(manager);
-        governor.setProposalThreshold(_proposalThreshold);
-
-        // Give actor enough tokens to meet proposal threshold.
-        vm.prank(minter);
-        govToken.mint(_actor, _actorBalance);
-        vm.startPrank(_actor);
-        govToken.delegate(_actor);
-        vm.roll(vm.getBlockNumber() + 1);
-
-        uint256 snapshot = block.number + governor.votingDelay();
-        uint256 deadline = snapshot + governor.votingPeriod();
-        bytes memory proposalData = _formatProposalData(0);
-        uint256 proposalId =
-            governor.hashProposalWithModule(address(module), proposalData, keccak256(bytes(description)));
-
-        vm.expectEmit();
-        emit ProposalCreated(
-            proposalId, _actor, address(module), proposalData, snapshot, deadline, description, _proposalType
-        );
-        if (_proposalType > 0) {
-            governor.proposeWithModule(VotingModule(module), proposalData, description, _proposalType);
-        } else {
-            governor.proposeWithModule(VotingModule(module), proposalData, description, 0);
-        }
-        vm.stopPrank();
-
-        assertEq(governor.proposals(proposalId).proposalType, _proposalType);
-        assertEq(governor.proposalSnapshot(proposalId), snapshot);
-        assertEq(governor.proposalDeadline(proposalId), deadline);
-        assertEq(uint8(governor.state(proposalId)), uint8(IGovernorUpgradeable.ProposalState.Pending));
-    }
-
-    function testFuzz_CreatesProposalWhenManager(uint256 _proposalThreshold) public virtual {
-        _proposalThreshold = bound(_proposalThreshold, 0, type(uint208).max);
-        vm.prank(manager);
-        governor.setProposalThreshold(_proposalThreshold);
+    function testFuzz_CreatesProposalWhenManager() public virtual {
         uint8 _proposalType = 1;
         vm.startPrank(manager);
 
@@ -535,16 +437,10 @@ contract ProposeWithModule is OptimismGovernorTest {
         assertEq(uint8(governor.state(proposalId)), uint8(IGovernorUpgradeable.ProposalState.Pending));
     }
 
-    function testFuzz_CreatesProposalAsAuthorizedProposer(address _authorizedProposer, uint256 _proposalThreshold)
-        public
-        virtual
-    {
-        _proposalThreshold = bound(_proposalThreshold, 0, type(uint208).max);
-        // Set the authorized proposer to a random address and the proposal threshold
+    function testFuzz_CreatesProposalAsAuthorizedProposer(address _authorizedProposer) public virtual {
+        // Set the authorized proposer to a random address
         vm.prank(manager);
         governor.setAuthorizedProposer(_authorizedProposer);
-        vm.prank(manager);
-        governor.setProposalThreshold(_proposalThreshold);
 
         uint8 _proposalType = 1;
         uint256 snapshot = block.number + governor.votingDelay();
@@ -574,19 +470,19 @@ contract ProposeWithModule is OptimismGovernorTest {
         assertEq(uint8(governor.state(proposalId)), uint8(IGovernorUpgradeable.ProposalState.Pending));
     }
 
-    function test_RevertIf_InvalidProposalType() public virtual {
+    function test_RevertIf_InvalidProposalType(uint256 _actorSeed) public virtual {
         bytes memory proposalData = _formatProposalData(0);
         uint8 invalidPropType = 3;
 
-        vm.prank(manager);
+        vm.prank(_validProposer(_actorSeed));
         vm.expectRevert(abi.encodeWithSelector(InvalidProposalType.selector, invalidPropType));
         governor.proposeWithModule(VotingModule(module), proposalData, description, invalidPropType);
     }
 
-    function test_ProposalTypeModuleAddress() public virtual {
+    function test_ProposalTypeModuleAddress(uint256 _actorSeed) public virtual {
         bytes memory proposalData = _formatProposalData(2);
 
-        vm.startPrank(manager);
+        vm.startPrank(_validProposer(_actorSeed));
         vm.expectRevert(abi.encodeWithSelector(InvalidProposalType.selector, 2));
         governor.proposeWithModule(VotingModule(module), proposalData, description, 2);
 
@@ -600,10 +496,10 @@ contract ProposeWithModule is OptimismGovernorTest {
         vm.stopPrank();
     }
 
-    function test_RevertIf_ProposalAlreadyCreated() public virtual {
+    function test_RevertIf_ProposalAlreadyCreated(uint256 _actorSeed) public virtual {
         bytes memory proposalData = _formatProposalData(0);
 
-        vm.startPrank(manager);
+        vm.startPrank(_validProposer(_actorSeed));
         governor.proposeWithModule(VotingModule(module), proposalData, description, 1);
 
         vm.expectRevert(InvalidProposalExists.selector);
@@ -611,25 +507,18 @@ contract ProposeWithModule is OptimismGovernorTest {
         vm.stopPrank();
     }
 
-    function test_RevertIf_ModuleNotApproved() public virtual {
+    function test_RevertIf_ModuleNotApproved(uint256 _actorSeed) public virtual {
         bytes memory proposalData = _formatProposalData(0);
         address module_ = makeAddr("module");
 
-        vm.prank(manager);
+        vm.prank(_validProposer(_actorSeed));
         vm.expectRevert("Governor: module not approved");
         governor.proposeWithModule(VotingModule(module_), proposalData, description, 0);
     }
 
-    function testFuzz_RevertIf_NotValidProposer(address _caller, address _authorizedProposer) public virtual {
-        // Assume the actor is not the authorized proposer, manager, timelock or proxy admin
-        vm.assume(
-            _caller != _authorizedProposer && _caller != manager && _caller != governor.timelock()
-                && _caller != proxyAdmin
-        );
-
-        // Set the authorized proposer to a random address
-        vm.prank(manager);
-        governor.setAuthorizedProposer(_authorizedProposer);
+    function testFuzz_RevertIf_NotValidProposer(address _caller) public virtual {
+        // Assume the actor is not the authorized proposer or manager
+        vm.assume(_caller != authorizedProposer && _caller != manager);
 
         bytes memory proposalData = _formatProposalData(0);
         address module = makeAddr("module");
@@ -1950,7 +1839,7 @@ contract CancelWithOptimisticModule is OptimismGovernorTest {
         uint256 snapshot = block.number + governor.votingDelay();
         uint256 deadline = snapshot + governor.votingPeriod();
         bytes memory proposalData = abi.encode(OptimisticProposalSettings(1200, false));
-        vm.prank(_managerOrTimelock(_actorSeed));
+        vm.prank(_validProposer(_actorSeed));
         uint256 proposalId = governor.proposeWithModule(optimisticModule, proposalData, description, 2);
         vm.roll(deadline + 1);
 
@@ -2183,6 +2072,7 @@ contract EditProposalType is OptimismGovernorTest {
         vm.startPrank(_managerOrTimelock(_actorSeed));
         proposalTypesConfigurator.setProposalType(0, 3_000, 9_910, "Default", "Lorem Ipsum", address(0));
         proposalTypesConfigurator.setProposalType(1, 3_000, 9_910, "Default 2", "Lorem Ipsum 2", address(0));
+        vm.stopPrank();
 
         address[] memory targets = new address[](1);
         targets[0] = address(this);
@@ -2190,16 +2080,16 @@ contract EditProposalType is OptimismGovernorTest {
         bytes[] memory calldatas = new bytes[](1);
         calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
 
+        vm.prank(_validProposer(_actorSeed));
         uint256 proposalId = governor.propose(targets, values, calldatas, "Test");
         assertEq(governor.proposals(proposalId).proposalType, 0);
 
         vm.expectEmit();
         emit ProposalTypeUpdated(proposalId, 1);
+        vm.prank(_managerOrTimelock(_actorSeed));
         governor.editProposalType(proposalId, 1);
 
         assertEq(governor.proposals(proposalId).proposalType, 1);
-
-        vm.stopPrank();
     }
 
     function test_RevertIf_NotManagerOrTimelock(address _actor) public virtual {
@@ -2404,7 +2294,7 @@ contract SetAuthorizedProposer is OptimismGovernorTest {
     function testFuzz_SetsNewAuthorizedProposer(address _newAuthorizedProposer, uint256 _actorSeed) public {
         vm.prank(_managerOrTimelock(_actorSeed));
         vm.expectEmit();
-        emit AuthorizedProposerSet(address(0), _newAuthorizedProposer);
+        emit AuthorizedProposerSet(authorizedProposer, _newAuthorizedProposer);
         governor.setAuthorizedProposer(_newAuthorizedProposer);
         assertEq(governor.authorizedProposer(), _newAuthorizedProposer);
     }
