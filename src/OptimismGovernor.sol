@@ -66,7 +66,7 @@ contract OptimismGovernor is
     event ProposalTypeUpdated(uint256 indexed proposalId, uint8 proposalType);
     event ManagerSet(address indexed oldManager, address indexed newManager);
     event ProposalDeadlineUpdated(uint256 proposalId, uint64 deadline);
-    event TimelockChange(address oldTimelock, address newTimelock);
+    event TimelockChange(address indexed oldTimelock, address indexed newTimelock);
     event ProposalQueued(uint256 proposalId, uint256 eta);
     event AuthorizedProposerSet(address indexed oldAuthorizedProposer, address indexed newAuthorizedProposer);
 
