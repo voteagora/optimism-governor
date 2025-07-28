@@ -21,7 +21,6 @@ contract RedeployTimelock is Script {
 
     // Existing contracts
     address constant EXISTING_GOVERNOR = 0x0000000000000000000000000000000000000000; // TODO: Set existing governor
-    address constant MANAGER_ADDRESS = 0x0000000000000000000000000000000000000000; // TODO: Set manager address
     address constant PROXY_ADMIN = 0x0000000000000000000000000000000000000000;
 
     // L2 Safes to be added as cancellers
@@ -30,7 +29,7 @@ contract RedeployTimelock is Script {
     address constant L2_SAFE_3 = 0x0000000000000000000000000000000000000000; // TODO: Set L2 Safe 3
 
     // Timelock configuration
-    uint256 constant MIN_DELAY = 6 days;
+    uint256 constant MIN_DELAY = 7 days;
 
     // Roles
     bytes32 constant TIMELOCK_ADMIN_ROLE = keccak256("TIMELOCK_ADMIN_ROLE");
@@ -50,12 +49,10 @@ contract RedeployTimelock is Script {
         console.log("========================================");
         console.log("Deployer:", deployer);
         console.log("Existing Governor:", EXISTING_GOVERNOR);
-        console.log("Manager:", MANAGER_ADDRESS);
         console.log("");
 
         // Validate configuration
         require(EXISTING_GOVERNOR != address(0), "Governor not set");
-        require(MANAGER_ADDRESS != address(0), "Manager not set");
         require(L2_SAFE_1 != address(0), "L2 Safe 1 not set");
         require(L2_SAFE_2 != address(0), "L2 Safe 2 not set");
         require(L2_SAFE_3 != address(0), "L2 Safe 3 not set");
@@ -101,12 +98,11 @@ contract RedeployTimelock is Script {
         console.log("Granted PROPOSER_ROLE to Governor");
 
         // Grant canceller roles
-        timelock.grantRole(CANCELLER_ROLE, MANAGER_ADDRESS);
         timelock.grantRole(CANCELLER_ROLE, EXISTING_GOVERNOR);
         timelock.grantRole(CANCELLER_ROLE, L2_SAFE_1);
         timelock.grantRole(CANCELLER_ROLE, L2_SAFE_2);
         timelock.grantRole(CANCELLER_ROLE, L2_SAFE_3);
-        console.log("Granted CANCELLER_ROLE to Manager, Governor, and L2 Safes");
+        console.log("Granted CANCELLER_ROLE to Governor, and L2 Safes");
 
         // Grant admin role to timelock itself for self-administration
         timelock.grantRole(TIMELOCK_ADMIN_ROLE, address(timelock));
@@ -125,7 +121,6 @@ contract RedeployTimelock is Script {
         console.log("PROPOSER_ROLE:");
         console.log("  - Governor: %s", timelock.hasRole(PROPOSER_ROLE, EXISTING_GOVERNOR));
         console.log("CANCELLER_ROLE:");
-        console.log("  - Manager: %s", timelock.hasRole(CANCELLER_ROLE, MANAGER_ADDRESS));
         console.log("  - Governor: %s", timelock.hasRole(CANCELLER_ROLE, EXISTING_GOVERNOR));
         console.log("  - L2 Safe 1: %s", timelock.hasRole(CANCELLER_ROLE, L2_SAFE_1));
         console.log("  - L2 Safe 2: %s", timelock.hasRole(CANCELLER_ROLE, L2_SAFE_2));
