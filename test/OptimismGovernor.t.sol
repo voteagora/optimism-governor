@@ -96,7 +96,6 @@ contract OptimismGovernorTest is Test {
     error InvalidEmptyProposal();
     error InvalidVotesBelowThreshold();
     error InvalidProposalExists();
-    error InvalidTimelock();
     error NotManagerOrTimelock();
     error NotValidProposer();
 
@@ -1965,6 +1964,7 @@ contract CancelWithOptimisticModule is OptimismGovernorTest {
 
 contract UpdateTimelock is OptimismGovernorTest {
     function testFuzz_UpdateTimelock(uint256 _elapsedAfterQueuing, address _newTimelock) public {
+        vm.assume(_newTimelock != address(0));
         _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
@@ -2005,10 +2005,38 @@ contract UpdateTimelock is OptimismGovernorTest {
         governor.updateTimelock(TimelockControllerUpgradeable(payable(_newTimelock)));
     }
 
-    function test_RevertIf_TimelockIsZero() public {
-        vm.prank(governor.timelock());
-        vm.expectRevert();
-        governor.updateTimelock(TimelockControllerUpgradeable(payable(address(0))));
+    function testFuzz_RevertIf_TimelockIsZero(uint256 _elapsedAfterQueuing) public {
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
+        vm.prank(minter);
+        govToken.mint(address(this), 1e30);
+        govToken.delegate(address(this));
+        vm.deal(address(manager), 100 ether);
+
+        address[] memory targets = new address[](1);
+        targets[0] = address(governor);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSelector(governor.updateTimelock.selector, address(0));
+
+        vm.startPrank(manager);
+        governor.setVotingDelay(0);
+        governor.setVotingPeriod(14);
+
+        vm.stopPrank();
+        vm.prank(manager);
+        uint256 proposalId = governor.propose(targets, values, calldatas, "Test");
+
+        vm.roll(block.number + 1);
+        governor.castVote(proposalId, 1);
+        vm.roll(block.number + 14);
+
+        vm.prank(manager);
+        governor.queue(targets, values, calldatas, keccak256("Test"));
+        vm.warp(block.timestamp + _elapsedAfterQueuing);
+
+        vm.prank(manager);
+        vm.expectRevert(address(governor));
+        governor.execute(targets, values, calldatas, keccak256("Test"));
     }
 }
 
