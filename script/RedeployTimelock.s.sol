@@ -91,21 +91,12 @@ contract RedeployTimelock is Script {
     function _setupRoles(TimelockControllerUpgradeable timelock) internal {
         console.log("========== SETTING UP ROLES ==========");
 
-        // Grant proposer role to governor
-        timelock.grantRole(PROPOSER_ROLE, EXISTING_GOVERNOR);
-        console.log("Granted PROPOSER_ROLE to Governor");
-
         // Grant canceller roles
         timelock.grantRole(CANCELLER_ROLE, MANAGER_ADDRESS);
-        timelock.grantRole(CANCELLER_ROLE, EXISTING_GOVERNOR);
         timelock.grantRole(CANCELLER_ROLE, L2_SAFE_1);
         timelock.grantRole(CANCELLER_ROLE, L2_SAFE_2);
         timelock.grantRole(CANCELLER_ROLE, L2_SAFE_3);
         console.log("Granted CANCELLER_ROLE to Manager, Governor, and L2 Safes");
-
-        // Grant admin role to timelock itself for self-administration
-        timelock.grantRole(TIMELOCK_ADMIN_ROLE, address(timelock));
-        console.log("Granted TIMELOCK_ADMIN_ROLE to Timelock (self)");
 
         console.log("");
     }
