@@ -66,7 +66,7 @@ contract OptimismGovernor is
     event ProposalTypeUpdated(uint256 indexed proposalId, uint8 proposalType);
     event ManagerSet(address indexed oldManager, address indexed newManager);
     event ProposalDeadlineUpdated(uint256 proposalId, uint64 deadline);
-    event TimelockChange(address oldTimelock, address newTimelock);
+    event TimelockChange(address indexed oldTimelock, address indexed newTimelock);
     event ProposalQueued(uint256 proposalId, uint256 eta);
     event AuthorizedProposerSet(address indexed oldAuthorizedProposer, address indexed newAuthorizedProposer);
 
@@ -81,9 +81,11 @@ contract OptimismGovernor is
     error InvalidEmptyProposal();
     error InvalidProposalExists();
     error InvalidVoteType();
+    error InvalidTimelock();
     error NotManagerOrTimelock();
     error NotAlligator();
     error NotValidProposer();
+    error ProposerAlreadySet();
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -322,6 +324,7 @@ contract OptimismGovernor is
      * @param _newAuthorizedProposer The new authorized proposer address.
      */
     function setAuthorizedProposer(address _newAuthorizedProposer) external onlyManagerOrTimelock {
+        if (authorizedProposer == _newAuthorizedProposer) revert ProposerAlreadySet();
         emit AuthorizedProposerSet(authorizedProposer, _newAuthorizedProposer);
         authorizedProposer = _newAuthorizedProposer;
     }
@@ -333,6 +336,7 @@ contract OptimismGovernor is
      * CAUTION: It is not recommended to change the timelock while there are other queued governance proposals.
      */
     function updateTimelock(TimelockControllerUpgradeable newTimelock) external virtual onlyGovernance {
+        if (address(newTimelock) == address(0)) revert InvalidTimelock();
         emit TimelockChange(address(_timelock), address(newTimelock));
         _timelock = newTimelock;
     }
@@ -786,7 +790,7 @@ contract OptimismGovernor is
      * @dev Returns the current version of the governor.
      */
     function VERSION() public pure virtual returns (uint256) {
-        return 4;
+        return 5;
     }
 
     /*//////////////////////////////////////////////////////////////
