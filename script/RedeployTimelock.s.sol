@@ -66,12 +66,7 @@ contract RedeployTimelock is Script {
         // 2. Setup roles
         _setupRoles(newTimelock);
 
-        // 3. Update governor to use new timelock
-        OptimismGovernor governor = OptimismGovernor(payable(EXISTING_GOVERNOR));
-        governor.updateTimelock(newTimelock);
-        console.log("Governor updated with new timelock");
-
-        // 4. Renounce deployer admin role
+        // 3. Renounce deployer admin role
         newTimelock.renounceRole(TIMELOCK_ADMIN_ROLE, deployer);
         console.log("Renounced TIMELOCK_ADMIN_ROLE from deployer");
 
