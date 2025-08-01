@@ -98,6 +98,7 @@ contract OptimismGovernorTest is Test {
     error InvalidProposalExists();
     error NotManagerOrTimelock();
     error NotValidProposer();
+    error ProposerAlreadySet();
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -384,6 +385,7 @@ contract Propose is OptimismGovernorTest {
         public
         virtual
     {
+        vm.assume(_authorizedProposer != proxyAdmin);
         _proposalThreshold = bound(_proposalThreshold, 0, type(uint208).max);
         // Set the authorized proposer to a random address and the proposal threshold
         vm.prank(manager);
@@ -539,6 +541,7 @@ contract ProposeWithModule is OptimismGovernorTest {
         public
         virtual
     {
+        vm.assume(_authorizedProposer != proxyAdmin);
         _proposalThreshold = bound(_proposalThreshold, 0, type(uint208).max);
         // Set the authorized proposer to a random address and the proposal threshold
         vm.prank(manager);
@@ -2415,6 +2418,16 @@ contract SetAuthorizedProposer is OptimismGovernorTest {
         vm.expectRevert(NotManagerOrTimelock.selector);
         governor.setAuthorizedProposer(_newAuthorizedProposer);
     }
+
+    function testFuzz_RevertIf_ProposerAlreadySet(address _newAuthorizedProposer, uint256 _actorSeed) public {
+        vm.startPrank(_managerOrTimelock(_actorSeed));
+
+        governor.setAuthorizedProposer(_newAuthorizedProposer);
+
+        vm.expectRevert(ProposerAlreadySet.selector);
+        governor.setAuthorizedProposer(_newAuthorizedProposer);
+        vm.stopPrank();
+    }
 }
 
 contract UpgradeTo is OptimismGovernorTest {
@@ -2482,7 +2495,7 @@ contract UpgradeToLive is OptimismGovernorTest {
         assertEq(TransparentUpgradeableProxy(payable(address(governorProxyOP))).implementation(), _newImplementation);
         vm.stopPrank();
         assertEq(governorProxyOP.authorizedProposer(), governorProxyOP.manager());
-        assertEq(governorProxyOP.VERSION(), 4);
+        assertEq(governorProxyOP.VERSION(), 5);
         assertEq(address(governorProxyOP.alligator()), 0x7f08F3095530B67CdF8466B7a923607944136Df0);
         assertEq(address(governorProxyOP.VOTABLE_SUPPLY_ORACLE()), 0x1b7CA7437748375302bAA8954A2447fC3FBE44CC);
         assertEq(address(governorProxyOP.PROPOSAL_TYPES_CONFIGURATOR()), address(_newProposalTypesConfigurator));
@@ -2550,7 +2563,7 @@ contract UpgradeToLive is OptimismGovernorTest {
         );
 
         assertEq(governorProxyOP.authorizedProposer(), governorProxyOP.manager());
-        assertEq(governorProxyOP.VERSION(), 4);
+        assertEq(governorProxyOP.VERSION(), 5);
         address managerOfGovernor = governorProxyOP.manager();
         address[] memory targets = new address[](1);
         targets[0] = address(targetFake);

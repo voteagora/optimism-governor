@@ -66,7 +66,7 @@ contract OptimismGovernor is
     event ProposalTypeUpdated(uint256 indexed proposalId, uint8 proposalType);
     event ManagerSet(address indexed oldManager, address indexed newManager);
     event ProposalDeadlineUpdated(uint256 proposalId, uint64 deadline);
-    event TimelockChange(address oldTimelock, address newTimelock);
+    event TimelockChange(address indexed oldTimelock, address indexed newTimelock);
     event ProposalQueued(uint256 proposalId, uint256 eta);
     event AuthorizedProposerSet(address indexed oldAuthorizedProposer, address indexed newAuthorizedProposer);
 
@@ -85,6 +85,7 @@ contract OptimismGovernor is
     error NotManagerOrTimelock();
     error NotAlligator();
     error NotValidProposer();
+    error ProposerAlreadySet();
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -323,6 +324,7 @@ contract OptimismGovernor is
      * @param _newAuthorizedProposer The new authorized proposer address.
      */
     function setAuthorizedProposer(address _newAuthorizedProposer) external onlyManagerOrTimelock {
+        if (authorizedProposer == _newAuthorizedProposer) revert ProposerAlreadySet();
         emit AuthorizedProposerSet(authorizedProposer, _newAuthorizedProposer);
         authorizedProposer = _newAuthorizedProposer;
     }
@@ -379,7 +381,7 @@ contract OptimismGovernor is
     }
 
     /**
-     * @notice Propose a new proposal. Only the authorized proposer, manager or an address with votes above the proposal threshold can propose.
+     * @notice Propose a new proposal. Only the authorized proposer, manager, and timelock can propose ignoring the proposal threshold.
      * See {IGovernor-propose}.
      * @dev Updated version of `propose` in which `proposalType` is set and checked.
      */
@@ -390,7 +392,7 @@ contract OptimismGovernor is
         string memory description,
         uint8 proposalType
     ) public virtual onlyValidProposer returns (uint256 proposalId) {
-        // Only manager or timelock can propose, so this check can be skipped (otherwise stack too deep issues)
+        // Only authorized proposer, manager, or timelock can propose, so this check can be skipped (otherwise stack too deep issues)
         // address proposer = _msgSender();
         // if (proposer != manager && getVotes(proposer, block.number - 1) < proposalThreshold()) {
         //     revert InvalidVotesBelowThreshold();
@@ -436,8 +438,7 @@ contract OptimismGovernor is
     }
 
     /**
-     * @notice Propose a new proposal using a custom voting module. Only the authorized proposer, manager or an address with votes above the
-     * proposal threshold can propose.
+     * @notice Propose a new proposal using a custom voting module. Only the authorized proposer, manager, and timelock can propose ignoring the proposal threshold.
      * @param module The address of the voting module to use for this proposal.
      * @param proposalData The proposal data to pass to the voting module.
      * @param description The description of the proposal.
@@ -452,9 +453,11 @@ contract OptimismGovernor is
         uint8 proposalType
     ) public virtual onlyValidProposer returns (uint256 proposalId) {
         address proposer = _msgSender();
-        if (proposer != manager && proposer != authorizedProposer) {
-            if (getVotes(proposer, block.number - 1) < proposalThreshold()) revert InvalidVotesBelowThreshold();
-        }
+
+        // Only authorized proposer, manager, or timelock can propose, so this check can be skipped (otherwise stack too deep issues)
+        // if (proposer != manager && proposer != authorizedProposer) {
+        // if (getVotes(proposer, block.number - 1) < proposalThreshold()) revert InvalidVotesBelowThreshold();
+        // }
 
         require(approvedModules[address(module)], "Governor: module not approved");
 
@@ -799,7 +802,7 @@ contract OptimismGovernor is
      * @dev Returns the current version of the governor.
      */
     function VERSION() public pure virtual returns (uint256) {
-        return 4;
+        return 5;
     }
 
     /*//////////////////////////////////////////////////////////////
