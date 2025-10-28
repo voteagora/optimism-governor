@@ -5,3 +5,4 @@ forge-std/=lib/forge-std/src/
 @solady/=lib/solady/src
 upgrade-scripts/=lib/upgrade-scripts/src/
 UDS/=lib/upgrade-scripts/lib/UDS/src/
+@permissionless-proposals/=lib/optimism/packages/contracts-bedrock/

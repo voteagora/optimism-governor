@@ -6,6 +6,7 @@ optimizer       = true                                  # Enable or disable the 
 optimizer_runs  = 200                                   # The number of optimizer runs
 fs_permissions  = [{ access = "read", path = "./"}]     # Gives permission to read files for enviroment files.
 fail_on_revert = false                                  # Not fail the test if the contract reverts
+solc = "0.8.29"
 
 [fuzz]
 runs           = 2000       # The number of times to run the fuzzing tests
