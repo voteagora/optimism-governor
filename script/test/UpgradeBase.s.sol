@@ -57,15 +57,13 @@ abstract contract UpgradeBase is Script {
             govProxy.upgradeTo(governorImplementation);
         }
 
-        /*
         governor.reinitialize(
             address(alligator), // Alligator
             address(oracle), // VotableSupplyOracle
             address(ptc), // ProposalTypesConfigurator
             timelock // Timelock
-            /* address authorizedProposer
+            address(0)
         );
-        */
 
         vm.stopBroadcast();
     }
