@@ -24,7 +24,7 @@ jobs:
         run: forge install
 
       - name: Check contract sizes
-        run: forge build --sizes --skip test
+        run: forge build --sizes --skip '*/test/*'
         id: build
 
       - name: Run tests
