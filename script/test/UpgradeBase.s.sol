@@ -61,8 +61,8 @@ abstract contract UpgradeBase is Script {
             address(alligator), // Alligator
             address(oracle), // VotableSupplyOracle
             address(ptc), // ProposalTypesConfigurator
-            timelock // Timelock
-            address(0)
+            timelock, // Timelock
+            address(0) // Authorized Proposer
         );
 
         vm.stopBroadcast();
