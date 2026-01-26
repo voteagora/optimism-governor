@@ -83,6 +83,7 @@ contract OptimismGovernorTest is Test {
     event ProposalExecuted(uint256 proposalId);
     event ProposalTypeUpdated(uint256 indexed proposalId, uint8 proposalType);
     event ManagerSet(address indexed oldManager, address indexed newManager);
+    event AuthorizedProposerSet(address indexed oldAuthorizedProposer, address indexed newAuthorizedProposer);
 
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -93,9 +94,10 @@ contract OptimismGovernorTest is Test {
     error InvalidProposedTxForType();
     error InvalidProposalLength();
     error InvalidEmptyProposal();
-    error InvalidVotesBelowThreshold();
     error InvalidProposalExists();
     error NotManagerOrTimelock();
+    error NotValidProposer();
+    error ProposerAlreadySet();
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -106,6 +108,7 @@ contract OptimismGovernorTest is Test {
     VotableSupplyOracle internal votableSupplyOracle;
     Timelock public timelock;
     ExecutionTargetFake public targetFake;
+    address internal authorizedProposer = makeAddr("authorizedProposer");
     address internal proxyAdmin = makeAddr("proxyAdmin");
     address internal manager = makeAddr("manager");
     address internal minter = makeAddr("minter");
@@ -175,6 +178,7 @@ contract OptimismGovernorTest is Test {
 
         // do manager stuff
         vm.startPrank(manager);
+        governor.setAuthorizedProposer(authorizedProposer);
         governor.setModuleApproval(address(module), true);
         governor.setModuleApproval(address(optimisticModule), true);
         proposalTypesConfigurator.setProposalType(0, 3_000, 5_000, "Default", "Lorem Ipsum", address(0));
@@ -255,6 +259,11 @@ contract OptimismGovernorTest is Test {
         else return governor.timelock();
     }
 
+    function _validProposer(uint256 _actorSeed) internal view returns (address) {
+        if (_actorSeed % 2 == 1) return manager;
+        else return authorizedProposer;
+    }
+
     function _createValidProposal() internal returns (uint256) {
         address[] memory targets = new address[](1);
         targets[0] = address(targetFake);
@@ -321,46 +330,12 @@ contract Initialize is OptimismGovernorTest {
 }
 
 contract Propose is OptimismGovernorTest {
-    function testFuzz_CreatesProposalWhenThresholdIsMet(
-        address _actor,
-        uint256 _proposalThreshold,
-        uint256 _actorBalance
-    ) public virtual {
-        _actor = manager;
-        _proposalThreshold = bound(_proposalThreshold, 0, type(uint208).max);
-        _actorBalance = bound(_actorBalance, _proposalThreshold, type(uint208).max);
+    function testFuzz_CreatesProposalAsManager() public virtual {
         address[] memory targets = new address[](1);
         targets[0] = address(this);
         uint256[] memory values = new uint256[](1);
         bytes[] memory calldatas = new bytes[](1);
         calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
-
-        vm.prank(manager);
-        governor.setProposalThreshold(_proposalThreshold);
-
-        // Give actor enough tokens to meet proposal threshold.
-        vm.prank(minter);
-        govToken.mint(_actor, _actorBalance);
-        vm.startPrank(_actor);
-        govToken.delegate(_actor);
-        vm.roll(vm.getBlockNumber() + 1);
-
-        uint256 proposalId;
-        proposalId = governor.propose(targets, values, calldatas, "Test", 0);
-        vm.stopPrank();
-        assertGt(governor.proposalSnapshot(proposalId), 0);
-    }
-
-    function testFuzz_CreatesProposalAsManager(uint256 _proposalThreshold) public virtual {
-        _proposalThreshold = bound(_proposalThreshold, 0, type(uint208).max);
-        address[] memory targets = new address[](1);
-        targets[0] = address(this);
-        uint256[] memory values = new uint256[](1);
-        bytes[] memory calldatas = new bytes[](1);
-        calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
-
-        vm.prank(manager);
-        governor.setProposalThreshold(_proposalThreshold);
 
         uint256 proposalId;
         vm.prank(manager);
@@ -368,7 +343,28 @@ contract Propose is OptimismGovernorTest {
         assertGt(governor.proposalSnapshot(proposalId), 0);
     }
 
-    function testRevert_WithType_InvalidProposalType() public virtual {
+    function testFuzz_CreatesProposalAsAuthorizedProposer(address _authorizedProposer) public virtual {
+        // Set the authorized proposer to a random address
+        vm.prank(manager);
+        governor.setAuthorizedProposer(_authorizedProposer);
+
+        // Set dummy proposal data
+        address[] memory targets = new address[](1);
+        targets[0] = address(this);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
+
+        // Propose as the authorized proposer
+        uint256 proposalId;
+        vm.prank(_authorizedProposer);
+        proposalId = governor.propose(targets, values, calldatas, "Test", 0);
+
+        // Assert the proposal was created
+        assertGt(governor.proposalSnapshot(proposalId), 0);
+    }
+
+    function testRevert_WithType_InvalidProposalType(uint256 _actorSeed) public virtual {
         address[] memory targets = new address[](1);
         targets[0] = address(this);
         uint256[] memory values = new uint256[](1);
@@ -376,75 +372,46 @@ contract Propose is OptimismGovernorTest {
         calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
         uint8 invalidPropType = 3;
 
-        vm.prank(manager);
+        vm.prank(_validProposer(_actorSeed));
         vm.expectRevert(abi.encodeWithSelector(InvalidProposalType.selector, invalidPropType));
         governor.propose(targets, values, calldatas, "Test", invalidPropType);
     }
 
-    function testRevert_proposalAlreadyCreated() public virtual {
+    function testRevert_proposalAlreadyCreated(uint256 _actorSeed) public virtual {
         address[] memory targets = new address[](1);
         targets[0] = address(this);
         uint256[] memory values = new uint256[](1);
         bytes[] memory calldatas = new bytes[](1);
         calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
 
-        vm.startPrank(manager);
+        vm.startPrank(_validProposer(_actorSeed));
         governor.propose(targets, values, calldatas, "Test", 0);
 
         vm.expectRevert(InvalidProposalExists.selector);
         governor.propose(targets, values, calldatas, "Test", 0);
         vm.stopPrank();
     }
+
+    function testFuzz_RevertIf_NotValidProposer(address _caller) public virtual {
+        // Assume the actor is not the authorized proposer or manager
+        vm.assume(_caller != authorizedProposer && _caller != manager && _caller != proxyAdmin);
+
+        // Create dummy proposal data
+        address[] memory targets = new address[](1);
+        targets[0] = address(this);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
+
+        // Call propose
+        vm.expectRevert(NotValidProposer.selector);
+        vm.prank(_caller);
+        governor.propose(targets, values, calldatas, "Test", 0);
+    }
 }
 
 contract ProposeWithModule is OptimismGovernorTest {
-    function testFuzz_CreatesProposalWhenProposalThresholdMet(
-        address _actor,
-        uint256 _proposalThreshold,
-        uint256 _actorBalance
-    ) public virtual {
-        _actor = manager;
-        _proposalThreshold = bound(_proposalThreshold, 0, type(uint208).max);
-        _actorBalance = bound(_actorBalance, _proposalThreshold, type(uint208).max);
-        uint8 _proposalType = 1;
-
-        vm.prank(manager);
-        governor.setProposalThreshold(_proposalThreshold);
-
-        // Give actor enough tokens to meet proposal threshold.
-        vm.prank(minter);
-        govToken.mint(_actor, _actorBalance);
-        vm.startPrank(_actor);
-        govToken.delegate(_actor);
-        vm.roll(vm.getBlockNumber() + 1);
-
-        uint256 snapshot = block.number + governor.votingDelay();
-        uint256 deadline = snapshot + governor.votingPeriod();
-        bytes memory proposalData = _formatProposalData(0);
-        uint256 proposalId =
-            governor.hashProposalWithModule(address(module), proposalData, keccak256(bytes(description)));
-
-        vm.expectEmit();
-        emit ProposalCreated(
-            proposalId, _actor, address(module), proposalData, snapshot, deadline, description, _proposalType
-        );
-        if (_proposalType > 0) {
-            governor.proposeWithModule(VotingModule(module), proposalData, description, _proposalType);
-        } else {
-            governor.proposeWithModule(VotingModule(module), proposalData, description, 0);
-        }
-        vm.stopPrank();
-
-        assertEq(governor.proposals(proposalId).proposalType, _proposalType);
-        assertEq(governor.proposalSnapshot(proposalId), snapshot);
-        assertEq(governor.proposalDeadline(proposalId), deadline);
-        assertEq(uint8(governor.state(proposalId)), uint8(IGovernorUpgradeable.ProposalState.Pending));
-    }
-
-    function testFuzz_CreatesProposalWhenManager(uint256 _proposalThreshold) public virtual {
-        _proposalThreshold = bound(_proposalThreshold, 0, type(uint208).max);
-        vm.prank(manager);
-        governor.setProposalThreshold(_proposalThreshold);
+    function testFuzz_CreatesProposalWhenManager() public virtual {
         uint8 _proposalType = 1;
         vm.startPrank(manager);
 
@@ -471,19 +438,52 @@ contract ProposeWithModule is OptimismGovernorTest {
         assertEq(uint8(governor.state(proposalId)), uint8(IGovernorUpgradeable.ProposalState.Pending));
     }
 
-    function test_RevertIf_InvalidProposalType() public virtual {
+    function testFuzz_CreatesProposalAsAuthorizedProposer(address _authorizedProposer) public virtual {
+        // Set the authorized proposer to a random address
+        vm.prank(manager);
+        governor.setAuthorizedProposer(_authorizedProposer);
+
+        uint8 _proposalType = 1;
+        uint256 snapshot = block.number + governor.votingDelay();
+        uint256 deadline = snapshot + governor.votingPeriod();
+        bytes memory proposalData = _formatProposalData(0);
+        // Calculate the proposal id
+        uint256 proposalId =
+            governor.hashProposalWithModule(address(module), proposalData, keccak256(bytes(description)));
+        vm.expectEmit();
+        emit ProposalCreated(
+            proposalId,
+            _authorizedProposer,
+            address(module),
+            proposalData,
+            snapshot,
+            deadline,
+            description,
+            _proposalType
+        );
+        // Propose as the authorized proposer
+        vm.prank(_authorizedProposer);
+        governor.proposeWithModule(VotingModule(module), proposalData, description, _proposalType);
+
+        assertEq(governor.proposals(proposalId).proposalType, _proposalType);
+        assertEq(governor.proposalSnapshot(proposalId), snapshot);
+        assertEq(governor.proposalDeadline(proposalId), deadline);
+        assertEq(uint8(governor.state(proposalId)), uint8(IGovernorUpgradeable.ProposalState.Pending));
+    }
+
+    function test_RevertIf_InvalidProposalType(uint256 _actorSeed) public virtual {
         bytes memory proposalData = _formatProposalData(0);
         uint8 invalidPropType = 3;
 
-        vm.prank(manager);
+        vm.prank(_validProposer(_actorSeed));
         vm.expectRevert(abi.encodeWithSelector(InvalidProposalType.selector, invalidPropType));
         governor.proposeWithModule(VotingModule(module), proposalData, description, invalidPropType);
     }
 
-    function test_ProposalTypeModuleAddress() public virtual {
+    function test_ProposalTypeModuleAddress(uint256 _actorSeed) public virtual {
         bytes memory proposalData = _formatProposalData(2);
 
-        vm.startPrank(manager);
+        vm.startPrank(_validProposer(_actorSeed));
         vm.expectRevert(abi.encodeWithSelector(InvalidProposalType.selector, 2));
         governor.proposeWithModule(VotingModule(module), proposalData, description, 2);
 
@@ -497,10 +497,10 @@ contract ProposeWithModule is OptimismGovernorTest {
         vm.stopPrank();
     }
 
-    function test_RevertIf_ProposalAlreadyCreated() public virtual {
+    function test_RevertIf_ProposalAlreadyCreated(uint256 _actorSeed) public virtual {
         bytes memory proposalData = _formatProposalData(0);
 
-        vm.startPrank(manager);
+        vm.startPrank(_validProposer(_actorSeed));
         governor.proposeWithModule(VotingModule(module), proposalData, description, 1);
 
         vm.expectRevert(InvalidProposalExists.selector);
@@ -508,13 +508,25 @@ contract ProposeWithModule is OptimismGovernorTest {
         vm.stopPrank();
     }
 
-    function test_RevertIf_ModuleNotApproved() public virtual {
+    function test_RevertIf_ModuleNotApproved(uint256 _actorSeed) public virtual {
         bytes memory proposalData = _formatProposalData(0);
         address module_ = makeAddr("module");
 
-        vm.prank(manager);
+        vm.prank(_validProposer(_actorSeed));
         vm.expectRevert("Governor: module not approved");
         governor.proposeWithModule(VotingModule(module_), proposalData, description, 0);
+    }
+
+    function testFuzz_RevertIf_NotValidProposer(address _caller) public virtual {
+        // Assume the actor is not the authorized proposer or manager
+        vm.assume(_caller != authorizedProposer && _caller != manager);
+
+        bytes memory proposalData = _formatProposalData(0);
+        address module = makeAddr("module");
+
+        vm.prank(_caller);
+        vm.expectRevert(NotValidProposer.selector);
+        governor.proposeWithModule(VotingModule(module), proposalData, description, 0);
     }
 }
 
@@ -797,7 +809,7 @@ contract Queue is OptimismGovernorTest {
         uint256 _proposalTargetCalldata,
         uint256 _elapsedAfterQueuing
     ) public {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
         govToken.delegate(address(this));
@@ -831,7 +843,7 @@ contract Queue is OptimismGovernorTest {
         uint256 _proposalTargetCalldata,
         uint256 _elapsedAfterQueuing
     ) public {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.assume(_actor != proxyAdmin);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
@@ -865,7 +877,7 @@ contract Queue is OptimismGovernorTest {
         uint256 _proposalTargetCalldata,
         uint256 _elapsedAfterQueuing
     ) public {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
         govToken.delegate(address(this));
@@ -893,7 +905,7 @@ contract Queue is OptimismGovernorTest {
     function testFuzz_RevertIf_ProposalAlreadyQueued(uint256 _proposalTargetCalldata, uint256 _elapsedAfterQueuing)
         public
     {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
         govToken.delegate(address(this));
@@ -936,7 +948,7 @@ contract QueueWithModule is OptimismGovernorTest {
         uint256 _elapsedAfterQueuing
     ) public {
         _mintAndDelegate(_voter, 100e18);
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         uint256 snapshot = block.number + governor.votingDelay();
         uint256 deadline = snapshot + governor.votingPeriod();
@@ -973,7 +985,7 @@ contract QueueWithModule is OptimismGovernorTest {
     ) public {
         vm.assume(_actor != proxyAdmin);
         _mintAndDelegate(_voter, 100e18);
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         uint256 snapshot = block.number + governor.votingDelay();
         uint256 deadline = snapshot + governor.votingPeriod();
@@ -1006,7 +1018,7 @@ contract QueueWithModule is OptimismGovernorTest {
         uint256 _proposalTargetCalldata,
         uint256 _elapsedAfterQueuing
     ) public {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         vm.deal(address(manager), 100 ether);
 
@@ -1024,7 +1036,7 @@ contract QueueWithModule is OptimismGovernorTest {
         uint256 _proposalTargetCalldata,
         uint256 _elapsedAfterQueuing
     ) public {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         _mintAndDelegate(_voter, 100e18);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         uint256 snapshot = block.number + governor.votingDelay();
@@ -1065,7 +1077,7 @@ contract QueueWithOptimisticModule is OptimismGovernorTest {
         bytes memory proposalData = abi.encode(OptimisticProposalSettings(1200, false));
 
         vm.startPrank(_actor);
-        uint256 proposalId = governor.proposeWithModule(optimisticModule, proposalData, description, 2);
+        governor.proposeWithModule(optimisticModule, proposalData, description, 2);
         vm.roll(deadline + 1);
         vm.expectRevert(OptimisticModule.OptimisticModuleOnlySignal.selector);
         governor.queueWithModule(optimisticModule, proposalData, keccak256(bytes(description)));
@@ -1077,7 +1089,7 @@ contract Execute is OptimismGovernorTest {
         public
         virtual
     {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
         govToken.delegate(address(this));
@@ -1118,7 +1130,7 @@ contract Execute is OptimismGovernorTest {
         uint256 _proposalTargetCalldata,
         uint256 _elapsedAfterQueuing
     ) public virtual {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.assume(_actor != proxyAdmin);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
@@ -1245,7 +1257,7 @@ contract Execute is OptimismGovernorTest {
     function testFuzz_RevertIf_ProposalAlreadyExecuted(uint256 _proposalTargetCalldata, uint256 _elapsedAfterQueuing)
         public
     {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
         govToken.delegate(address(this));
@@ -1289,7 +1301,7 @@ contract ExecuteWithModule is OptimismGovernorTest {
         uint256 _proposalTargetCalldata,
         uint256 _elapsedAfterQueuing
     ) public virtual {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         _mintAndDelegate(_voter, 100e18);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         uint256 snapshot = block.number + governor.votingDelay();
@@ -1331,7 +1343,7 @@ contract ExecuteWithModule is OptimismGovernorTest {
         uint256 _elapsedAfterQueuing
     ) public virtual {
         vm.assume(_actor != proxyAdmin);
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         _mintAndDelegate(_voter, 100e18);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         uint256 snapshot = block.number + governor.votingDelay();
@@ -1453,7 +1465,7 @@ contract ExecuteWithModule is OptimismGovernorTest {
         uint256 _proposalTargetCalldata,
         uint256 _elapsedAfterQueuing
     ) public {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         _mintAndDelegate(_voter, 100e18);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         uint256 snapshot = block.number + governor.votingDelay();
@@ -1491,13 +1503,13 @@ contract ExecuteWithModule is OptimismGovernorTest {
 
 contract ExecuteWithOptimisticModule is OptimismGovernorTest {
     function testFuzz_RevertIf_ExecutesAProposalSuccessfully(uint256 _elapsedAfterQueuing) public {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         uint256 snapshot = block.number + governor.votingDelay();
         uint256 deadline = snapshot + governor.votingPeriod();
         bytes memory proposalData = abi.encode(OptimisticProposalSettings(1200, false));
 
         vm.startPrank(manager);
-        uint256 proposalId = governor.proposeWithModule(optimisticModule, proposalData, description, 2);
+        governor.proposeWithModule(optimisticModule, proposalData, description, 2);
         vm.roll(deadline + 1);
         vm.expectRevert();
         governor.executeWithModule(optimisticModule, proposalData, keccak256(bytes(description)));
@@ -1510,7 +1522,7 @@ contract Cancel is OptimismGovernorTest {
         uint256 _elapsedAfterQueuing,
         uint256 _actorSeed
     ) public virtual {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
         govToken.delegate(address(this));
@@ -1548,7 +1560,7 @@ contract Cancel is OptimismGovernorTest {
         uint256 _elapsedAfterQueuing,
         uint256 _actorSeed
     ) public virtual {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
         govToken.delegate(address(this));
@@ -1614,7 +1626,7 @@ contract Cancel is OptimismGovernorTest {
         uint256 _elapsedAfterQueuing,
         uint256 _actorSeed
     ) public virtual {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
         govToken.delegate(address(this));
@@ -1670,7 +1682,7 @@ contract CancelWithModule is OptimismGovernorTest {
         uint256 _elapsedAfterQueuing,
         uint256 _actorSeed
     ) public virtual {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         _mintAndDelegate(_voter, 100e18);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         uint256 snapshot = block.number + governor.votingDelay();
@@ -1706,7 +1718,7 @@ contract CancelWithModule is OptimismGovernorTest {
         uint256 _elapsedAfterQueuing,
         uint256 _actorSeed
     ) public virtual {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         _mintAndDelegate(_voter, 100e18);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         uint256 snapshot = block.number + governor.votingDelay();
@@ -1761,7 +1773,7 @@ contract CancelWithModule is OptimismGovernorTest {
         uint256 _elapsedAfterQueuing,
         uint256 _actorSeed
     ) public virtual {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         _mintAndDelegate(_voter, 100e18);
         bytes memory proposalData = _formatProposalData(_proposalTargetCalldata);
         uint256 snapshot = block.number + governor.votingDelay();
@@ -1824,11 +1836,11 @@ contract CancelWithModule is OptimismGovernorTest {
 
 contract CancelWithOptimisticModule is OptimismGovernorTest {
     function testFuzz_CancelsAProposalSuccessfully(uint256 _elapsedAfterQueuing, uint256 _actorSeed) public {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         uint256 snapshot = block.number + governor.votingDelay();
         uint256 deadline = snapshot + governor.votingPeriod();
         bytes memory proposalData = abi.encode(OptimisticProposalSettings(1200, false));
-        vm.prank(_managerOrTimelock(_actorSeed));
+        vm.prank(_validProposer(_actorSeed));
         uint256 proposalId = governor.proposeWithModule(optimisticModule, proposalData, description, 2);
         vm.roll(deadline + 1);
 
@@ -1842,7 +1854,8 @@ contract CancelWithOptimisticModule is OptimismGovernorTest {
 
 contract UpdateTimelock is OptimismGovernorTest {
     function testFuzz_UpdateTimelock(uint256 _elapsedAfterQueuing, address _newTimelock) public {
-        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, type(uint208).max);
+        vm.assume(_newTimelock != address(0));
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
         vm.prank(minter);
         govToken.mint(address(this), 1e30);
         govToken.delegate(address(this));
@@ -1880,6 +1893,40 @@ contract UpdateTimelock is OptimismGovernorTest {
         vm.prank(_actor);
         vm.expectRevert("Governor: onlyGovernance");
         governor.updateTimelock(TimelockControllerUpgradeable(payable(_newTimelock)));
+    }
+
+    function testFuzz_RevertIf_TimelockIsZero(uint256 _elapsedAfterQueuing) public {
+        _elapsedAfterQueuing = bound(_elapsedAfterQueuing, timelockDelay, 365 days);
+        vm.prank(minter);
+        govToken.mint(address(this), 1e30);
+        govToken.delegate(address(this));
+        vm.deal(address(manager), 100 ether);
+
+        address[] memory targets = new address[](1);
+        targets[0] = address(governor);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSelector(governor.updateTimelock.selector, address(0));
+
+        vm.startPrank(manager);
+        governor.setVotingDelay(0);
+        governor.setVotingPeriod(14);
+
+        vm.stopPrank();
+        vm.prank(manager);
+        uint256 proposalId = governor.propose(targets, values, calldatas, "Test");
+
+        vm.roll(block.number + 1);
+        governor.castVote(proposalId, 1);
+        vm.roll(block.number + 14);
+
+        vm.prank(manager);
+        governor.queue(targets, values, calldatas, keccak256("Test"));
+        vm.warp(block.timestamp + _elapsedAfterQueuing);
+
+        vm.prank(manager);
+        vm.expectRevert(address(governor));
+        governor.execute(targets, values, calldatas, keccak256("Test"));
     }
 }
 
@@ -2061,6 +2108,7 @@ contract EditProposalType is OptimismGovernorTest {
         vm.startPrank(_managerOrTimelock(_actorSeed));
         proposalTypesConfigurator.setProposalType(0, 3_000, 9_910, "Default", "Lorem Ipsum", address(0));
         proposalTypesConfigurator.setProposalType(1, 3_000, 9_910, "Default 2", "Lorem Ipsum 2", address(0));
+        vm.stopPrank();
 
         address[] memory targets = new address[](1);
         targets[0] = address(this);
@@ -2068,16 +2116,16 @@ contract EditProposalType is OptimismGovernorTest {
         bytes[] memory calldatas = new bytes[](1);
         calldatas[0] = abi.encodeWithSelector(this.executeCallback.selector);
 
+        vm.prank(_validProposer(_actorSeed));
         uint256 proposalId = governor.propose(targets, values, calldatas, "Test");
         assertEq(governor.proposals(proposalId).proposalType, 0);
 
         vm.expectEmit();
         emit ProposalTypeUpdated(proposalId, 1);
+        vm.prank(_managerOrTimelock(_actorSeed));
         governor.editProposalType(proposalId, 1);
 
         assertEq(governor.proposals(proposalId).proposalType, 1);
-
-        vm.stopPrank();
     }
 
     function test_RevertIf_NotManagerOrTimelock(address _actor) public virtual {
@@ -2278,6 +2326,33 @@ contract SetManager is OptimismGovernorTest {
     }
 }
 
+contract SetAuthorizedProposer is OptimismGovernorTest {
+    function testFuzz_SetsNewAuthorizedProposer(address _newAuthorizedProposer, uint256 _actorSeed) public {
+        vm.prank(_managerOrTimelock(_actorSeed));
+        vm.expectEmit();
+        emit AuthorizedProposerSet(authorizedProposer, _newAuthorizedProposer);
+        governor.setAuthorizedProposer(_newAuthorizedProposer);
+        assertEq(governor.authorizedProposer(), _newAuthorizedProposer);
+    }
+
+    function testFuzz_RevertIf_NotManager(address _actor, address _newAuthorizedProposer) public {
+        vm.assume(_actor != manager && _actor != governor.timelock() && _actor != proxyAdmin);
+        vm.prank(_actor);
+        vm.expectRevert(NotManagerOrTimelock.selector);
+        governor.setAuthorizedProposer(_newAuthorizedProposer);
+    }
+
+    function testFuzz_RevertIf_ProposerAlreadySet(address _newAuthorizedProposer, uint256 _actorSeed) public {
+        vm.startPrank(_managerOrTimelock(_actorSeed));
+
+        governor.setAuthorizedProposer(_newAuthorizedProposer);
+
+        vm.expectRevert(ProposerAlreadySet.selector);
+        governor.setAuthorizedProposer(_newAuthorizedProposer);
+        vm.stopPrank();
+    }
+}
+
 contract UpgradeTo is OptimismGovernorTest {
     function test_UpgradesToNewImplementationAddress() public {
         address _newImplementation = address(new OptimismGovernor());
@@ -2301,7 +2376,7 @@ contract UpgradeToLive is OptimismGovernorTest {
     address proxyAdminOP = 0x2501c477D0A35545a387Aa4A3EEe4292A9a8B3F0;
 
     function setUp() public override {
-        vm.createSelectFork(vm.rpcUrl("https://mainnet.optimism.io"));
+        vm.createSelectFork(vm.rpcUrl("https://mainnet.optimism.io"), 126844298);
     }
 
     function test_UpgradesToNewImplementationAddress() public {
@@ -2327,6 +2402,7 @@ contract UpgradeToLive is OptimismGovernorTest {
         Timelock timelock = new Timelock();
         timelock.initialize(14, address(governorProxyOP), address(0));
 
+        address _manager = governorProxyOP.manager();
         vm.startPrank(proxyAdminOP);
         TransparentUpgradeableProxy(payable(address(governorProxyOP))).upgradeToAndCall(
             _newImplementation,
@@ -2335,12 +2411,14 @@ contract UpgradeToLive is OptimismGovernorTest {
                 0x7f08F3095530B67CdF8466B7a923607944136Df0,
                 0x1b7CA7437748375302bAA8954A2447fC3FBE44CC,
                 _newProposalTypesConfigurator,
-                TimelockControllerUpgradeable(payable(address(timelock)))
+                TimelockControllerUpgradeable(payable(address(timelock))),
+                _manager
             )
         );
         assertEq(TransparentUpgradeableProxy(payable(address(governorProxyOP))).implementation(), _newImplementation);
         vm.stopPrank();
-        assertEq(governorProxyOP.VERSION(), 4);
+        assertEq(governorProxyOP.authorizedProposer(), governorProxyOP.manager());
+        assertEq(governorProxyOP.VERSION(), 5);
         assertEq(address(governorProxyOP.alligator()), 0x7f08F3095530B67CdF8466B7a923607944136Df0);
         assertEq(address(governorProxyOP.VOTABLE_SUPPLY_ORACLE()), 0x1b7CA7437748375302bAA8954A2447fC3FBE44CC);
         assertEq(address(governorProxyOP.PROPOSAL_TYPES_CONFIGURATOR()), address(_newProposalTypesConfigurator));
@@ -2393,6 +2471,7 @@ contract UpgradeToLive is OptimismGovernorTest {
         Timelock timelock = new Timelock();
         timelock.initialize(14, address(governorProxyOP), address(0));
 
+        address _manager = governorProxyOP.manager();
         vm.prank(proxyAdminOP);
         TransparentUpgradeableProxy(payable(address(governorProxyOP))).upgradeToAndCall(
             _newImplementation,
@@ -2401,11 +2480,13 @@ contract UpgradeToLive is OptimismGovernorTest {
                 0x7f08F3095530B67CdF8466B7a923607944136Df0,
                 0x1b7CA7437748375302bAA8954A2447fC3FBE44CC,
                 _newProposalTypesConfigurator,
-                TimelockControllerUpgradeable(payable(address(timelock)))
+                TimelockControllerUpgradeable(payable(address(timelock))),
+                _manager
             )
         );
 
-        assertEq(governorProxyOP.VERSION(), 4);
+        assertEq(governorProxyOP.authorizedProposer(), governorProxyOP.manager());
+        assertEq(governorProxyOP.VERSION(), 5);
         address managerOfGovernor = governorProxyOP.manager();
         address[] memory targets = new address[](1);
         targets[0] = address(targetFake);
