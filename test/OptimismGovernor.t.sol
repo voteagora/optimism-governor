@@ -439,6 +439,7 @@ contract ProposeWithModule is OptimismGovernorTest {
 
     function testFuzz_CreatesProposalAsAuthorizedProposer(address _authorizedProposer) public virtual {
         // Set the authorized proposer to a random address
+        vm.assume(_authorizedProposer != governor.authorizedProposer());
         vm.prank(manager);
         governor.setAuthorizedProposer(_authorizedProposer);
 
