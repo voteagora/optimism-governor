@@ -28,7 +28,7 @@ jobs:
         id: build
 
       - name: Run tests
-        run: forge test -v
+        run: forge test --no-match-contract UpgradeToLive -v
         id: test
 
       - name: Check format

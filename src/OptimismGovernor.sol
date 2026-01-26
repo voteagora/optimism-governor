@@ -3,8 +3,9 @@ pragma solidity ^0.8.19;
 
 import {GovernorUpgradeableV2} from "./lib/openzeppelin/v2/GovernorUpgradeableV2.sol";
 import {GovernorCountingSimpleUpgradeableV2} from "./lib/openzeppelin/v2/GovernorCountingSimpleUpgradeableV2.sol";
-import {GovernorVotesQuorumFractionUpgradeableV2} from
-    "./lib/openzeppelin/v2/GovernorVotesQuorumFractionUpgradeableV2.sol";
+import {
+    GovernorVotesQuorumFractionUpgradeableV2
+} from "./lib/openzeppelin/v2/GovernorVotesQuorumFractionUpgradeableV2.sol";
 import {GovernorVotesUpgradeableV2} from "./lib/openzeppelin/v2/GovernorVotesUpgradeableV2.sol";
 import {GovernorSettingsUpgradeableV2} from "./lib/openzeppelin/v2/GovernorSettingsUpgradeableV2.sol";
 import {GovernorTimelockControlUpgradeableV2} from "./lib/openzeppelin/v2/GovernorTimelockControlUpgradeableV2.sol";
@@ -17,10 +18,12 @@ import {VotingModule} from "./modules/VotingModule.sol";
 import {IVotableSupplyOracle} from "./interfaces/IVotableSupplyOracle.sol";
 import {IProposalTypesConfigurator} from "./interfaces/IProposalTypesConfigurator.sol";
 import {IVotingToken} from "./interfaces/IVotingToken.sol";
-import {TimelockControllerUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
-import {IGovernorTimelockUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/governance/extensions/IGovernorTimelockUpgradeable.sol";
+import {
+    TimelockControllerUpgradeable
+} from "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
+import {
+    IGovernorTimelockUpgradeable
+} from "@openzeppelin/contracts-upgradeable/governance/extensions/IGovernorTimelockUpgradeable.sol";
 
 contract OptimismGovernor is
     Initializable,

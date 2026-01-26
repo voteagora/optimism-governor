@@ -26,7 +26,11 @@ abstract contract GovernorVotesUpgradeableV2 is Initializable, GovernorUpgradeab
     /**
      * Read the voting weight from the token's built in snapshot mechanism (see {Governor-_getVotes}).
      */
-    function _getVotes(address account, uint256 blockNumber, bytes memory /*params*/ )
+    function _getVotes(
+        address account,
+        uint256 blockNumber,
+        bytes memory /*params*/
+    )
         internal
         view
         virtual

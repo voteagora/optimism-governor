@@ -3,8 +3,9 @@
 
 pragma solidity ^0.8.0;
 
-import {IGovernorTimelockUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/governance/extensions/IGovernorTimelockUpgradeable.sol";
+import {
+    IGovernorTimelockUpgradeable
+} from "@openzeppelin/contracts-upgradeable/governance/extensions/IGovernorTimelockUpgradeable.sol";
 import "./GovernorUpgradeableV2.sol";
 import "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";

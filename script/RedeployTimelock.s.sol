@@ -4,8 +4,9 @@ pragma solidity ^0.8.19;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {OptimismGovernor} from "../src/OptimismGovernor.sol";
-import {TimelockControllerUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
+import {
+    TimelockControllerUpgradeable
+} from "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
 
 import {Timelock, TimelockControllerUpgradeable} from "test/mocks/TimelockMock.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
@@ -76,13 +77,11 @@ contract RedeployTimelock is Script {
         console.log("========== DEPLOYING NEW TIMELOCK ==========");
 
         timelock = Timelock(
-            payable(
-                new TransparentUpgradeableProxy(
+            payable(new TransparentUpgradeableProxy(
                     address(new Timelock()),
                     address(PROXY_ADMIN),
                     abi.encodeWithSelector(Timelock.initialize.selector, MIN_DELAY, EXISTING_GOVERNOR, deployer)
-                )
-            )
+                ))
         );
 
         console.log("New Timelock deployed:", address(timelock));
@@ -95,7 +94,7 @@ contract RedeployTimelock is Script {
         console.log("========== SETTING UP ROLES ==========");
 
         // Grant canceller roles
-        
+
         timelock.grantRole(CANCELLER_ROLE, EXISTING_GOVERNOR);
         timelock.grantRole(CANCELLER_ROLE, L2_SAFE_1);
         timelock.grantRole(CANCELLER_ROLE, L2_SAFE_2);

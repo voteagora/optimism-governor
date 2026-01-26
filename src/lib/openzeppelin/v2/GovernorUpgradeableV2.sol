@@ -110,10 +110,9 @@ abstract contract GovernorUpgradeableV2 is
         // In addition to the current interfaceId, also support previous version of the interfaceId that did not
         // include the castVoteWithReasonAndParams() function as standard
         return interfaceId
-            == (
-                type(IGovernorUpgradeable).interfaceId ^ this.castVoteWithReasonAndParams.selector
-                    ^ this.castVoteWithReasonAndParamsBySig.selector ^ this.getVotesWithParams.selector
-            ) || interfaceId == type(IGovernorUpgradeable).interfaceId
+                == (type(IGovernorUpgradeable).interfaceId ^ this.castVoteWithReasonAndParams.selector
+                        ^ this.castVoteWithReasonAndParamsBySig.selector ^ this.getVotesWithParams.selector)
+            || interfaceId == type(IGovernorUpgradeable).interfaceId
             || interfaceId == type(IERC1155ReceiverUpgradeable).interfaceId || super.supportsInterface(interfaceId);
     }
 
@@ -328,7 +327,10 @@ abstract contract GovernorUpgradeableV2 is
         uint256[] memory values,
         bytes[] memory calldatas,
         bytes32 /*descriptionHash*/
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         string memory errorMessage = "Governor: call reverted without message";
         for (uint256 i = 0; i < targets.length; ++i) {
             (bool success, bytes memory returndata) = targets[i].call{value: values[i]}(calldatas[i]);
@@ -345,7 +347,10 @@ abstract contract GovernorUpgradeableV2 is
         uint256[] memory, /* values */
         bytes[] memory calldatas,
         bytes32 /*descriptionHash*/
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         if (_executor() != address(this)) {
             for (uint256 i = 0; i < targets.length; ++i) {
                 if (targets[i] == address(this)) {
@@ -364,7 +369,10 @@ abstract contract GovernorUpgradeableV2 is
         uint256[] memory, /* values */
         bytes[] memory, /* calldatas */
         bytes32 /*descriptionHash*/
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         if (_executor() != address(this)) {
             if (!_governanceCall.empty()) {
                 _governanceCall.clear();

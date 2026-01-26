@@ -93,8 +93,8 @@ contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, Pausa
     mapping(
         address proxy
             => mapping(
-                uint256 proposalId => mapping(bytes32 authorityChainHash => mapping(address delegate => uint256))
-            )
+            uint256 proposalId => mapping(bytes32 authorityChainHash => mapping(address delegate => uint256))
+        )
     ) public votesCastByAuthorityChain;
 
     // =============================================================
@@ -427,8 +427,9 @@ contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, Pausa
 
             for (uint256 i = 1; i < authorityLength;) {
                 // We save votesCast twice to always have the correct values for absolute and relative allowances
-                votesCastByAuthorityChain[proxy][proposalId][keccak256(abi.encode(authority[0:i]))][authority[i]] +=
-                    votesToCast;
+                votesCastByAuthorityChain[
+                        proxy
+                    ][proposalId][keccak256(abi.encode(authority[0:i]))][authority[i]] += votesToCast;
                 votesCast[proxy][proposalId][delegator][delegator = authority[i]] += votesToCast;
 
                 ++i;
@@ -769,8 +770,9 @@ contract AlligatorOP is IAlligatorOP, UUPSUpgradeable, OwnableUpgradeable, Pausa
         uint256 delegatorAllowance
     ) private pure returns (uint256) {
         if (allowanceType == IAlligatorOP.AllowanceType.Relative) {
-            return
-                subdelegationAllowance >= 1e5 ? delegatorAllowance : delegatorAllowance * subdelegationAllowance / 1e5;
+            return subdelegationAllowance >= 1e5
+                ? delegatorAllowance
+                : delegatorAllowance * subdelegationAllowance / 1e5;
         }
 
         // else if (allowanceType == IAlligatorOP.AllowanceType.Absolute)

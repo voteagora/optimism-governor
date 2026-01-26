@@ -106,8 +106,7 @@ interface IAlligatorOP {
 
     function subdelegateBatched(address[] calldata targets, SubdelegationRules calldata subdelegateRules) external;
 
-    function subdelegateBatched(address[] calldata targets, SubdelegationRules[] calldata subdelegationRules)
-        external;
+    function subdelegateBatched(address[] calldata targets, SubdelegationRules[] calldata subdelegationRules) external;
     // =============================================================
     //                          RESTRICTED
     // =============================================================
