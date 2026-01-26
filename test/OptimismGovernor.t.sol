@@ -291,8 +291,7 @@ contract Initialize is OptimismGovernorTest {
         _proposalTypes[3] =
             IProposalTypesConfigurator.ProposalType(0, 0, "Optimistic", "Lorem Ipsum", address(optimisticModule));
         OptimismGovernor _governor = OptimismGovernor(
-            payable(
-                new TransparentUpgradeableProxy(
+            payable(new TransparentUpgradeableProxy(
                     implementation,
                     proxyAdmin,
                     abi.encodeCall(
@@ -307,8 +306,7 @@ contract Initialize is OptimismGovernorTest {
                             _proposalTypes
                         )
                     )
-                )
-            )
+                ))
         );
         assertEq(address(_governor.token()), _token);
         assertEq(_governor.manager(), _manager);
@@ -345,6 +343,7 @@ contract Propose is OptimismGovernorTest {
 
     function testFuzz_CreatesProposalAsAuthorizedProposer(address _authorizedProposer) public virtual {
         // Set the authorized proposer to a random address
+        vm.assume(_authorizedProposer != governor.authorizedProposer());
         vm.prank(manager);
         governor.setAuthorizedProposer(_authorizedProposer);
 
@@ -440,6 +439,7 @@ contract ProposeWithModule is OptimismGovernorTest {
 
     function testFuzz_CreatesProposalAsAuthorizedProposer(address _authorizedProposer) public virtual {
         // Set the authorized proposer to a random address
+        vm.assume(_authorizedProposer != governor.authorizedProposer());
         vm.prank(manager);
         governor.setAuthorizedProposer(_authorizedProposer);
 
@@ -2328,6 +2328,7 @@ contract SetManager is OptimismGovernorTest {
 
 contract SetAuthorizedProposer is OptimismGovernorTest {
     function testFuzz_SetsNewAuthorizedProposer(address _newAuthorizedProposer, uint256 _actorSeed) public {
+        vm.assume(_newAuthorizedProposer != authorizedProposer);
         vm.prank(_managerOrTimelock(_actorSeed));
         vm.expectEmit();
         emit AuthorizedProposerSet(authorizedProposer, _newAuthorizedProposer);
@@ -2389,11 +2390,7 @@ contract UpgradeToLive is OptimismGovernorTest {
         IProposalTypesConfigurator.ProposalType[] memory proposalTypes =
             new IProposalTypesConfigurator.ProposalType[](1);
         proposalTypes[0] = IProposalTypesConfigurator.ProposalType({
-            quorum: 3000,
-            approvalThreshold: 5100,
-            name: "Default",
-            description: "Default",
-            module: address(0)
+            quorum: 3000, approvalThreshold: 5100, name: "Default", description: "Default", module: address(0)
         });
 
         address _newImplementation = address(new OptimismGovernor());
@@ -2404,17 +2401,18 @@ contract UpgradeToLive is OptimismGovernorTest {
 
         address _manager = governorProxyOP.manager();
         vm.startPrank(proxyAdminOP);
-        TransparentUpgradeableProxy(payable(address(governorProxyOP))).upgradeToAndCall(
-            _newImplementation,
-            abi.encodeWithSelector(
-                OptimismGovernor.reinitialize.selector,
-                0x7f08F3095530B67CdF8466B7a923607944136Df0,
-                0x1b7CA7437748375302bAA8954A2447fC3FBE44CC,
-                _newProposalTypesConfigurator,
-                TimelockControllerUpgradeable(payable(address(timelock))),
-                _manager
-            )
-        );
+        TransparentUpgradeableProxy(payable(address(governorProxyOP)))
+            .upgradeToAndCall(
+                _newImplementation,
+                abi.encodeWithSelector(
+                    OptimismGovernor.reinitialize.selector,
+                    0x7f08F3095530B67CdF8466B7a923607944136Df0,
+                    0x1b7CA7437748375302bAA8954A2447fC3FBE44CC,
+                    _newProposalTypesConfigurator,
+                    TimelockControllerUpgradeable(payable(address(timelock))),
+                    _manager
+                )
+            );
         assertEq(TransparentUpgradeableProxy(payable(address(governorProxyOP))).implementation(), _newImplementation);
         vm.stopPrank();
         assertEq(governorProxyOP.authorizedProposer(), governorProxyOP.manager());
@@ -2445,7 +2443,9 @@ contract UpgradeToLive is OptimismGovernorTest {
         assertEq(abstainVotes, 3487066530234316527174422);
 
         assertEq(
-            uint8(governorProxyOP.state(105090569675606228680479820654354019470447822380910214626164858605991232311940)),
+            uint8(
+                governorProxyOP.state(105090569675606228680479820654354019470447822380910214626164858605991232311940)
+            ),
             uint8(ProposalState.Defeated)
         );
     }
@@ -2473,17 +2473,18 @@ contract UpgradeToLive is OptimismGovernorTest {
 
         address _manager = governorProxyOP.manager();
         vm.prank(proxyAdminOP);
-        TransparentUpgradeableProxy(payable(address(governorProxyOP))).upgradeToAndCall(
-            _newImplementation,
-            abi.encodeWithSelector(
-                OptimismGovernor.reinitialize.selector,
-                0x7f08F3095530B67CdF8466B7a923607944136Df0,
-                0x1b7CA7437748375302bAA8954A2447fC3FBE44CC,
-                _newProposalTypesConfigurator,
-                TimelockControllerUpgradeable(payable(address(timelock))),
-                _manager
-            )
-        );
+        TransparentUpgradeableProxy(payable(address(governorProxyOP)))
+            .upgradeToAndCall(
+                _newImplementation,
+                abi.encodeWithSelector(
+                    OptimismGovernor.reinitialize.selector,
+                    0x7f08F3095530B67CdF8466B7a923607944136Df0,
+                    0x1b7CA7437748375302bAA8954A2447fC3FBE44CC,
+                    _newProposalTypesConfigurator,
+                    TimelockControllerUpgradeable(payable(address(timelock))),
+                    _manager
+                )
+            );
 
         assertEq(governorProxyOP.authorizedProposer(), governorProxyOP.manager());
         assertEq(governorProxyOP.VERSION(), 5);

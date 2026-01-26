@@ -452,18 +452,19 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
             address node = initAuthority[i];
             vm.prank(node);
-            AlligatorOPMock(alligator).subdelegate(
-                initAuthority[i + 1],
-                IAlligatorOP.SubdelegationRules(
-                    subdelegationRules.maxRedelegations,
-                    subdelegationRules.blocksBeforeVoteCloses,
-                    subdelegationRules.notValidBefore,
-                    subdelegationRules.notValidAfter,
-                    subdelegationRules.customRule,
-                    rules.allowanceType,
-                    rules.allowance
-                )
-            );
+            AlligatorOPMock(alligator)
+                .subdelegate(
+                    initAuthority[i + 1],
+                    IAlligatorOP.SubdelegationRules(
+                        subdelegationRules.maxRedelegations,
+                        subdelegationRules.blocksBeforeVoteCloses,
+                        subdelegationRules.notValidBefore,
+                        subdelegationRules.notValidAfter,
+                        subdelegationRules.customRule,
+                        rules.allowanceType,
+                        rules.allowance
+                    )
+                );
         }
         authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
 
@@ -499,18 +500,19 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
             address node = initAuthority[i];
             vm.prank(node);
-            AlligatorOPMock(alligator).subdelegate(
-                initAuthority[i + 1],
-                IAlligatorOP.SubdelegationRules(
-                    subdelegationRules.maxRedelegations,
-                    subdelegationRules.blocksBeforeVoteCloses,
-                    subdelegationRules.notValidBefore,
-                    subdelegationRules.notValidAfter,
-                    subdelegationRules.customRule,
-                    rules.allowanceType,
-                    rules.allowance
-                )
-            );
+            AlligatorOPMock(alligator)
+                .subdelegate(
+                    initAuthority[i + 1],
+                    IAlligatorOP.SubdelegationRules(
+                        subdelegationRules.maxRedelegations,
+                        subdelegationRules.blocksBeforeVoteCloses,
+                        subdelegationRules.notValidBefore,
+                        subdelegationRules.notValidAfter,
+                        subdelegationRules.customRule,
+                        rules.allowanceType,
+                        rules.allowance
+                    )
+                );
         }
         authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
 
@@ -546,18 +548,19 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
             address node = initAuthority[i];
             vm.prank(node);
-            AlligatorOPMock(alligator).subdelegate(
-                initAuthority[i + 1],
-                IAlligatorOP.SubdelegationRules(
-                    subdelegationRules.maxRedelegations,
-                    subdelegationRules.blocksBeforeVoteCloses,
-                    subdelegationRules.notValidBefore,
-                    subdelegationRules.notValidAfter,
-                    subdelegationRules.customRule,
-                    rules.allowanceType,
-                    rules.allowance
-                )
-            );
+            AlligatorOPMock(alligator)
+                .subdelegate(
+                    initAuthority[i + 1],
+                    IAlligatorOP.SubdelegationRules(
+                        subdelegationRules.maxRedelegations,
+                        subdelegationRules.blocksBeforeVoteCloses,
+                        subdelegationRules.notValidBefore,
+                        subdelegationRules.notValidAfter,
+                        subdelegationRules.customRule,
+                        rules.allowanceType,
+                        rules.allowance
+                    )
+                );
         }
         authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
 
@@ -593,18 +596,19 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
             address node = initAuthority[i];
             vm.prank(node);
-            AlligatorOPMock(alligator).subdelegate(
-                initAuthority[i + 1],
-                IAlligatorOP.SubdelegationRules(
-                    subdelegationRules.maxRedelegations,
-                    subdelegationRules.blocksBeforeVoteCloses,
-                    subdelegationRules.notValidBefore,
-                    subdelegationRules.notValidAfter,
-                    subdelegationRules.customRule,
-                    rules.allowanceType,
-                    rules.allowance
-                )
-            );
+            AlligatorOPMock(alligator)
+                .subdelegate(
+                    initAuthority[i + 1],
+                    IAlligatorOP.SubdelegationRules(
+                        subdelegationRules.maxRedelegations,
+                        subdelegationRules.blocksBeforeVoteCloses,
+                        subdelegationRules.notValidBefore,
+                        subdelegationRules.notValidAfter,
+                        subdelegationRules.customRule,
+                        rules.allowanceType,
+                        rules.allowance
+                    )
+                );
         }
         authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
 
@@ -640,18 +644,19 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
             address node = initAuthority[i];
             vm.prank(node);
-            AlligatorOPMock(alligator).subdelegate(
-                initAuthority[i + 1],
-                IAlligatorOP.SubdelegationRules(
-                    subdelegationRules.maxRedelegations,
-                    subdelegationRules.blocksBeforeVoteCloses,
-                    subdelegationRules.notValidBefore,
-                    subdelegationRules.notValidAfter,
-                    subdelegationRules.customRule,
-                    rules.allowanceType,
-                    rules.allowance
-                )
-            );
+            AlligatorOPMock(alligator)
+                .subdelegate(
+                    initAuthority[i + 1],
+                    IAlligatorOP.SubdelegationRules(
+                        subdelegationRules.maxRedelegations,
+                        subdelegationRules.blocksBeforeVoteCloses,
+                        subdelegationRules.notValidBefore,
+                        subdelegationRules.notValidAfter,
+                        subdelegationRules.customRule,
+                        rules.allowanceType,
+                        rules.allowance
+                    )
+                );
         }
         authority[initAuthority.length - 1] = initAuthority[initAuthority.length - 1];
 
@@ -671,7 +676,11 @@ contract AlligatorOPTest is SetupAlligatorOP {
         assertEq(forVotes, 50e18 + op.getVotes(address(this)));
 
         createAuthorityChain(
-            [alice, address(this)], [ReducedSubdelegationRules(IAlligatorOP.AllowanceType.Relative, 75e3 /* 75% */ )]
+            [alice, address(this)],
+            [ReducedSubdelegationRules(
+                    IAlligatorOP.AllowanceType.Relative,
+                    75e3 /* 75% */
+                )]
         );
         standardCastVote(authority);
 
@@ -1034,9 +1043,8 @@ contract AlligatorOPTest is SetupAlligatorOP {
         address proxy = _proxyAddress(authority[0]);
         uint256 proxyTotalVotes = op.getPastVotes(proxy, governor.proposalSnapshot(proposalId));
 
-        (uint256 votesToCast) = AlligatorOPMock(alligator)._validate(
-            proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes
-        );
+        (uint256 votesToCast) = AlligatorOPMock(alligator)
+            ._validate(proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes);
 
         assertEq(votesToCast, proxyTotalVotes);
 
@@ -1048,9 +1056,8 @@ contract AlligatorOPTest is SetupAlligatorOP {
         vm.prank(alice);
         AlligatorOPMock(alligator).subdelegate(address(this), subRules);
 
-        (votesToCast) = AlligatorOPMock(alligator)._validate(
-            proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes
-        );
+        (votesToCast) = AlligatorOPMock(alligator)
+            ._validate(proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes);
 
         assertEq(votesToCast, proxyTotalVotes * subRules.allowance / 1e5);
 
@@ -1058,9 +1065,8 @@ contract AlligatorOPTest is SetupAlligatorOP {
         vm.prank(alice);
         AlligatorOPMock(alligator).subdelegate(address(this), subRules);
 
-        (votesToCast) = AlligatorOPMock(alligator)._validate(
-            proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes
-        );
+        (votesToCast) = AlligatorOPMock(alligator)
+            ._validate(proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes);
 
         assertEq(votesToCast, proxyTotalVotes * subRules.allowance / 1e5);
 
@@ -1068,9 +1074,8 @@ contract AlligatorOPTest is SetupAlligatorOP {
         vm.prank(alice);
         AlligatorOPMock(alligator).subdelegate(address(this), subRules);
 
-        (votesToCast) = AlligatorOPMock(alligator)._validate(
-            proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes
-        );
+        (votesToCast) = AlligatorOPMock(alligator)
+            ._validate(proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes);
 
         assertEq(votesToCast, subRules.allowance);
     }
@@ -1090,9 +1095,8 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
         vm.expectRevert(ZeroVotesToCast.selector);
         vm.prank(carol);
-        AlligatorOPMock(alligator).limitedCastVoteWithReasonAndParamsBatched(
-            200, authorities, proposalId, 1, "reason", "params"
-        );
+        AlligatorOPMock(alligator)
+            .limitedCastVoteWithReasonAndParamsBatched(200, authorities, proposalId, 1, "reason", "params");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1239,9 +1243,8 @@ contract AlligatorOPTest is SetupAlligatorOP {
         emit VotesCast(proxies, carol, authorities, proposalId, 1);
 
         vm.prank(carol);
-        AlligatorOPMock(alligator).limitedCastVoteWithReasonAndParamsBatched(
-            maxVotingPower, authorities, proposalId, 1, reason, params
-        );
+        AlligatorOPMock(alligator)
+            .limitedCastVoteWithReasonAndParamsBatched(maxVotingPower, authorities, proposalId, 1, reason, params);
 
         _castVoteBatchedAssertions(
             authorities, proxies, votesToCast, totalVotesToCast, initWeightCast, initForVotes, initWeights
@@ -1273,9 +1276,8 @@ contract AlligatorOPTest is SetupAlligatorOP {
 
         vm.expectEmit();
         emit VoteCast(_proxyAddress(authority[0]), signer, authority, proposalId, 1);
-        AlligatorOPMock(alligator).castVoteWithReasonAndParamsBySig(
-            authority, proposalId, 1, "reason", "params", v, r, s
-        );
+        AlligatorOPMock(alligator)
+            .castVoteWithReasonAndParamsBySig(authority, proposalId, 1, "reason", "params", v, r, s);
     }
 
     function standardLimitedCastVoteWithReasonAndParamsBatchedBySig(
@@ -1323,9 +1325,8 @@ contract AlligatorOPTest is SetupAlligatorOP {
     {
         proxy = _proxyAddress(authority[0]);
         uint256 proxyTotalVotes = op.getPastVotes(proxy, governor.proposalSnapshot(proposalId));
-        (votesToCast) = AlligatorOPMock(alligator)._validate(
-            proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes
-        );
+        (votesToCast) = AlligatorOPMock(alligator)
+            ._validate(proxy, authority[authority.length - 1], authority, proposalId, 1, proxyTotalVotes);
         votesToCast_[proxy] += votesToCast;
         initWeightCast = governor.weightCast(proposalId, proxy);
         initWeights = new uint256[](authority.length);
@@ -1353,9 +1354,8 @@ contract AlligatorOPTest is SetupAlligatorOP {
         );
 
         if (authority.length > 1) {
-            uint256 recordedVotes = AlligatorOPMock(alligator).votesCast(
-                proxy, proposalId, authority[authority.length - 2], authority[authority.length - 1]
-            );
+            uint256 recordedVotes = AlligatorOPMock(alligator)
+                .votesCast(proxy, proposalId, authority[authority.length - 2], authority[authority.length - 1]);
             assertEq(recordedVotes, initWeights[authority.length - 1] + votesToCast);
         }
     }
@@ -1382,9 +1382,8 @@ contract AlligatorOPTest is SetupAlligatorOP {
                 assertEq(governor.weightCast(proposalId, proxy), initWeightCast[i] + votesToCast_[proxy]);
 
                 if (authority.length > 1) {
-                    uint256 recordedVotes = AlligatorOPMock(alligator).votesCast(
-                        proxy, proposalId, authority[authority.length - 2], authority[authority.length - 1]
-                    );
+                    uint256 recordedVotes = AlligatorOPMock(alligator)
+                        .votesCast(proxy, proposalId, authority[authority.length - 2], authority[authority.length - 1]);
                     assertEq(recordedVotes, initWeights[i][authority.length - 1] + votesToCast[i]);
                 }
             }
@@ -1432,9 +1431,10 @@ contract AlligatorOPTest is SetupAlligatorOP {
             )
         );
 
-        AlligatorOPMock(alligator).limitedCastVoteWithReasonAndParamsBatchedBySig(
-            maxVotingPower, authorities, propId, support, reason, params, v, r, s
-        );
+        AlligatorOPMock(alligator)
+            .limitedCastVoteWithReasonAndParamsBatchedBySig(
+                maxVotingPower, authorities, propId, support, reason, params, v, r, s
+            );
     }
 
     function createBasicAuthorities(address[][1] memory initAuthorities)

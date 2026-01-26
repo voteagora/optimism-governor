@@ -12,9 +12,7 @@ abstract contract IOptimismGovernor is IGovernor {
 
     function token() external view virtual returns (IVotesUpgradeable);
 
-    function increaseWeightCast(uint256 proposalId, address account, uint256 votes, uint256 proxyVotes)
-        external
-        virtual;
+    function increaseWeightCast(uint256 proposalId, address account, uint256 votes, uint256 proxyVotes) external virtual;
 
     function castVoteFromAlligator(
         uint256 proposalId,

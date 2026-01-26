@@ -5,7 +5,6 @@ libs            = ['lib']                               # A list of library dire
 optimizer       = true                                  # Enable or disable the solc optimizer
 optimizer_runs  = 200                                   # The number of optimizer runs
 fs_permissions  = [{ access = "read", path = "./"}]     # Gives permission to read files for enviroment files.
-fail_on_revert = false                                  # Not fail the test if the contract reverts
 
 [fuzz]
 runs           = 2000       # The number of times to run the fuzzing tests

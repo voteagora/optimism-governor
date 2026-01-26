@@ -89,7 +89,11 @@ abstract contract GovernorCountingSimpleUpgradeableV2 is Initializable, Governor
         uint8 support,
         uint256 weight,
         bytes memory // params
-    ) internal virtual override {
+    )
+        internal
+        virtual
+        override
+    {
         ProposalVote storage proposalVote = _proposalVotes[proposalId];
 
         require(!proposalVote.hasVoted[account], "GovernorVotingSimple: vote already cast");

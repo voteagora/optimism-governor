@@ -32,9 +32,10 @@ contract VotableSupplyOracle is IVotableSupplyOracle, Ownable {
         _transferOwnership(initOwner);
 
         // Initialize votable supply
-        _votableSupplyHistory._checkpoints.push(
-            Checkpoints.Checkpoint({_blockNumber: block.number.toUint32(), _value: initVotableSupply.toUint224()})
-        );
+        _votableSupplyHistory._checkpoints
+            .push(
+                Checkpoints.Checkpoint({_blockNumber: block.number.toUint32(), _value: initVotableSupply.toUint224()})
+            );
         emit VotableSupplyUpdated(0, initVotableSupply);
     }
 
