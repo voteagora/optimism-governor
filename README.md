@@ -37,7 +37,7 @@ The contracts in this repo are designed to be used by the following roles:
   - Update quorum (number of votes required to pass a proposal, snapshotted at the time of proposal creation)
   - Transfer authorized proposer role to a new address
 
-- **authorized proposer** is an address that can submit proposals. This will initially be set to be the same as the manager address however it is planned to change to the address of the ProposalValidator contract. The address has the following permissions:
+- **authorized proposer** is an address that can submit proposals. This will initially be set to be the same as the manager address however it is planned to change to the address of the ProposalValidator [contract](https://github.com/ethereum-optimism/optimism/pull/16861). The address has the following permissions:
   - Create proposals
 
 - **voter** is any address that has OP tokens delegated to it
@@ -61,6 +61,7 @@ The contracts in this repo are designed to be used by the following roles:
 
 - [Optimism Governor V5 by Zach Obront](./audits/23-05-12_zachobront.md)
 - [Optimism Governor V6 by Openzeppelin](./audits/23-11-22_openzeppelin.pdf)
+- [Optimism Governor V7 by Openzeppelin](./audits/25-08-04_openzeppelin.pdf)
 
 ## Data and event interpretation guidelines
 
@@ -129,3 +130,11 @@ Values are scaled by 1e4, so that
 ### Quorum, onchain read function
 
 From `GovernorV6`, quorum accepts `proposalId` as params instead of `blockNumber`.
+
+## Scripts
+
+There is tooling for the security council to perform routine management tasks related to governance:
+- Redeploying the Timelock
+- Cancel Proposals
+- Manage Timelock role permissions
+- Set Canceller role on the Timelock
